@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080, height=1920, initial-scale=1">
+<title>Roket Orbit - Claude Upgraded Edition</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #111;
+    color: #ddd;
+    font: 13px/1.4 monospace;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  #fb { display: none; }
+  /* Mode preview browser biasa */
+  #view {
+    height: calc(100vh - 70px);
+    aspect-ratio: 9 / 16;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+  }
+  #ui {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: min(540px, 90vw);
+  }
+  #play {
+    padding: 4px 12px;
+    background: #3B82F6;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+  }
+  #seek { flex: 1; cursor: pointer; }
+  /* Mode render Playwright (?headless=1 atau ?render=1) */
+  body.render {
+    width: 1080px;
+    height: 1920px;
+    display: block;
+    background: #000;
+  }
+  body.render #ui { display: none !important; }
+  body.render #view {
+    width: 1080px;
+    height: 1920px;
+    height: 1920px !important;
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="fb"></canvas>
+<canvas id="view"></canvas>
+<div id="ui">
+  <button id="play">Play</button>
+  <input id="seek" type="range" min="0" value="0">
+  <span id="label"></span>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const params = new URLSearchParams(location.search);
+  const isRenderMode = params.has("render") || params.has("headless");
+  if (isRenderMode) {
+    document.body.classList.add("render");
+    const uiEl = document.getElementById("ui");
+    if (uiEl) uiEl.remove();
+  }
+
+  // ==========================================================================
+  // 1. TIMELINE.JS — Satu sumber waktu (Dengan perluasan fase transisi 6-8 dtk)
+  // ==========================================================================
+  const W = 270;
+  const H = 480;
+  const SCALE = 4;
+  const FPS = 30;
+  const DURATION = 12;
+  const FRAMES = FPS * DURATION; // 360
+
+  const T = {
+    count: [0.3, 1.3, 2.3],         // angka 3, 2, 1 muncul
+    countEnd: 3.3,                  // angka 1 selesai -> GO! & ignition
+    vent: { start: 0, end: 3.5, step: 0.09 },
+    arm: [2.9, 3.45],               // 3 lengan menara ditarik
+    ignition: 3.3,
+    liftoff: 3.8,
+    shake: [3.3, 5.4],
+    maxQ: [4.7, 5.7],               // gelombang kejut supersonik Max-Q
+    cloud: { start: 3.4, end: 5.3, step: 0.022 },
+    trail: { end: 7.7, gap: 4 },
+    lock: 1.5,
+    pitch: [6.2, 8.3],              // aba-aba roket mulai miring 90 derajat (Gravity Turn)
+    meco: 7.7,                      // mesin atmosfer selesai -> lanjut mesin plasma orbit
+    orbit: 8.0,
+    planet: [6.2, 8.6],             // Bumi mulai naik perlahan sejak detik 6.2
+    coast: [7.0, 9.2],              // roket meluncur horizontal ke kanan
+    typeStart: 8.35,
+    typeStep: 0.09,
+    end: 12
+  };
+
+  const TEXT = { lines: ["MISSION", "START"] };
+
+  function lift(t) {
+    const u = t - T.liftoff;
+    if (u <= 0) return 0;
+    return 62 * u * u + 42 * u * u * u;
+  }
+
+  // ==========================================================================
+  // 2. PALETTE.JS — Palet tetap 16 warna (Indexed Framebuffer)
+  // ==========================================================================
+  const HEX = [
+    "#000000", // 0  BLACK   angkasa
+    "#F5F5F5", // 1  WHITE   badan roket, teks
+    "#9CA3AF", // 2  GREY    asap, bayangan putih
+    "#3A3F4B", // 3  STEEL   menara, landasan, garis
+    "#0B1230", // 4  NIGHT   langit malam, sisi gelap bumi
+    "#1D2B64", // 5  NAVY    langit biru tua, laut gelap
+    "#3B82F6", // 6  BLUE    laut terang, plasma luar
+    "#60A5FA", // 7  ICE     jendela, atmosfer, kursor, plasma inti
+    "#F2763A", // 8  ORANGE  senja, api tengah
+    "#FFC94A", // 9  YELLOW  matahari, inti api, lampu kota
+    "#D63C2F", // 10 RED     hidung & sirip roket, api luar
+    "#6B3A6E", // 11 PURPLE  langit senja atas, bukit jauh
+    "#E8907A", // 12 PINK    langit senja tengah, sorotan merah
+    "#2A1E1A", // 13 DIRT    tanah & gedung siluet
+    "#3E8F6A", // 14 GREEN   daratan terang, status HUD
+    "#1F5C6B"  // 15 TEAL    daratan gelap, bingkai HUD
+  ];
+
+  const P = {
+    BLACK: 0, WHITE: 1, GREY: 2, STEEL: 3, NIGHT: 4, NAVY: 5, BLUE: 6, ICE: 7,
+    ORANGE: 8, YELLOW: 9, RED: 10, PURPLE: 11, PINK: 12, DIRT: 13, GREEN: 14, TEAL: 15
+  };
+
+  const RGBA32 = HEX.map((h) => {
+    const n = parseInt(h.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+  });
+
+  // ==========================================================================
+  // 3. UTIL.JS — Fungsi deterministik, Easing, Integrasi, Bayer 4x4, Value Noise
+  // ==========================================================================
+  function hash(i, seed = 0) {
+    let h = Math.imul(i | 0, 374761393) ^ Math.imul((seed | 0) + 0x9e37, 668265263);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+
+  const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const smoothstep = (a, b, x) => {
+    const k = clamp((x - a) / (b - a));
+    return k * k * (3 - 2 * k);
+  };
+  const easeInOut = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+  const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+  const progress = (t, a, b) => clamp((t - a) / (b - a));
+
+  function integrate(f, a, b, dt = 1 / 240) {
+    if (b <= a) return 0;
+    const n = Math.ceil((b - a) / dt);
+    const h = (b - a) / n;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += f(a + (i + 0.5) * h);
+    return sum * h;
+  }
+
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function bayer(x, y) {
+    return (BAYER[(((y % 4) + 4) % 4) * 4 + (((x % 4) + 4) % 4)] + 0.5) / 16;
+  }
+
+  function vnoise(x, y, seed = 0) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const h = (a, b) => hash(Math.imul(a, 73856093) ^ Math.imul(b, 19349663), seed);
+    const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+    return lerp(lerp(a, b, u), lerp(c, d, u), v);
+  }
+
+  // ==========================================================================
+  // 4. FONT.JS — Font Bitmap 5x7 Lengkap
+  // ==========================================================================
+  const G = {
+    A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
+    C: [".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."],
+    D: ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."],
+    E: ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    F: ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
+    G: [".###.", "#...#", "#....", "#.###", "#...#", "#...#", ".####"],
+    H: ["#...#", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    I: [".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."],
+    J: ["..###", "...#.", "...#.", "...#.", "...#.", "#..#.", ".##.."],
+    K: ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
+    L: ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
+    M: ["#...#", "##.##", "#.#.#", "#.#.#", "#...#", "#...#", "#...#"],
+    N: ["#...#", "#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#"],
+    O: [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+    P: ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+    Q: [".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#"],
+    R: ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+    S: [".####", "#....", "#....", ".###.", "....#", "....#", "####."],
+    T: ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    U: ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+    V: ["#...#", "#...#", "#...#", "#...#", "#...#", ".#.#.", "..#.."],
+    W: ["#...#", "#...#", "#...#", "#.#.#", "#.#.#", "#.#.#", ".#.#."],
+    X: ["#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#"],
+    Y: ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
+    Z: ["#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"],
+    0: [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+    1: ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+    2: [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+    3: ["#####", "...#.", "..#..", "...#.", "....#", "#...#", ".###."],
+    4: ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+    5: ["#####", "#....", "####.", "....#", "....#", "#...#", ".###."],
+    6: ["..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."],
+    7: ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+    8: [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+    9: [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
+    ":": [".....", "..#..", "..#..", ".....", "..#..", "..#..", "....."],
+    "-": [".....", ".....", ".....", "#####", ".....", ".....", "....."],
+    "/": ["....#", "...#.", "..#..", "..#..", ".#...", "#....", "....."],
+    "!": ["..#..", "..#..", "..#..", "..#..", "..#..", ".....", "..#.."],
+    ".": [".....", ".....", ".....", ".....", ".....", ".##..", ".##.."],
+    " ": [".....", ".....", ".....", ".....", ".....", ".....", "....."]
+  };
+
+  const GLYPH_W = 5;
+  const GLYPH_H = 7;
+  const ADVANCE = 6;
+
+  function glyph(ch) {
+    return G[ch] || G[" "];
+  }
+
+  const textWidth = (str, scale) => (str.length * ADVANCE - 1) * scale;
+
+  // ==========================================================================
+  // 5. SCENES.JS — Elemen Visual & Fisika Kamera (Upgraded & Sharpened)
+  // ==========================================================================
+  const GROUND = 410;
+  const PAD_TOP = 404;
+  const ROCKET_X = 135;
+  const ROCKET_REST_Y = PAD_TOP - 28; // sprite 24x56
+  const LOCK_RISE = 122;
+  const SAFE_CX = 135;
+
+  const camRaw = (t) => {
+    const u = t - T.liftoff;
+    if (u <= 0) return 0;
+    return Math.max(0, lift(t) - LOCK_RISE * easeInOut(clamp(u / T.lock)));
+  };
+  const cam = (t) => Math.round(camRaw(Math.min(t, T.orbit)));
+
+  const camVel = (t) => (camRaw(t + 1 / 480) - camRaw(t - 1 / 480)) * 240;
+  const starSpeed = (t) =>
+    t < T.liftoff ? 0 : 0.12 * camVel(Math.min(t, T.orbit)) * (1 - smoothstep(T.pitch[0], T.orbit, t));
+  const starOffset = (t) => integrate(starSpeed, T.liftoff, Math.min(t, T.orbit));
+
+  function rocketPose(t) {
+    const u = t - T.liftoff;
+    const riseY = ROCKET_REST_Y - LOCK_RISE * easeInOut(clamp(u / T.lock));
+    const hoverY = t > T.orbit ? Math.sin((t - T.orbit) * 2.4) * 3.5 : 0;
+    const y = (u <= 0 ? ROCKET_REST_Y : riseY - 12 * smoothstep(T.pitch[0], 9.5, t)) + hoverY;
+    const x = ROCKET_X - 18 * smoothstep(T.pitch[0], T.pitch[1], t) + integrate((s) => 14 * smoothstep(T.coast[0], T.coast[1], s), T.coast[0], t);
+    const ang = (Math.PI / 2) * easeInOut(progress(t, T.pitch[0], T.pitch[1]));
+    return { x, y, ang };
+  }
+
+  function flameLength(t, f) {
+    if (t < T.ignition) return 0;
+    const jitter = (hash(f, 7) - 0.5) * 4;
+    if (t < T.liftoff) return 6 + 11 * progress(t, T.ignition, T.liftoff) + jitter * 0.5;
+    if (t < T.meco) return 28 + jitter;
+    // Setelah MECO (t >= 7.7), nyalakan pendorong plasma vakum agar roket tetap hidup di orbit
+    return 14 + jitter * 0.6;
+  }
+
+  function shake(t, f) {
+    if (t < T.shake[0] || t >= T.shake[1]) return { x: 0, y: 0 };
+    const amp = t < T.liftoff + 0.7 ? 1.2 : 0.65;
+    return {
+      x: Math.round((hash(f, 3) - 0.5) * 2.8 * amp),
+      y: Math.round((hash(f, 4) - 0.5) * 2.8 * amp)
+    };
+  }
+
+  // --- Fungsi Raster Piksel ---
+  function px(fb, x, y, c) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    if (x < 0 || x >= W || y < 0 || y >= H) return;
+    fb[y * W + x] = c;
+  }
+
+  function rect(fb, x, y, w, h, c) {
+    const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(W, Math.floor(x + w)), y1 = Math.min(H, Math.floor(y + h));
+    for (let yy = y0; yy < y1; yy++) fb.fill(c, yy * W + x0, yy * W + Math.max(x0, x1));
+  }
+
+  function disc(fb, cx, cy, r, c) {
+    const r2 = r * r;
+    const y0 = Math.floor(cy - r), y1 = Math.ceil(cy + r);
+    const x0 = Math.floor(cx - r), x1 = Math.ceil(cx + r);
+    for (let y = y0; y <= y1; y++) {
+      if (y < 0 || y >= H) continue;
+      const dy = y + 0.5 - cy;
+      for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - cx;
+        if (dx * dx + dy * dy <= r2) px(fb, x, y, c);
+      }
+    }
+  }
+
+  function line(fb, x0, y0, x1, y1, c) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    if (n === 0) { px(fb, x0, y0, c); return; }
+    for (let i = 0; i <= n; i++) {
+      px(fb, Math.round(lerp(x0, x1, i / n)), Math.round(lerp(y0, y1, i / n)), c);
+    }
+  }
+
+  // --- Langit Bayer Dither ---
+  const SKY = [
+    [0, P.ORANGE], [115, P.PINK], [195, P.PURPLE], [310, P.NAVY], [680, P.NIGHT], [1380, P.BLACK]
+  ];
+
+  function skyIndex(a, x, ay) {
+    if (a <= SKY[0][0]) return SKY[0][1];
+    for (let i = 0; i < SKY.length - 1; i++) {
+      const [a0, c0] = SKY[i], [a1, c1] = SKY[i + 1];
+      if (a < a1) {
+        const g = clamp(((a - a0) / (a1 - a0) - 0.45) / 0.55);
+        return g > bayer(x, ay) ? c1 : c0;
+      }
+    }
+    return P.BLACK;
+  }
+
+  function drawSky(fb, c) {
+    for (let y = 0; y < H; y++) {
+      const ay = GROUND - y + c;
+      const row = y * W;
+      for (let x = 0; x < W; x++) fb[row + x] = skyIndex(ay, x, ay);
+    }
+  }
+
+  // --- Bintang & Galaksi ---
+  const STARS = Array.from({ length: 165 }, (_, i) => {
+    const r = hash(i, 11);
+    return {
+      x: Math.floor(hash(i, 12) * W),
+      y: hash(i, 13) * H,
+      color: r < 0.55 ? P.WHITE : r < 0.8 ? P.GREY : P.ICE,
+      big: hash(i, 14) > 0.90,
+      reveal: 520 + hash(i, 15) * 880,
+      period: 8 + Math.floor(hash(i, 16) * 16),
+      phase: Math.floor(hash(i, 17) * 24)
+    };
+  });
+
+  function drawStars(fb, t, f, c) {
+    const off = starOffset(t);
+    const streak = clamp(Math.round(starSpeed(t) / 85), 1, 6);
+    for (let i = 0; i < STARS.length; i++) {
+      const s = STARS[i];
+      const sy = Math.floor((((s.y + off) % H) + H) % H);
+      if (GROUND - sy + c < s.reveal) continue;
+      const bg = fb[sy * W + s.x];
+      if (bg !== P.BLACK && bg !== P.NIGHT && bg !== P.NAVY) continue;
+
+      const k = Math.floor((f + s.phase) / s.period);
+      const on = hash(i * 31 + k, 9) > 0.28;
+      const col = on ? s.color : s.color === P.WHITE ? P.GREY : P.STEEL;
+      for (let j = 0; j < streak; j++) px(fb, s.x, sy - j, j === 0 ? col : P.STEEL);
+      if (s.big && on && streak === 1) {
+        px(fb, s.x - 1, sy, P.ICE);
+        px(fb, s.x + 1, sy, P.ICE);
+        px(fb, s.x, sy - 1, P.ICE);
+        px(fb, s.x, sy + 1, P.ICE);
+      }
+    }
+  }
+
+  // --- Awan Atmosfer Berlapis (Tambahan untuk memperkaya langit senja & saat naik) ---
+  const ATMO_CLOUDS = [
+    { x: 25,  y: 255, w: 62, h: 10, sp: 2.0, col1: P.PINK, col2: P.PURPLE },
+    { x: 175, y: 220, w: 68, h: 12, sp: -1.6, col1: P.PINK, col2: P.PURPLE },
+    { x: 80,  y: 145, w: 54, h: 9,  sp: 2.4, col1: P.PURPLE, col2: P.NAVY },
+    { x: 15,  y: 35,  w: 72, h: 11, sp: -2.2, col1: P.BLUE, col2: P.NAVY },
+    { x: 155, y: -65, w: 64, h: 10, sp: 2.6, col1: P.ICE, col2: P.NAVY }
+  ];
+
+  function drawAtmoClouds(fb, t, c, sh) {
+    for (let i = 0; i < ATMO_CLOUDS.length; i++) {
+      const cl = ATMO_CLOUDS[i];
+      const sy = Math.floor(cl.y + c * 0.75 + sh.y);
+      if (sy < -20 || sy > GROUND + c - 25 || sy > H + 20) continue;
+      const sx = Math.floor(((cl.x + t * cl.sp) % (W + 80)) - 40 + sh.x);
+      rect(fb, sx + 6, sy, cl.w - 12, cl.h, cl.col2);
+      rect(fb, sx, sy + 3, cl.w, cl.h - 4, cl.col2);
+      rect(fb, sx + 10, sy - 3, Math.floor(cl.w * 0.55), 4, cl.col1);
+      rect(fb, sx + 6, sy, cl.w - 12, 2, cl.col1);
+    }
+  }
+
+  // --- Matahari, Perbukitan & Kompleks Landasan (Upgraded) ---
+  function drawSun(fb, c, sh) {
+    const cx = 56 + sh.x, cy = GROUND - 8 + c + sh.y;
+    disc(fb, cx, cy, 29, P.ORANGE);
+    disc(fb, cx, cy, 23, P.YELLOW);
+    disc(fb, cx, cy, 14, P.WHITE);
+    // Garis potong retro synthwave
+    for (const [dy, h] of [[-11, 1], [-6, 2], [-1, 2], [4, 3], [10, 3]]) {
+      for (let x = cx - 29; x <= cx + 29; x++) {
+        for (let k = 0; k < h; k++) {
+          const y = Math.floor(cy + dy + k);
+          if (y >= 0 && y < H && x >= 0 && x < W) {
+            const cur = fb[y * W + Math.floor(x)];
+            if (cur === P.YELLOW || cur === P.WHITE) px(fb, x, y, P.ORANGE);
+          }
+        }
+      }
+    }
+  }
+
+  function drawHills(fb, c, sh) {
+    for (let x = 0; x < W; x++) {
+      const wx = x - sh.x;
+      const far = 24 + 10 * Math.sin(wx * 0.032 + 1.2) + 6 * Math.sin(wx * 0.088 + 0.3);
+      const near = 11 + 6 * Math.sin(wx * 0.052 + 2.1) + 3 * Math.sin(wx * 0.13 + 1.0);
+      for (let y = Math.floor(GROUND - far); y < GROUND; y++) px(fb, x, y + c + sh.y, P.PURPLE);
+      for (let y = Math.floor(GROUND - near); y < GROUND; y++) px(fb, x, y + c + sh.y, P.DIRT);
+    }
+  }
+
+  function drawGround(fb, c, sh) {
+    const top = GROUND + c + sh.y;
+    rect(fb, 0, top, W, H - top + 8, P.DIRT);
+    rect(fb, 0, top, W, 2, P.STEEL);
+    // Garis hazard kuning-hitam di bibir landasan
+    for (let hx = 68; hx < 198; hx += 8) {
+      rect(fb, hx + sh.x, top + 1, 4, 2, P.YELLOW);
+    }
+    for (let i = 0; i < 65; i++) {
+      const x = Math.floor(hash(i, 21) * W), y = top + 4 + Math.floor(hash(i, 22) * 64);
+      px(fb, x + sh.x, y, hash(i, 23) > 0.5 ? P.STEEL : P.PURPLE);
+    }
+  }
+
+  function drawPad(fb, t, f, c, sh) {
+    const ox = sh.x, oy = c + sh.y;
+
+    // 1. Tangki Bahan Bakar Kriogenik Bulat di sisi kiri (x=32)
+    const tx = 32 + ox, ty = PAD_TOP - 10 + oy;
+    disc(fb, tx, ty, 13, P.STEEL);
+    disc(fb, tx - 2, ty - 2, 9, P.GREY);
+    disc(fb, tx - 4, ty - 4, 4, P.WHITE);
+    rect(fb, tx - 10, PAD_TOP - 2 + oy, 20, 8, P.STEEL);
+    // Pipa kriogenik menuju landasan
+    rect(fb, tx + 12, PAD_TOP - 3 + oy, 54, 3, P.STEEL);
+    rect(fb, tx + 12, PAD_TOP - 3 + oy, 54, 1, P.GREY);
+
+    // 2. Gedung Kendali & Radar Berputar di sisi kanan (x=206)
+    const bx = 204 + ox, by = PAD_TOP - 20 + oy;
+    rect(fb, bx, by, 42, 26, P.DIRT);
+    rect(fb, bx, by, 42, 2, P.TEAL);
+    for (let wx = bx + 5; wx < bx + 38; wx += 7) {
+      for (let wy = by + 5; wy < by + 20; wy += 6) {
+        rect(fb, wx, wy, 4, 3, (wx + wy) % 2 === 0 ? P.YELLOW : P.ICE);
+      }
+    }
+    // Radar berputar di atap gedung
+    const rx = bx + 21, ry = by - 5;
+    rect(fb, rx - 1, ry, 3, 5, P.STEEL);
+    const dishW = Math.max(2, Math.floor(Math.abs(Math.cos(t * 3.8)) * 12));
+    rect(fb, rx - Math.floor(dishW / 2), ry - 4, dishW, 3, P.WHITE);
+    px(fb, rx, ry - 6, f % 10 < 5 ? P.GREEN : P.TEAL);
+
+    // 3. Fondasi Beton Landasan & Parit Api
+    rect(fb, 86 + ox, PAD_TOP + oy, 98, 6, P.STEEL);
+    rect(fb, 90 + ox, PAD_TOP + oy, 90, 1, P.GREY);
+    rect(fb, 122 + ox, PAD_TOP + 1 + oy, 26, 5, P.BLACK);
+
+    // 4. Menara Penangkal Petir di Kanan Roket
+    rect(fb, 168 + ox, 315 + oy, 2, PAD_TOP - 315, P.STEEL);
+    rect(fb, 168 + ox, 305 + oy, 1, 10, P.WHITE);
+    if (f % 16 < 8) rect(fb, 167 + ox, 303 + oy, 3, 2, P.RED);
+
+    // 5. Menara Gantry Utama di Kiri Roket
+    const top = 288;
+    for (const x of [92, 106]) rect(fb, x + ox, top + oy, 3, PAD_TOP - top, P.STEEL);
+    rect(fb, 92 + ox, top + oy, 1, PAD_TOP - top, P.GREY);
+    for (let y = top; y < PAD_TOP - 4; y += 10) {
+      rect(fb, 92 + ox, y + oy, 17, 2, P.STEEL);
+      line(fb, 94 + ox, y + oy, 106 + ox, y + 10 + oy, P.STEEL);
+      line(fb, 106 + ox, y + oy, 94 + ox, y + 10 + oy, P.STEEL);
+    }
+    rect(fb, 90 + ox, top - 2 + oy, 21, 2, P.GREY);
+    // Lampu suar puncak menara
+    if (Math.floor(f / (FPS / 2)) % 2 === 0) {
+      rect(fb, 99 + ox, top - 6 + oy, 4, 4, P.RED);
+      px(fb, 100 + ox, top - 5 + oy, P.YELLOW);
+    }
+
+    // 6. Tiga Lengan Umbilical (ditarik saat T.arm)
+    const len = Math.round(23 * (1 - easeInOut(progress(t, T.arm[0], T.arm[1]))));
+    for (const y of [328, 352, 376]) {
+      if (len > 0) {
+        rect(fb, 109 + ox, y + oy, len, 2, P.GREY);
+        rect(fb, 109 + ox, y + 2 + oy, len, 1, P.STEEL);
+      }
+    }
+
+    // 7. Percikan Api Pelepasan Klem saat Ignition (3.2 - 3.8 dtk)
+    if (t >= 3.1 && t <= 3.85) {
+      for (let s = 0; s < 8; s++) {
+        const ang = hash(s * 13 + f, 5) * Math.PI * 2;
+        const dist = 3 + hash(s * 7 + f, 6) * 14;
+        px(fb, 118 + Math.cos(ang) * dist + ox, 355 + Math.sin(ang) * dist + oy, s % 2 ? P.YELLOW : P.ORANGE);
+      }
+    }
+  }
+
+  // --- Sprite Roket 24x56 Prosedural (Pusat di 12, 28) ---
+  function rocketPixel(ix, iy, f) {
+    if (ix < 0 || ix > 23 || iy < -4 || iy > 55) return -1;
+
+    // Antena Pucuk (iy: -4..-1)
+    if (iy < 0) {
+      if (ix === 11 || ix === 12) return iy === -4 ? (f % 10 < 5 ? P.YELLOW : P.RED) : P.WHITE;
+      return -1;
+    }
+
+    const xc = ix + 0.5;
+    // Kerucut Hidung (iy: 0..15)
+    if (iy <= 15) {
+      const hw = 6.2 * Math.sqrt((iy + 1) / 16);
+      const l = 12 - hw, r = 12 + hw;
+      if (xc < l || xc > r) return -1;
+      if (xc > r - 2.0) return P.PURPLE;
+      if (xc < l + 1.5) return P.PINK;
+      return P.RED;
+    }
+
+    // Badan Utama (iy: 16..48, ix: 6..17)
+    if (iy <= 48 && ix >= 6 && ix <= 17) {
+      // Jendela Porthole Kosmonot (pusat di 12, 24)
+      const dx = xc - 12, dy = iy + 0.5 - 24;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= 3.8) {
+        if (d > 2.7) return P.STEEL;
+        if (dx < -0.5 && dy < -0.5) return P.WHITE;
+        return dx + dy > 0.9 ? P.BLUE : P.ICE;
+      }
+      // Garis sabuk & cincin interstage checkerboard (iy: 34..36)
+      if (iy === 16 || iy === 48) return P.STEEL;
+      if (iy >= 34 && iy <= 36) {
+        return ((ix + iy) % 2 === 0) ? P.BLACK : P.WHITE;
+      }
+      if (iy === 18 || iy === 19) return ix >= 15 ? P.PURPLE : ix === 6 ? P.PINK : P.RED;
+      // Shading silinder badan
+      if (ix >= 16) return P.STEEL;
+      if (ix >= 14) return P.GREY;
+      return P.WHITE;
+    }
+
+    // Sirip Aerodinamis Kiri & Kanan (iy: 36..52)
+    if (iy >= 36 && iy <= 52) {
+      const k = Math.min(6, Math.floor(((iy - 36) / 16) * 6) + 1);
+      if (ix < 6 && ix >= 6 - k) return ix === 6 - k ? P.PINK : P.RED;
+      if (ix > 17 && ix <= 17 + k) return P.PURPLE;
+    }
+
+    // Nozel Mesin (iy: 49..55)
+    if (iy >= 49 && iy <= 55) {
+      const hw = iy < 52 ? 3.5 : 4.5;
+      if (xc >= 12 - hw && xc <= 12 + hw) {
+        return xc > 12 + hw - 2 ? P.STEEL : iy >= 53 ? P.STEEL : P.GREY;
+      }
+    }
+    return -1;
+  }
+
+  function flamePixel(ix, iy, len, f, isVacuum) {
+    const d = iy - 56;
+    if (len <= 0 || d < 0 || d > len) return -1;
+    const q = d / len;
+    const hw = (isVacuum ? 3.2 : 4.5) * Math.pow(1 - q, 0.68) + (hash(iy, f * 7 + 1) - 0.5) * 1.3;
+    const u = Math.abs(ix + 0.5 - 12);
+    if (u > hw) return -1;
+    const r = u / Math.max(hw, 0.5);
+
+    if (isVacuum) {
+      // Api Plasma Biru-Putih saat di Orbit
+      if (q < 0.25 && r < 0.5) return P.WHITE;
+      if (q < 0.70 && r < 0.75) return P.ICE;
+      return P.BLUE;
+    } else {
+      // Api Booster Atmosfer
+      if (q < 0.18 && r < 0.48) return P.WHITE;
+      if (q < 0.62 && r < 0.65) return P.YELLOW;
+      if (q < 0.86 && r < 0.90) return P.ORANGE;
+      return P.RED;
+    }
+  }
+
+  function drawRocket(fb, pose, len, t, f, sh) {
+    const cx = Math.round(pose.x) + sh.x, cy = Math.round(pose.y) + sh.y;
+    const cs = Math.cos(pose.ang), sn = Math.sin(pose.ang);
+    const isVacuum = t >= T.meco;
+    const R = 32 + Math.ceil(len) + 2;
+
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        const lx = cs * (dx + 0.5) + sn * (dy + 0.5);
+        const ly = -sn * (dx + 0.5) + cs * (dy + 0.5);
+        const ix = Math.floor(lx + 12), iy = Math.floor(ly + 28);
+        let c = rocketPixel(ix, iy, f);
+        if (c < 0) c = flamePixel(ix, iy, len, f, isVacuum);
+        if (c >= 0) px(fb, cx + dx, cy + dy, c);
+      }
+    }
+
+    // Aba-aba Kerucut Supersonik Max-Q (4.7 - 5.7 dtk)
+    if (t >= T.maxQ[0] && t <= T.maxQ[1]) {
+      const ny = cy - 14;
+      for (let i = 0; i < 16; i++) {
+        const sp = Math.floor(i * 1.4);
+        if ((i + f) % 2 === 0) {
+          rect(fb, cx - sp - 2, ny + i, 2, 1, P.WHITE);
+          rect(fb, cx + sp, ny + i, 2, 1, P.ICE);
+        }
+      }
+    }
+
+    // Semburan RCS Thruster saat roket bermanuver miring 90 derajat (6.2 - 8.3 dtk)
+    if (t >= T.pitch[0] && t <= T.pitch[1] && f % 3 !== 0) {
+      // Titik semburan gas pengarah di dekat hidung roket (tegak lurus sumbu roket)
+      const noseX = cx + Math.sin(pose.ang) * 16;
+      const noseY = cy - Math.cos(pose.ang) * 16;
+      const pDirX = -Math.cos(pose.ang);
+      const pDirY = -Math.sin(pose.ang);
+      for (let k = 1; k <= 6; k++) {
+        px(fb, noseX + pDirX * (6 + k), noseY + pDirY * (6 + k), k < 3 ? P.WHITE : P.ICE);
+      }
+    }
+  }
+
+  // --- Asap & Jejak Peluncuran ---
+  function puff(fb, x, y, r) {
+    if (r < 1.2) { px(fb, x, y, P.GREY); return; }
+    disc(fb, x + r * 0.2, y + r * 0.25, r * 0.95, P.STEEL);
+    disc(fb, x, y, r, P.GREY);
+    disc(fb, x - r * 0.28, y - r * 0.3, r * 0.6, P.WHITE);
+  }
+
+  function drawVent(fb, t, c, sh) {
+    const { start, end, step } = T.vent;
+    for (let k = 0; ; k++) {
+      const tb = start + k * step + hash(k, 31) * 0.05;
+      if (tb > end || tb > t) break;
+      const intensity = (tb - start) / (end - start);
+      if (hash(k, 32) > 0.45 + intensity * 0.55) continue;
+      const age = t - tb, life = 0.9 + hash(k, 33) * 0.5;
+      if (age >= life) continue;
+      const p = age / life;
+      const side = k % 2 ? 1 : -1;
+      const x = ROCKET_X + side * (5 + (11 + hash(k, 34) * 15) * age);
+      const y = PAD_TOP - 3 - (4 + hash(k, 35) * 6) * age;
+      puff(fb, x + sh.x, y + c + sh.y, 1 + (2.5 + intensity * 2.2) * Math.pow(p, 0.6));
+    }
+  }
+
+  function drawCloud(fb, t, c, sh) {
+    const { start, end, step } = T.cloud;
+    for (let k = 0; ; k++) {
+      const tb = start + k * step;
+      if (tb > end || tb > t) break;
+      const age = t - tb;
+      const side = hash(k, 41) > 0.5 ? 1 : -1;
+      const v = 25 + hash(k, 42) * 78;
+      const x = ROCKET_X + side * (2 + (v * (1 - Math.exp(-1.6 * age))) / 1.6);
+      const y = PAD_TOP - 2 - (3 + hash(k, 43) * 9) * age;
+      const r = 2 + 9 * (1 - Math.exp(-1.3 * age)) * (0.6 + 0.7 * hash(k, 44));
+      const sy = y + c + sh.y;
+      if (sy - r > H) continue;
+      puff(fb, x + sh.x, sy, r);
+    }
+  }
+
+  const TRAIL = (() => {
+    const out = [];
+    const top = lift(T.trail.end);
+    for (let a = 20; a < top; a += T.trail.gap) {
+      let lo = T.liftoff, hi = T.trail.end;
+      for (let i = 0; i < 40; i++) {
+        const m = (lo + hi) / 2;
+        if (lift(m) < a) lo = m; else hi = m;
+      }
+      out.push({ a, tb: hi });
+    }
+    return out;
+  })();
+
+  function drawTrail(fb, t, c, sh) {
+    for (let k = 0; k < TRAIL.length; k++) {
+      const { a, tb } = TRAIL[k];
+      if (tb > t) break;
+      const age = t - tb;
+      const life = 2.4 - Math.min(1.7, a / 1400);
+      if (age >= life) continue;
+      const drift = (hash(k, 52) - 0.5) * 10 * age;
+      const x = ROCKET_X + (hash(k, 51) - 0.5) * 4 + drift;
+      const y = PAD_TOP - a + c;
+      const r = (2.5 + 6 * (1 - Math.exp(-age * 1.4))) * (1 - Math.pow(age / life, 3));
+      if (y + r < 0 || y - r > H) continue;
+      puff(fb, x + sh.x, y + sh.y, r);
+    }
+  }
+
+  // --- Planet Bumi 3D dari Orbit (Upgraded dengan Lampu Kota Malam & Atmosfer Berlapis) ---
+  const PLANET_R = 300;
+  const LIGHT = (() => {
+    const v = [-0.78, -0.45, 0.44];
+    const n = Math.hypot(...v);
+    return v.map((k) => k / n);
+  })();
+
+  function drawPlanet(fb, t, f) {
+    const k = easeOut(progress(t, T.planet[0], T.planet[1]));
+    if (k <= 0) return;
+
+    // 1. Bulan Berkawah & Satelit di Langit Atas (Turun perlahan saat mendekati orbit)
+    const moonY = Math.floor(lerp(-35, 76, k));
+    const moonX = 216;
+    disc(fb, moonX, moonY, 16, P.STEEL);
+    disc(fb, moonX - 2, moonY - 2, 13, P.GREY);
+    disc(fb, moonX - 5, moonY - 5, 7, P.WHITE);
+    disc(fb, moonX + 4, moonY + 3, 3, P.STEEL);
+    disc(fb, moonX - 3, moonY + 5, 2, P.STEEL);
+
+    // Satelit Komunikasi Orbit
+    const satX = Math.floor(52 + Math.sin(t * 0.9) * 14);
+    const satY = Math.floor(lerp(-25, 162, k));
+    rect(fb, satX - 14, satY - 2, 9, 4, P.BLUE);
+    rect(fb, satX + 5, satY - 2, 9, 4, P.BLUE);
+    rect(fb, satX - 4, satY - 3, 8, 6, P.GREY);
+    rect(fb, satX - 2, satY - 1, 4, 2, P.YELLOW);
+    if (f % 14 < 7) px(fb, satX, satY - 6, P.GREEN);
+
+    // 2. Bola Bumi 3D di Bawah Layar
+    const cx = 148, cy = lerp(805, 635, k);
+    const R = PLANET_R;
+    const spin = t * 0.006;
+
+    for (let y = Math.max(0, Math.floor(cy - R - 6)); y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > R + 5) continue;
+
+        // Cincin Halo Atmosfer Berlapis
+        if (d > R) {
+          if (dx < 65) {
+            if (d <= R + 1.8) fb[y * W + x] = P.ICE;
+            else if (bayer(x, y) < 0.55) fb[y * W + x] = P.BLUE;
+          }
+          continue;
+        }
+
+        const nx = dx / R, ny = dy / R, nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+        const lam = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2];
+        const lon = Math.atan2(nx, nz) + spin, lat = Math.asin(ny);
+        const landVal = vnoise(lon * 2.6 + 3, lat * 3.4, 61) * 0.8 + vnoise(lon * 8, lat * 9, 62) * 0.2;
+        const land = landVal > 0.53;
+        const cloud = vnoise(lon * 2.2 + 9, lat * 16, 63) * 0.75 + vnoise(lon * 9, lat * 30, 64) * 0.25 > 0.65;
+        const th = bayer(x, y) * 0.16;
+
+        let c;
+        if (lam + th < 0.05) {
+          c = P.NIGHT;
+          // Gugusan Lampu Kota (City Lights) di daratan sisi malam Bumi
+          if (land && vnoise(lon * 28, lat * 28, 77) > 0.76) {
+            c = ((x + y) % 2 === 0) ? P.YELLOW : P.ORANGE;
+          }
+        } else if (lam + th < 0.14) {
+          c = land ? P.ORANGE : P.PINK; // Garis senja terminator
+        } else if (cloud) {
+          c = lam + th > 0.32 ? P.WHITE : P.GREY;
+        } else if (land) {
+          c = lam + th > 0.34 ? P.GREEN : P.TEAL;
+        } else {
+          c = lam + th > 0.46 ? P.ICE : (lam + th > 0.32 ? P.BLUE : P.NAVY);
+        }
+
+        if (d > R - 1.8 && lam > 0.15) c = P.ICE;
+        fb[y * W + x] = c;
+      }
+    }
+  }
+
+  // --- Teks, HUD Telemetri & Dialog Box ---
+  function drawText(fb, str, x, y, scale, c) {
+    const up = String(str).toUpperCase();
+    for (let i = 0; i < up.length; i++) {
+      const g = glyph(up[i]);
+      for (let gy = 0; gy < GLYPH_H; gy++) {
+        for (let gx = 0; gx < 5; gx++) {
+          if (g[gy][gx] === "#") {
+            rect(fb, x + (i * ADVANCE + gx) * scale, y + gy * scale, scale, scale, c);
+          }
+        }
+      }
+    }
+  }
+
+  function drawHUD(fb, t, f, pose) {
+    // Bar Telemetri Atas
+    rect(fb, 6, 6, W - 12, 22, P.NIGHT);
+    rect(fb, 6, 6, W - 12, 1, P.TEAL);
+    rect(fb, 6, 27, W - 12, 1, P.STEEL);
+    rect(fb, 6, 6, 2, 22, P.ICE);
+    rect(fb, W - 8, 6, 2, 22, P.ICE);
+
+    let phase = "T-MINUS";
+    if (t >= T.ignition && t < T.liftoff) phase = "IGNITION";
+    else if (t >= T.liftoff && t < T.maxQ[0]) phase = "LIFTOFF";
+    else if (t >= T.maxQ[0] && t < T.pitch[0]) phase = "MAX-Q";
+    else if (t >= T.pitch[0] && t < T.orbit) phase = "PITCH TURN";
+    else if (t >= T.orbit) phase = "ORBITAL";
+
+    const altKm = Math.min(420, Math.floor(lift(Math.min(t, T.orbit)) * 0.18));
+    const deg = Math.round((pose.ang * 180) / Math.PI);
+
+    drawText(fb, phase, 12, 11, 1, P.GREEN);
+    const rightStr = `PITCH:${String(deg).padStart(2, "0")} ALT:${String(altKm).padStart(3, "0")}K`;
+    drawText(fb, rightStr, W - 12 - textWidth(rightStr, 1), 11, 1, P.YELLOW);
+
+    // Bar Progres menuju Orbit
+    rect(fb, 12, 21, W - 24, 3, P.BLACK);
+    const progW = Math.floor((W - 24) * clamp(t / T.orbit, 0, 1));
+    rect(fb, 12, 21, progW, 3, P.ICE);
+
+    // Aba-aba Banner Peringatan saat Manuver Pitch-Over (6.0 - 7.8 dtk)
+    if (t >= 6.0 && t < 7.8) {
+      const blink = Math.floor(f / 4) % 2 === 0;
+      rect(fb, 38, 32, W - 76, 13, blink ? P.RED : P.NIGHT);
+      rect(fb, 38, 32, W - 76, 1, P.YELLOW);
+      const msg = t < 7.0 ? "GRAVITY TURN 90 DEG" : "APPROACHING ORBIT";
+      drawText(fb, msg, Math.round(SAFE_CX - textWidth(msg, 1) / 2), 35, 1, P.WHITE);
+    }
+  }
+
+  function drawCountdown(fb, t, f) {
+    if (t >= T.liftoff) return;
+    let str = null;
+    let isGo = false;
+
+    for (let i = 0; i < T.count.length; i++) {
+      const a = T.count[i], b = T.count[i + 1] ?? T.countEnd;
+      if (t >= a && t < b) {
+        str = String(3 - i);
+        break;
+      }
+    }
+    if (!str && t >= T.countEnd && t < T.liftoff) {
+      str = "GO!";
+      isGo = true;
+    }
+    if (!str) return;
+
+    // Bingkai Kotak Hitung Mundur
+    rect(fb, 76, 62, 118, 92, P.NIGHT);
+    rect(fb, 76, 62, 118, 2, P.ORANGE);
+    rect(fb, 76, 152, 118, 2, P.RED);
+    rect(fb, 76, 62, 2, 92, P.YELLOW);
+    rect(fb, 192, 62, 2, 92, P.YELLOW);
+
+    const header = "COUNTDOWN";
+    drawText(fb, header, Math.round(SAFE_CX - textWidth(header, 1) / 2), 70, 1, P.ICE);
+
+    const s = isGo ? 5 : 8;
+    const w = textWidth(str, s), h = GLYPH_H * s;
+    const x = Math.round(SAFE_CX - w / 2), y = Math.round(114 - h / 2);
+    drawText(fb, str, x + 3, y + 3, s, P.RED);
+    drawText(fb, str, x, y, s, isGo ? P.GREEN : P.YELLOW);
+  }
+
+  function drawMission(fb, t, f) {
+    if (t < T.orbit) return;
+    const slide = easeOut(progress(t, T.orbit, T.orbit + 0.35));
+    const boxY = Math.round(lerp(-90, 58, slide));
+
+    // Bingkai Hologram "MISSION START"
+    rect(fb, 22, boxY, W - 44, 78, P.NIGHT);
+    rect(fb, 22, boxY, W - 44, 2, P.GREEN);
+    rect(fb, 22, boxY + 76, W - 44, 2, P.TEAL);
+    rect(fb, 22, boxY, 2, 78, P.ICE);
+    rect(fb, W - 24, boxY, 2, 78, P.ICE);
+
+    if (t < T.typeStart) return;
+
+    const totalChars = TEXT.lines.join("").length;
+    const n = Math.min(Math.floor((t - T.typeStart) / T.typeStep + 1e-6) + 1, totalChars);
+    const s = 3, lh = GLYPH_H * s + 7, y0 = boxY + 12;
+    let left = n, cur = null;
+
+    TEXT.lines.forEach((lineStr, li) => {
+      const shown = lineStr.slice(0, Math.max(0, Math.min(lineStr.length, left)));
+      const x = Math.round(SAFE_CX - textWidth(lineStr, s) / 2), y = y0 + li * lh;
+      drawText(fb, shown, x + 2, y + 2, s, P.BLUE);
+      drawText(fb, shown, x, y, s, P.WHITE);
+      if (left > 0 && left <= lineStr.length) {
+        cur = { x: x + shown.length * ADVANCE * s, y };
+      }
+      left -= lineStr.length;
+    });
+
+    const done = n >= totalChars;
+    if (done) {
+      const sub = "ORBIT VEL: 27800 KMH";
+      const subCol = Math.floor(f / 10) % 2 === 0 ? P.YELLOW : P.GREEN;
+      drawText(fb, sub, Math.round(SAFE_CX - textWidth(sub, 1) / 2), boxY + 64, 1, subCol);
+    }
+
+    if (!cur) return;
+    const blinkOn = !done || Math.floor((f - Math.round(T.typeStart * FPS)) / (FPS / 2)) % 2 === 0;
+    if (blinkOn) rect(fb, cur.x, cur.y, 4 * s, GLYPH_H * s, P.ICE);
+  }
+
+  // ==========================================================================
+  // 6. DRAW.JS & MAIN.JS — Pipeline Framebuffer -> Canvas Nearest-Neighbor
+  // ==========================================================================
+  const fb = new Uint8Array(W * H);
+  const small = document.getElementById("fb");
+  const view = document.getElementById("view");
+  const sctx = small.getContext("2d");
+  const vctx = view.getContext("2d", { alpha: false });
+  small.width = W;
+  small.height = H;
+  view.width = W * SCALE;
+  view.height = H * SCALE;
+  vctx.imageSmoothingEnabled = false;
+
+  const img = sctx.createImageData(W, H);
+  const u32 = new Uint32Array(img.data.buffer);
+
+  function computeFrameBuffer(t) {
+    const f = Math.round(t * FPS);
+    t = clamp(f / FPS, 0, DURATION);
+    const c = cam(t);
+    const sh = shake(t, f);
+    const pose = rocketPose(t);
+
+    drawSky(fb, c);
+    drawStars(fb, t, f, c);
+    drawPlanet(fb, t, f);
+
+    if (c < H + 60) {
+      drawSun(fb, c, sh);
+      drawAtmoClouds(fb, t, c, sh);
+      drawHills(fb, c, sh);
+      drawGround(fb, c, sh);
+      drawPad(fb, t, f, c, sh);
+    }
+    if (t >= T.liftoff) drawTrail(fb, t, c, sh);
+    drawRocket(fb, pose, flameLength(t, f), t, f, sh);
+    if (c < H + 60) {
+      drawCloud(fb, t, c, sh);
+      drawVent(fb, t, c, sh);
+    }
+
+    drawHUD(fb, t, f, pose);
+    drawCountdown(fb, t, f);
+    drawMission(fb, t, f);
+    return fb;
+  }
+
+  function paintByTime(t) {
+    const idx = computeFrameBuffer(t);
+    for (let i = 0; i < idx.length; i++) u32[i] = RGBA32[idx[i]];
+    sctx.putImageData(img, 0, 0);
+    vctx.imageSmoothingEnabled = false;
+    vctx.drawImage(small, 0, 0, view.width, view.height);
+    return idx;
+  }
+
+  // Ekspos API yang kompatibel dengan render.js maupun tools Claude
+  window.FRAMES = FRAMES;
+  window.drawFrame = (t) => { paintByTime(t); };
+  window.renderFrame = (f) => { paintByTime(f / FPS); return view.toDataURL("image/png"); };
+
+  // Kontrol UI interaktif saat dibuka di browser biasa
+  const ui = document.getElementById("ui");
+  if (ui && !isRenderMode) {
+    const slider = document.getElementById("seek");
+    const label = document.getElementById("label");
+    const btn = document.getElementById("play");
+    slider.max = FRAMES - 1;
+    let frame = Number(params.get("f") ?? 0);
+    let playing = true, t0 = performance.now(), f0 = 0;
+    btn.textContent = "Pause";
+
+    const show = (f) => {
+      frame = Math.max(0, Math.min(FRAMES - 1, f));
+      paintByTime(frame / FPS);
+      slider.value = frame;
+      label.textContent = `f ${String(frame).padStart(3, "0")} / ${(frame / FPS).toFixed(2)} s`;
+    };
+    const tick = (now) => {
+      if (!playing) return;
+      const f = (f0 + Math.floor(((now - t0) / 1000) * FPS)) % FRAMES;
+      if (f !== frame) show(f);
+      requestAnimationFrame(tick);
+    };
+    const toggle = () => {
+      playing = !playing;
+      btn.textContent = playing ? "Pause" : "Play";
+      if (playing) {
+        f0 = frame;
+        t0 = performance.now();
+        requestAnimationFrame(tick);
+      }
+    };
+    btn.onclick = toggle;
+    slider.oninput = () => {
+      playing = false;
+      btn.textContent = "Play";
+      show(Number(slider.value));
+    };
+    addEventListener("keydown", (e) => {
+      if (e.code === "Space") { e.preventDefault(); toggle(); }
+      if (e.code === "ArrowRight") { playing = false; btn.textContent = "Play"; show(frame + 1); }
+      if (e.code === "ArrowLeft") { playing = false; btn.textContent = "Play"; show(frame - 1); }
+    });
+    show(frame);
+    requestAnimationFrame(tick);
+  } else {
+    paintByTime(0);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "pixel-rocket-launch-renderer",
+  "version": "1.0.0",
+  "description": "Render video animasi pixel art vertikal 12 detik (270x480 -> 1080x1920) dengan Playwright dan FFmpeg",
+  "main": "render.js",
+  "scripts": {
+    "setup": "npx playwright install chromium",
+    "render": "node render.js"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Joulfiand Studio — Halaman 1 (Prompt - Refined)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #09090b;
+      color: #f4f3ef;
+      font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #stage {
+      height: calc(100vh - 58px);
+      aspect-ratio: 9 / 16;
+      display: block;
+      background: #0f0f11;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+    }
+    #controls {
+      height: 52px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px;
+      background: #141417;
+      border-top: 1px solid #242429;
+      width: 100%;
+      font-size: 12px;
+    }
+    button {
+      background: #1e1e24;
+      color: #e6e5e0;
+      border: 1px solid #32323a;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    button:hover {
+      background: #2b2b33;
+    }
+    button.primary {
+      background: #ebb343;
+      color: #0e0e10;
+      border-color: #ebb343;
+      font-weight: 700;
+    }
+    input[type="range"] {
+      width: 180px;
+      cursor: pointer;
+    }
+    body.headless {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+    body.headless #stage {
+      width: 1080px !important;
+      height: 1920px !important;
+      box-shadow: none;
+    }
+    body.headless #controls {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kanvas 2x Supersampled (2160x3840 -> ditampilkan 1080x1920) -->
+  <canvas id="stage" width="2160" height="3840"></canvas>
+
+  <div id="controls">
+    <button id="btnPlay" class="primary">Play / Pause</button>
+    <button id="btnS1">1. Ketik Halus (4.0s)</button>
+    <button id="btnS2">2. Iris Sudut Luar (10.2s)</button>
+    <button id="btnS3">3. Transisi Bar (14.0s)</button>
+    <button id="btnS4">4. Klik & Belah 2 AI (15.8s)</button>
+    <button id="btnS5">5. 1x Kirim (17.5s)</button>
+    <input id="slider" type="range" min="0" max="569" value="0" />
+    <span id="timeLabel">0.00 / 19.00 s</span>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const params = new URLSearchParams(window.location.search);
+      const isHeadless = params.has("headless") || params.has("render");
+      if (isHeadless) {
+        document.body.classList.add("headless");
+      }
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const W = 1080;
+      const H = 1920;
+      const SSAA = 2;
+      const FPS = 30;
+      const DURATION = 19.0;
+      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 570 frame
+
+      const LEFT_COL_X = 48;
+      const RIGHT_COL_X = 564;
+      const COL_W = 468;
+
+      const PROMPT_LINES = [
+        "Buat video animasi pixel art vertikal berdurasi",
+        "12 detik, sepenuhnya dari kode.",
+        "",
+        "Tema: peluncuran roket kecil dari bumi ke orbit.",
+        "",
+        "Struktur 3 adegan:",
+        "1. (0-4 dtk) Landasan peluncuran saat senja.",
+        "Hitung mundur 3-2-1 sebagai teks pixel di layar.",
+        "Asap kecil keluar dari dasar roket.",
+        "2. (4-8 dtk) Roket lepas landas. Kamera mengikuti",
+        "ke atas, langit berubah dari oranye ke biru tua",
+        "lalu hitam. Bintang mulai muncul.",
+        "3. (8-12 dtk) Roket mencapai orbit. Planet besar",
+        "di latar, bintang berkelip, teks pixel \"MISSION",
+        "START\" muncul dengan efek ketik.",
+        "",
+        "Ketentuan teknis:",
+        "- Murni HTML Canvas 2D, tanpa library, gambar,",
+        "  atau aset eksternal.",
+        "- Resolusi internal 270x480, ditampilkan 1080x1920",
+        "  dengan nearest-neighbor (piksel tajam, tidak blur).",
+        "- 30 fps, 360 frame. Semua animasi digerakkan oleh",
+        "  waktu (fungsi drawFrame(t)) supaya hasil render",
+        "  konsisten setiap dijalankan.",
+        "- Render frame demi frame dengan Playwright headless",
+        "  Chromium, lalu gabungkan jadi MP4 dengan ffmpeg.",
+        "- Palet warna terbatas (maksimal 16 warna) dan",
+        "  konsisten antar adegan.",
+        "- Tambahkan musik latar sederhana dan efek suara",
+        "  peluncuran yang dibuat dari kode, lalu gabungkan",
+        "  ke video.",
+        "",
+        "Keluaran akhir: file source code siap render dan",
+        "petunjuk cara menjalankannya.",
+        "Jalankan sendiri, periksa hasilnya, dan perbaiki",
+        "jika ada error sebelum menyerahkan."
+      ];
+
+      // =========================================================================
+      // PRECOMPUTE KURVA KETIKAN MANUSIA YANG TENANG & HALUS (0.85s s/d 8.25s)
+      // Menggunakan interpolasi pecahan karakter (floating-point) agar kursor
+      // dan huruf mengalir sangat lembut tanpa patah-patah.
+      // =========================================================================
+      const LINE_CHAR_OFFSETS = [];
+      const CHAR_REL_WEIGHTS = [];
+      let totalPromptChars = 0;
+
+      function pseudoRand(n) {
+        const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+        return x - Math.floor(x);
+      }
+
+      for (let i = 0; i < PROMPT_LINES.length; i++) {
+        LINE_CHAR_OFFSETS.push(totalPromptChars);
+        const line = PROMPT_LINES[i];
+        for (let c = 0; c < line.length; c++) {
+          const ch = line[c];
+          let w = 0.90 + pseudoRand(totalPromptChars + c * 7) * 0.45;
+          if (ch === " ") w += 0.85;
+          else if (ch === "," || ch === "-" || ch === "(" || ch === ")") w += 2.2;
+          else if (ch === ":" || ch === ".") w += 3.8;
+          if (i >= 16) w *= 0.78;
+          CHAR_REL_WEIGHTS.push(w);
+          totalPromptChars++;
+        }
+        const lineBreakWeight = line.length === 0 ? 5.2 : (line.endsWith(":") || line.endsWith(".") ? 3.8 : 1.4);
+        CHAR_REL_WEIGHTS.push(lineBreakWeight);
+        totalPromptChars++;
+      }
+
+      const TYPING_START = 0.85;
+      const TYPING_END = 8.25;
+      const CHAR_TIMESTAMPS = new Float32Array(totalPromptChars);
+      let sumWeights = 0;
+      for (let i = 0; i < totalPromptChars; i++) sumWeights += CHAR_REL_WEIGHTS[i];
+      let accWeight = 0;
+      for (let i = 0; i < totalPromptChars; i++) {
+        accWeight += CHAR_REL_WEIGHTS[i];
+        CHAR_TIMESTAMPS[i] = TYPING_START + (accWeight / sumWeights) * (TYPING_END - TYPING_START);
+      }
+
+      // Mengembalikan nilai float (misal 42.65 karakter) untuk pergeseran kursor & fade huruf yang sangat halus
+      function getExactTypedChars(time) {
+        if (time <= TYPING_START) return 0;
+        if (time >= TYPING_END) return totalPromptChars;
+        let lo = 0, hi = totalPromptChars - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (CHAR_TIMESTAMPS[mid] < time) lo = mid + 1;
+          else hi = mid;
+        }
+        const tPrev = lo > 0 ? CHAR_TIMESTAMPS[lo - 1] : TYPING_START;
+        const tCurr = CHAR_TIMESTAMPS[lo];
+        const frac = Math.max(0, Math.min(1, (time - tPrev) / Math.max(0.0001, tCurr - tPrev)));
+        return lo + frac;
+      }
+
+      // Daftar Poin Penting untuk Pemindaian Iris Kaca Kuning (8.80s - 12.24s)
+      const SCAN_TARGETS = [
+        { line: 0,  phrase: "animasi pixel art", tag: "VISUAL",   tLock: 8.80 },
+        { line: 1,  phrase: "12 detik",          tag: "DURASI",   tLock: 9.23 },
+        { line: 3,  phrase: "bumi ke orbit",     tag: "TEMA",     tLock: 9.66 },
+        { line: 6,  phrase: "(0-4 dtk)",         tag: "ADEGAN 1", tLock: 10.09 },
+        { line: 9,  phrase: "(4-8 dtk)",         tag: "ADEGAN 2", tLock: 10.52 },
+        { line: 12, phrase: "(8-12 dtk)",        tag: "ADEGAN 3", tLock: 10.95 },
+        { line: 17, phrase: "HTML Canvas 2D",    tag: "ENGINE",   tLock: 11.38 },
+        { line: 19, phrase: "270x480",           tag: "RESOLUSI", tLock: 11.81 },
+        { line: 28, phrase: "musik latar",       tag: "AUDIO",    tLock: 12.24 }
+      ];
+
+      // --- Fungsi Easing Halus (Tanpa Efek Trampolin / Balon!) ---
+      const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * (3 - 2 * k);
+      };
+      // Quintic Smootherstep C2-Continuous (100% bebas sentakan, 0% pantulan)
+      const smootherstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * k * (k * (k * 6 - 15) + 10);
+      };
+      const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+      const easeInOutCubic = (x) => {
+        const k = clamp(x, 0, 1);
+        return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      };
+
+      // Soft Single-Overshoot (Hanya 1x ayunan lembut ~3.5% lalu berhenti tenang, khas UI modern)
+      function softBounceOut(x, overshoot = 1.15) {
+        const k = clamp(x, 0, 1);
+        const c1 = overshoot;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.lineTo(x + w - rad, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+        ctx.lineTo(x + w, y + h - rad);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        ctx.lineTo(x + rad, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+        ctx.lineTo(x, y + rad);
+        ctx.quadraticCurveTo(x, y, x + rad, y);
+        ctx.closePath();
+      }
+
+      function drawCrosshair(x, y, size, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - size, y - 0.5, size * 2 + 1, 1);
+        ctx.fillRect(x - 0.5, y - size, 1, size * 2 + 1);
+      }
+
+      function fillTrackedText(text, x, y, tracking, align = "left") {
+        const chars = String(text).split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += tracking * Math.max(0, chars.length - 1);
+
+        let curX = x;
+        if (align === "right") curX = x - totalW;
+        else if (align === "center") curX = x - totalW / 2;
+
+        ctx.textAlign = "left";
+        for (let i = 0; i < chars.length; i++) {
+          ctx.fillText(chars[i], curX, y);
+          curX += widths[i] + tracking;
+        }
+        return totalW;
+      }
+
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText, entranceProg) {
+        if (entranceProg <= 0.01) return;
+        ctx.save();
+        const ease = easeOutCubic(entranceProg);
+        ctx.globalAlpha = clamp(entranceProg * 1.6, 0, 1);
+        ctx.translate(0, (1 - ease) * -24);
+
+        roundRect(ctx, x, y, w, h, 10);
+        ctx.fillStyle = "#151518";
+        ctx.fill();
+
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = "#26262c";
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.fillRect(x + 12, y + 1, w - 24, 1);
+
+        const dotSize = 13;
+        const dotX = x + 22;
+        const dotY = y + (h - dotSize) / 2;
+        roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
+        ctx.fillStyle = accentHex;
+        ctx.fill();
+
+        ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accentHex;
+        ctx.textBaseline = "middle";
+        const brandX = dotX + dotSize + 13;
+        const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+
+        ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // KOTAK IRIS KACA KUNING DENGAN 4 KOTAK KECIL DI LUAR SUDUTNYA
+      // =========================================================================
+      function drawIrisScannerBox(x, y, w, h, tagText, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // 1. Latar Kaca Kuning Semi-Transparan (Mirror Glass)
+        ctx.shadowColor = "rgba(235, 179, 67, 0.28)";
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "rgba(235, 179, 67, 0.18)";
+        ctx.fillRect(x, y, w, h);
+        ctx.shadowColor = "transparent";
+
+        // Garis kilau kaca diagonal halus di bagian dalam
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(255, 246, 205, 0.32)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 10, y + h);
+        ctx.lineTo(x + 24, y);
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. Garis Tepi Utama Kotak Iris
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(x, y, w, h);
+
+        // 3. EMPAT KOTAK KECIL DI LUAR SETIAP SUDUT (External Corner Anchor Nodes)
+        // Berukuran 7x7 px dan diletakkan tepat di luar titik sudut (x, y)
+        const nodeSize = 7;
+        const outerCorners = [
+          { cx: x - nodeSize, cy: y - nodeSize },         // Luar Kiri-Atas
+          { cx: x + w,        cy: y - nodeSize },         // Luar Kanan-Atas
+          { cx: x - nodeSize, cy: y + h },                // Luar Kiri-Bawah
+          { cx: x + w,        cy: y + h }                 // Luar Kanan-Bawah
+        ];
+
+        for (let i = 0; i < outerCorners.length; i++) {
+          const oc = outerCorners[i];
+          ctx.fillStyle = "#141418";
+          ctx.fillRect(oc.cx, oc.cy, nodeSize, nodeSize);
+          ctx.strokeStyle = "#ffe07d";
+          ctx.lineWidth = 1.6;
+          ctx.strokeRect(oc.cx, oc.cy, nodeSize, nodeSize);
+        }
+
+        // 4. Pill Label Kategori di atas kotak iris (misal: "DURASI", "VISUAL")
+        if (tagText) {
+          ctx.font = "800 13px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          const tagW = ctx.measureText(tagText).width + 16;
+          const tagH = 21;
+          const tagX = x;
+          const tagY = y - nodeSize - tagH - 3;
+
+          roundRect(ctx, tagX, tagY, tagW, tagH, 4);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.fillStyle = "#0e0e10";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(tagText, tagX + 8, tagY + tagH / 2 + 0.5);
+        }
+
+        ctx.restore();
+      }
+
+      // Menggambar Kursor Panah Modern (Rasio Tetap Kaku & Bersih)
+      function drawCursorArrow(x, y, scale = 1.0, alpha = 1.0) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 35);
+        ctx.lineTo(8.8, 27.2);
+        ctx.lineTo(14.8, 40);
+        ctx.lineTo(20.5, 37.5);
+        ctx.lineTo(14.5, 24.5);
+        ctx.lineTo(25.5, 24.5);
+        ctx.closePath();
+
+        ctx.fillStyle = "#111215";
+        ctx.fill();
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = "#f4f3ef";
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 19.00)
+      // =========================================================================
+      function drawFrame(t) {
+        const time = clamp(Number(t) || 0, 0, DURATION);
+
+        ctx.save();
+        ctx.scale(SSAA, SSAA);
+
+        // 1. Latar Belakang Warm Obsidian (#0f0f11)
+        ctx.fillStyle = "#0f0f11";
+        ctx.fillRect(0, 0, W, H);
+
+        const leftGlow = ctx.createRadialGradient(260, 780, 40, 260, 780, 560);
+        leftGlow.addColorStop(0, "rgba(110, 168, 254, 0.045)");
+        leftGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = leftGlow;
+        ctx.fillRect(0, 0, W, H);
+
+        const rightGlow = ctx.createRadialGradient(820, 780, 40, 820, 780, 560);
+        rightGlow.addColorStop(0, "rgba(224, 122, 95, 0.045)");
+        rightGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = rightGlow;
+        ctx.fillRect(0, 0, W, H);
+
+        // 2. Grid Editorial Hairline (1px)
+        ctx.strokeStyle = "#1e1e23";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
+
+        ctx.fillStyle = "#1e1e23";
+        ctx.fillRect(24, 122, W - 48, 1);
+        ctx.fillRect(24, 1792, W - 48, 1);
+
+        ctx.fillStyle = "#1d1d22";
+        ctx.fillRect(539.5, 44, 1, 212);
+        ctx.fillRect(539.5, 495, 1, 1297);
+
+        drawCrosshair(540, 122, 4, "#36363f");
+        drawCrosshair(540, 1792, 4, "#36363f");
+
+        // -----------------------------------------------------------------------
+        // 3. MASTHEAD ATAS: JOULFIAND STUDIO · ADU MODEL | 01 — SOAL · 1 SHOT
+        // -----------------------------------------------------------------------
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(48, 80, 6, 6);
+
+        ctx.fillStyle = "#7c7b76";
+        fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
+
+        ctx.fillStyle = "#969590";
+        fillTrackedText("01 — SOAL  ·  1 SHOT", W - 48, 83.5, 1.8, "right");
+
+        // -----------------------------------------------------------------------
+        // 4. MODEL BADGES
+        // -----------------------------------------------------------------------
+        const gemEntrance = clamp((time - 0.08) / 0.50, 0, 1);
+        const claEntrance = clamp((time - 0.18) / 0.50, 0, 1);
+
+        drawModelBadge(LEFT_COL_X,  162, COL_W, 56, "#6ea8fe", "GEMINI", "4 Argon · High",   gemEntrance);
+        drawModelBadge(RIGHT_COL_X, 162, COL_W, 56, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra", claEntrance);
+
+        // -----------------------------------------------------------------------
+        // 5. KICKER ("SOALNYA") & JUDUL UTAMA ("Satu prompt, sama persis.")
+        // -----------------------------------------------------------------------
+        const headProg = easeOutCubic(clamp((time - 0.25) / 0.55, 0, 1));
+        ctx.save();
+        ctx.globalAlpha = headProg;
+        ctx.translate(0, (1 - headProg) * 18);
+
+        roundRect(ctx, LEFT_COL_X, 266, 11, 11, 2.5);
+        ctx.fillStyle = "#ebb343";
+        ctx.fill();
+
+        ctx.font = "600 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8f8d87";
+        ctx.textBaseline = "middle";
+        fillTrackedText("SOALNYA", LEFT_COL_X + 22, 272, 2.0, "left");
+
+        ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#f5f4f0";
+        ctx.fillText("Satu prompt,", LEFT_COL_X, 302);
+
+        const line2Part1 = "sama ";
+        const line2Part2 = "persis.";
+        ctx.fillStyle = "#f5f4f0";
+        ctx.fillText(line2Part1, LEFT_COL_X, 386);
+        const l2w = ctx.measureText(line2Part1).width;
+        ctx.fillStyle = "#ebb343";
+        ctx.fillText(line2Part2, LEFT_COL_X + l2w, 386);
+        ctx.restore();
+
+        // -----------------------------------------------------------------------
+        // 6. KARTU PROMPT.TXT & TRANSISI BERTAHAP MENUJU BAR INPUT BAWAH
+        //    - 13.15s..13.65s: Fase Persiapan (Teks bawah & header meredup halus,
+        //      fokus mengunci baris pertama)
+        //    - 13.60s..14.55s: Melipat & meluncur turun dengan Quintic Smootherstep
+        //      (0% Pantulan, 100% Mulus!)
+        // -----------------------------------------------------------------------
+        const prepFade = smootherstep(13.15, 13.65, time);
+        const slideToBottom = smootherstep(13.55, 14.55, time);
+        const cardAppear = easeOutCubic(clamp((time - 0.40) / 0.50, 0, 1));
+
+        const cardX = LEFT_COL_X;
+        const cardW = 984;
+        // Tinggi dan posisi Y menyusut secara bertahap dan sangat halus tanpa pantulan
+        const cardY = lerp(528, 1272, slideToBottom);
+        const cardH = lerp(632, 92, smootherstep(13.35, 14.50, time));
+
+        if (cardAppear > 0.01) {
+          ctx.save();
+          ctx.globalAlpha = cardAppear;
+
+          ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+          ctx.shadowBlur = 30;
+          ctx.shadowOffsetY = 10;
+          roundRect(ctx, cardX, cardY, cardW, cardH, 11);
+          ctx.fillStyle = "#141418";
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = slideToBottom > 0.5 ? "#2f2f38" : "#26262e";
+          ctx.stroke();
+
+          // A. TAMPILAN ISI KOTAK PROMPT.TXT
+          if (slideToBottom < 0.98) {
+            const headerAlpha = 1 - prepFade;
+            const headerH = lerp(54, 0, smootherstep(13.35, 14.15, time));
+
+            if (headerAlpha > 0.01) {
+              ctx.save();
+              ctx.globalAlpha = cardAppear * headerAlpha;
+              ctx.fillStyle = "#19191f";
+              roundRect(ctx, cardX + 1, cardY + 1, cardW - 2, 54, 10);
+              ctx.fill();
+              ctx.fillStyle = "#24242c";
+              ctx.fillRect(cardX, cardY + 54, cardW, 1);
+
+              ctx.font = "600 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.textBaseline = "middle";
+              ctx.textAlign = "left";
+              ctx.fillStyle = "#d8d7d2";
+              ctx.fillText("prompt.txt", cardX + 28, cardY + 28);
+
+              ctx.textAlign = "right";
+              ctx.fillStyle = "#787670";
+              ctx.fillText("24 baris  ·  sama untuk keduanya", cardX + cardW - 28, cardY + 28);
+              ctx.restore();
+            }
+
+            // Area Clipping Isi Prompt
+            const bodyTop = cardY + headerH;
+            const bodyH = Math.max(10, cardH - headerH);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(cardX + 2, bodyTop, cardW - 4, bodyH);
+            ctx.clip();
+
+            const lineH = 34;
+            const padX = cardX + lerp(28, 32, slideToBottom);
+            const textStartY = bodyTop + lerp(24, 34, slideToBottom);
+            const maxScroll = Math.max(0, PROMPT_LINES.length * lineH - (632 - 58 - 44));
+
+            // Hitung jumlah karakter pecahan (float) yang sudah diketik
+            const exactChars = getExactTypedChars(time);
+            const fullTypedChars = Math.floor(exactChars);
+            const charFrac = exactChars - fullTypedChars;
+
+            let continuousTypedLine = 0;
+            for (let i = 0; i < PROMPT_LINES.length; i++) {
+              const off = LINE_CHAR_OFFSETS[i];
+              const len = Math.max(1, PROMPT_LINES[i].length);
+              if (exactChars >= off) {
+                const frac = clamp((exactChars - off) / len, 0, 1);
+                continuousTypedLine = i + frac;
+              }
+            }
+
+            // Posisi Scroll Y Halus:
+            // 1. 0.85s..8.25s: Mengikuti pengetikan secara mulus
+            // 2. 8.25s..8.75s: Kembali ke atas untuk persiapan scan iris
+            // 3. 8.75s..12.35s: Mengikuti luncuran Kotak Iris Kaca Kuning
+            // 4. 12.35s..13.10s: Scroll naik kembali ke paling atas setelah poin terakhir selesai
+            let scrollY = 0;
+            if (time < 8.25) {
+              const rawDesired = (continuousTypedLine + 1.8) * lineH - (574 - 44);
+              scrollY = clamp(rawDesired, 0, maxScroll);
+            } else if (time < 8.75) {
+              const k = smootherstep(8.25, 8.72, time);
+              scrollY = lerp(maxScroll, 0, k);
+            } else if (time < 12.35) {
+              let sIdx = 0;
+              for (let s = 0; s < SCAN_TARGETS.length - 1; s++) {
+                if (time >= SCAN_TARGETS[s].tLock) sIdx = s;
+              }
+              const sNext = Math.min(SCAN_TARGETS.length - 1, sIdx + 1);
+              const t0 = SCAN_TARGETS[sIdx].tLock;
+              const t1 = SCAN_TARGETS[sNext].tLock;
+              const k = sIdx === sNext ? 0 : smootherstep(t0, t1, time);
+              const smoothScanLine = lerp(SCAN_TARGETS[sIdx].line, SCAN_TARGETS[sNext].line, k);
+              scrollY = clamp((smoothScanLine - 4.5) * lineH, 0, maxScroll);
+            } else {
+              const upK = smootherstep(12.35, 13.05, time);
+              const startUpScroll = clamp((SCAN_TARGETS[SCAN_TARGETS.length - 1].line - 4.5) * lineH, 0, maxScroll);
+              scrollY = lerp(startUpScroll, 0, upK);
+            }
+
+            ctx.font = "400 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.textBaseline = "top";
+            ctx.textAlign = "left";
+
+            // Highlight Kuning pada Poin Penting yang Sudah Dilewati Iris
+            if (time >= 8.75 && time <= 13.65) {
+              const fadeOutHighlights = 1 - smootherstep(13.05, 13.50, time);
+              for (let s = 0; s < SCAN_TARGETS.length; s++) {
+                const st = SCAN_TARGETS[s];
+                if (time >= st.tLock - 0.08) {
+                  const hlAlpha = smootherstep(st.tLock - 0.08, st.tLock + 0.14, time) * fadeOutHighlights;
+                  const lineStr = PROMPT_LINES[st.line];
+                  const colIdx = lineStr.indexOf(st.phrase);
+                  if (colIdx >= 0) {
+                    const preW = ctx.measureText(lineStr.slice(0, colIdx)).width;
+                    const phrW = ctx.measureText(st.phrase).width;
+                    const hx = padX + preW - 6;
+                    const hy = textStartY + st.line * lineH - scrollY - 4;
+                    const hw = phrW + 12;
+                    const hh = 30;
+
+                    ctx.save();
+                    ctx.globalAlpha = cardAppear * hlAlpha;
+                    roundRect(ctx, hx, hy, hw, hh, 4);
+                    ctx.fillStyle = "rgba(235, 179, 67, 0.20)";
+                    ctx.fill();
+                    ctx.strokeStyle = "rgba(235, 179, 67, 0.48)";
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                    ctx.restore();
+                  }
+                }
+              }
+            }
+
+            // Gambar Teks Prompt Baris demi Baris dengan Sub-Character Smooth Fade
+            let cursorDrawn = false;
+            const otherLinesAlpha = (1 - prepFade) * (1 - slideToBottom);
+
+            for (let i = 0; i < PROMPT_LINES.length; i++) {
+              const lineOffset = LINE_CHAR_OFFSETS[i];
+              const fullLine = PROMPT_LINES[i];
+              if (exactChars < lineOffset) break;
+
+              const lineAlpha = i === 0 ? (1 - smootherstep(13.85, 14.30, time)) : otherLinesAlpha;
+              if (lineAlpha <= 0.01) continue;
+
+              const charsInLine = clamp(fullTypedChars - lineOffset, 0, fullLine.length);
+              const visibleStr = fullLine.slice(0, charsInLine);
+              const ly = textStartY + i * lineH - scrollY;
+
+              if (ly + lineH >= bodyTop - 15 && ly <= bodyTop + bodyH + 15) {
+                ctx.save();
+                ctx.globalAlpha = cardAppear * lineAlpha;
+                ctx.fillStyle = "#d8d7d2";
+                ctx.fillText(visibleStr, padX, ly);
+
+                // Huruf paling ujung yang sedang muncul (Sub-character fade-in agar sangat halus)
+                const isTypingThisLine = fullTypedChars >= lineOffset && fullTypedChars < lineOffset + fullLine.length;
+                if (isTypingThisLine && charFrac > 0.02) {
+                  const nextChar = fullLine[charsInLine];
+                  const prefixW = ctx.measureText(visibleStr).width;
+                  ctx.globalAlpha = cardAppear * lineAlpha * charFrac;
+                  ctx.fillText(nextChar, padX + prefixW, ly);
+                }
+
+                // Teks emas terang pada frase yang sudah dikunci iris
+                if (time >= 8.75 && time <= 13.55) {
+                  const hlFade = 1 - smootherstep(13.05, 13.50, time);
+                  for (let s = 0; s < SCAN_TARGETS.length; s++) {
+                    const st = SCAN_TARGETS[s];
+                    if (st.line === i && time >= st.tLock - 0.05) {
+                      const colIdx = fullLine.indexOf(st.phrase);
+                      if (colIdx >= 0) {
+                        const preW = ctx.measureText(fullLine.slice(0, colIdx)).width;
+                        ctx.globalAlpha = cardAppear * lineAlpha * hlFade;
+                        ctx.fillStyle = "#ffe896";
+                        ctx.fillText(st.phrase, padX + preW, ly);
+                      }
+                    }
+                  }
+                }
+                ctx.restore();
+              }
+
+              // Kursor Ketik dengan Posisi X Interpolasi Kontinu
+              if (!cursorDrawn && (fullTypedChars <= lineOffset + fullLine.length || i === PROMPT_LINES.length - 1)) {
+                cursorDrawn = true;
+                if (time < 8.60) {
+                  const blink = time < 8.25 || Math.sin(time * 10) > -0.2;
+                  if (blink) {
+                    const baseW = ctx.measureText(visibleStr).width;
+                    const nextChW = (fullTypedChars < lineOffset + fullLine.length)
+                      ? ctx.measureText(fullLine[charsInLine] || "").width * charFrac
+                      : 0;
+                    ctx.fillStyle = "#ebb343";
+                    roundRect(ctx, padX + baseW + nextChW + 3, ly + 2, 10, 22, 2);
+                    ctx.fill();
+                  }
+                }
+              }
+            }
+
+            // Gambar Kotak Iris Kaca Kuning (Dengan 4 Kotak Kecil di Luar Sudutnya)
+            if (time >= 8.62 && time <= 12.95) {
+              const appearAlpha = smootherstep(8.62, 8.85, time);
+              // Menghilang halus setelah layar mulai scroll balik ke atas
+              const vanishAlpha = 1 - smootherstep(12.50, 12.92, time);
+              const irisAlpha = appearAlpha * vanishAlpha;
+
+              let idxA = 0;
+              for (let s = 0; s < SCAN_TARGETS.length - 1; s++) {
+                if (time >= SCAN_TARGETS[s].tLock) idxA = s;
+              }
+              const idxB = Math.min(SCAN_TARGETS.length - 1, idxA + 1);
+              const tA = SCAN_TARGETS[idxA].tLock;
+              const tB = SCAN_TARGETS[idxB].tLock;
+
+              // Meluncur super mulus dengan Quintic Smootherstep
+              const glideRaw = idxA === idxB ? 0 : clamp((time - (tA + 0.06)) / Math.max(0.05, tB - tA - 0.06), 0, 1);
+              const moveK = smootherstep(0, 1, glideRaw);
+
+              const rectForTarget = (st) => {
+                const lStr = PROMPT_LINES[st.line];
+                const cIdx = Math.max(0, lStr.indexOf(st.phrase));
+                const px = padX + ctx.measureText(lStr.slice(0, cIdx)).width - 8;
+                const pw = ctx.measureText(st.phrase).width + 16;
+                const py = textStartY + st.line * lineH - scrollY - 5;
+                return { x: px, y: py, w: pw, h: 32, tag: st.tag };
+              };
+
+              const rA = rectForTarget(SCAN_TARGETS[idxA]);
+              const rB = rectForTarget(SCAN_TARGETS[idxB]);
+
+              const curX = lerp(rA.x, rB.x, moveK);
+              const curY = lerp(rA.y, rB.y, moveK);
+              const curW = lerp(rA.w, rB.w, moveK);
+              const curH = lerp(rA.h, rB.h, moveK);
+              const curTag = moveK > 0.5 ? rB.tag : rA.tag;
+
+              drawIrisScannerBox(curX, curY, curW, curH, curTag, irisAlpha);
+            }
+
+            // Scrollbar tipis
+            if (otherLinesAlpha > 0.05) {
+              ctx.save();
+              ctx.globalAlpha = cardAppear * otherLinesAlpha;
+              const sbTrackH = bodyH - 24;
+              const sbThumbH = Math.max(48, (bodyH / (PROMPT_LINES.length * lineH)) * sbTrackH);
+              const sbThumbY = bodyTop + 12 + (maxScroll > 0 ? (scrollY / maxScroll) * (sbTrackH - sbThumbH) : 0);
+              roundRect(ctx, cardX + cardW - 10, sbThumbY, 4, sbThumbH, 2);
+              ctx.fillStyle = "#363642";
+              ctx.fill();
+              ctx.restore();
+            }
+
+            ctx.restore();
+          }
+
+          // B. TAMPILAN BAR INPUT RINGKAS DI BAWAH + TOMBOL KIRIM KUNING [↑]
+          if (slideToBottom > 0.35) {
+            const barAlpha = smootherstep(0.35, 0.92, slideToBottom);
+            ctx.save();
+            ctx.globalAlpha = barAlpha;
+
+            ctx.font = "400 23px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#e6e5e0";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText("Buat video animasi pixel art vertikal be…", cardX + 32, cardY + cardH / 2);
+
+            const btnSize = 58;
+            const btnX = cardX + cardW - btnSize - 17;
+            const btnY = cardY + (cardH - btnSize) / 2;
+
+            // Pantulan Halus & Proporsional (Tanpa Gepeng/Balon!) saat Tombol Diklik (t = 15.25s)
+            let btnScale = smootherstep(14.15, 14.55, time);
+            if (time >= 15.22 && time <= 15.75) {
+              const dt = time - 15.22;
+              if (dt < 0.08) {
+                btnScale = lerp(1.0, 0.91, easeOutCubic(dt / 0.08));
+              } else {
+                const bt = clamp((dt - 0.08) / 0.38, 0, 1);
+                btnScale = lerp(0.91, 1.0, softBounceOut(bt, 1.35));
+              }
+            }
+
+            ctx.save();
+            ctx.translate(btnX + btnSize / 2, btnY + btnSize / 2);
+            ctx.scale(btnScale, btnScale);
+            roundRect(ctx, -btnSize / 2, -btnSize / 2, btnSize, btnSize, 12);
+            ctx.fillStyle = "#ebb343";
+            ctx.fill();
+
+            ctx.strokeStyle = "#111215";
+            ctx.lineWidth = 3.2;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(0, 11);
+            ctx.lineTo(0, -11);
+            ctx.moveTo(-9, -2);
+            ctx.lineTo(0, -11);
+            ctx.lineTo(9, -2);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }
+
+        // -----------------------------------------------------------------------
+        // 7. KURSOR MENGKLIK TOMBOL KIRIM (14.55s - 16.20s) & MELUNCURNYA PROMPT
+        //    DENGAN PANTULAN HALUS (SOFT SINGLE-OVERSHOOT, TANPA EFEK TRAMPOLIN!)
+        // -----------------------------------------------------------------------
+        const btnCenterX = LEFT_COL_X + 984 - 17 - 29; // 986
+        const btnCenterY = 1272 + 46;                  // 1318
+
+        // Gelombang Ripple Halus saat Klik (15.25s - 16.10s)
+        if (time >= 15.25 && time <= 16.15) {
+          const rProg = clamp((time - 15.25) / 0.85, 0, 1);
+          const rAlpha = Math.pow(1 - rProg, 1.6);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(btnCenterX, btnCenterY, 22 + easeOutCubic(rProg) * 115, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(235, 179, 67, ${(rAlpha * 0.75).toFixed(3)})`;
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(btnCenterX, btnCenterY, 14 + easeOutCubic(rProg) * 60, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(235, 179, 67, ${(rAlpha * 0.14).toFixed(3)})`;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Kapsul Kecil "prompt.txt" Meluncur Halus dari Tombol ke Tengah Atas (15.25s - 15.75s)
+        if (time >= 15.25 && time <= 15.80) {
+          const flyRaw = clamp((time - 15.25) / 0.46, 0, 1);
+          const flyEase = softBounceOut(flyRaw, 1.10);
+          const fadeOutSplit = 1 - smoothstep(15.62, 15.80, time);
+
+          const fx = lerp(btnCenterX - 18, W / 2, easeOutCubic(flyRaw));
+          const fy = lerp(btnCenterY - 24, 895, flyEase);
+          const fScale = lerp(0.82, 1.0, easeOutCubic(flyRaw));
+
+          const pillW = 156;
+          const pillH = 36;
+
+          ctx.save();
+          ctx.globalAlpha = fadeOutSplit;
+          ctx.translate(fx, fy);
+          ctx.scale(fScale, fScale);
+
+          roundRect(ctx, -pillW / 2, -pillH / 2, pillW, pillH, 8);
+          ctx.fillStyle = "#1c1914";
+          ctx.fill();
+          ctx.lineWidth = 1.6;
+          ctx.strokeStyle = "#ebb343";
+          ctx.stroke();
+
+          ctx.font = "600 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#ffe58f";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("↗ prompt.txt", 0, 1);
+          ctx.restore();
+        }
+
+        // Kursor Panah Menghampiri Tombol & Mengklik dengan Pantulan Lembut
+        if (time >= 14.55 && time <= 16.25) {
+          const curAlpha = smoothstep(14.55, 14.75, time) * (1 - smoothstep(15.90, 16.25, time));
+          let cx = btnCenterX + 6;
+          let cy = btnCenterY + 8;
+          let cScale = 1.0;
+
+          if (time < 15.22) {
+            const m = softBounceOut(clamp((time - 14.55) / 0.67, 0, 1), 0.95);
+            cx = lerp(740, btnCenterX + 6, m);
+            cy = lerp(1530, btnCenterY + 8, m);
+          } else {
+            const dt = time - 15.22;
+            if (dt < 0.08) {
+              cScale = lerp(1.0, 0.90, easeOutCubic(dt / 0.08));
+              cx = btnCenterX + 5;
+              cy = btnCenterY + 10;
+            } else {
+              const bt = clamp((dt - 0.08) / 0.55, 0, 1);
+              cScale = lerp(0.90, 1.0, softBounceOut(bt, 1.30));
+              const moveBack = easeInOutCubic(clamp((dt - 0.12) / 0.60, 0, 1));
+              cx = lerp(btnCenterX + 6, btnCenterX + 38, moveBack);
+              cy = lerp(btnCenterY + 8, btnCenterY + 108, moveBack);
+            }
+          }
+
+          if (time >= 15.25 && time <= 16.05) {
+            const haloAlpha = clamp(1 - (time - 15.25) / 0.80, 0, 1);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx + 8, cy + 14, 48, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(235, 179, 67, ${(haloAlpha * 0.14).toFixed(3)})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(235, 179, 67, ${(haloAlpha * 0.45).toFixed(3)})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          drawCursorArrow(cx, cy, cScale, curAlpha);
+        }
+
+        // -----------------------------------------------------------------------
+        // 8. DUA KOTAK AI ("Gemini Code" & "Claude Code") MUNCUL DENGAN PANTULAN
+        //    SMOOTH & TENANG (15.65s) + "1× KIRIM · 0 REVISI" 1,5 DETIK KEMUDIAN (17.15s)
+        // -----------------------------------------------------------------------
+        if (time >= 15.65) {
+          const drawSmoothAICard = (targetX, targetY, w, h, title, sub, borderHex, titleHex, startT) => {
+            if (time < startT) return;
+            const raw = clamp((time - startT) / 0.58, 0, 1);
+            // Soft Single-Overshoot (Hanya 1x pantulan halus ~3.5%, tanpa goyang/gepeng)
+            const ease = softBounceOut(raw, 1.15);
+            const alpha = smoothstep(0, 0.35, raw);
+
+            const curX = lerp(W / 2 - w / 2, targetX, ease);
+            const curY = lerp(targetY + 42, targetY, ease);
+            const cardScale = lerp(0.92, 1.0, ease);
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(curX + w / 2, curY + h / 2);
+            ctx.scale(cardScale, cardScale);
+
+            ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+            ctx.shadowBlur = 24;
+            ctx.shadowOffsetY = 8;
+            roundRect(ctx, -w / 2, -h / 2, w, h, 10);
+            ctx.fillStyle = "#141418";
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+
+            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = borderHex;
+            ctx.stroke();
+
+            ctx.font = "800 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = titleHex;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(title, -w / 2 + 32, -h / 2 + 34);
+
+            ctx.font = "500 22px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#969590";
+            ctx.fillText(sub, -w / 2 + 32, -h / 2 + 86);
+
+            ctx.restore();
+          };
+
+          // Kotak Kiri: Gemini Code (1 prompt masuk)
+          drawSmoothAICard(
+            LEFT_COL_X,
+            820,
+            COL_W,
+            154,
+            "Gemini Code",
+            "1 prompt masuk",
+            "rgba(110, 168, 254, 0.48)",
+            "#6ea8fe",
+            15.65
+          );
+
+          // Kotak Kanan: Claude Code (1 prompt masuk)
+          drawSmoothAICard(
+            RIGHT_COL_X,
+            820,
+            COL_W,
+            154,
+            "Claude Code",
+            "1 prompt masuk",
+            "rgba(224, 122, 95, 0.48)",
+            "#e07a5f",
+            15.74
+          );
+        }
+
+        // Badge "1× KIRIM · 0 REVISI" muncul tepat 1,5 detik setelah kedua kartu AI (t = 17.15s)
+        if (time >= 17.15) {
+          const raw = clamp((time - 17.15) / 0.52, 0, 1);
+          const ease = softBounceOut(raw, 1.15);
+          const stampScale = lerp(0.90, 1.0, ease);
+          const stampAlpha = smoothstep(0, 0.30, raw);
+
+          const stW = 540;
+          const stH = 68;
+          const stCX = W / 2;
+          const stCY = lerp(1116, 1094, ease);
+
+          ctx.save();
+          ctx.globalAlpha = stampAlpha;
+          ctx.translate(stCX, stCY);
+          ctx.rotate(-3.2 * (Math.PI / 180));
+          ctx.scale(stampScale, stampScale);
+
+          ctx.shadowColor = "rgba(235, 179, 67, 0.25)";
+          ctx.shadowBlur = 24;
+          roundRect(ctx, -stW / 2, -stH / 2, stW, stH, 10);
+          ctx.fillStyle = "#161410";
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = "#ebb343";
+          ctx.stroke();
+
+          ctx.font = "800 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textBaseline = "middle";
+          fillTrackedText("1× KIRIM  ·  0 REVISI", 0, 1, 2.2, "center");
+
+          ctx.restore();
+        }
+
+        // -----------------------------------------------------------------------
+        // 9. FOOTER BAWAH
+        // -----------------------------------------------------------------------
+        const footY = 1834;
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#6e6d68";
+
+        const mm = String(Math.floor(time)).padStart(2, "0");
+        const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
+        fillTrackedText(`00:${mm}:${ff}`, LEFT_COL_X, footY, 1.2, "left");
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(LEFT_COL_X + 104, footY - 4, 7, 7);
+
+        ctx.fillStyle = "#6e6d68";
+        fillTrackedText("120 BPM", LEFT_COL_X + 124, footY, 1.2, "left");
+
+        fillTrackedText("1080×1920  ·  30FPS", RIGHT_COL_X + COL_W, footY, 1.2, "right");
+
+        ctx.restore();
+      }
+
+      // Ekspos API global untuk Playwright
+      window.drawFrame = drawFrame;
+      window.DURATION = DURATION;
+      window.TOTAL_FRAMES = TOTAL_FRAMES;
+
+      // Kontrol Preview Interaktif saat dibuka di Browser
+      let currentTime = Number(params.get("t") ?? 0);
+      let isPlaying = !isHeadless;
+      let animId = null;
+      let startStamp = performance.now();
+
+      const slider = document.getElementById("slider");
+      const timeLabel = document.getElementById("timeLabel");
+      const btnPlay = document.getElementById("btnPlay");
+
+      function updateView(sec) {
+        currentTime = clamp(sec, 0, DURATION);
+        drawFrame(currentTime);
+        if (slider) slider.value = Math.min(TOTAL_FRAMES - 1, Math.floor(currentTime * FPS));
+        if (timeLabel) timeLabel.textContent = `${currentTime.toFixed(2).padStart(5, "0")} / ${DURATION.toFixed(2)} s`;
+      }
+
+      if (!isHeadless) {
+        const jumpTo = (sec) => {
+          isPlaying = false;
+          updateView(sec);
+        };
+        document.getElementById("btnS1").onclick = () => jumpTo(4.00);
+        document.getElementById("btnS2").onclick = () => jumpTo(10.20);
+        document.getElementById("btnS3").onclick = () => jumpTo(14.00);
+        document.getElementById("btnS4").onclick = () => jumpTo(15.80);
+        document.getElementById("btnS5").onclick = () => jumpTo(17.50);
+
+        slider.oninput = () => {
+          isPlaying = false;
+          updateView(Number(slider.value) / FPS);
+        };
+
+        btnPlay.onclick = () => {
+          isPlaying = !isPlaying;
+          if (isPlaying) {
+            if (currentTime >= DURATION - 0.1) currentTime = 0;
+            startStamp = performance.now() - currentTime * 1000;
+            requestAnimationFrame(tick);
+          }
+        };
+
+        function tick(now) {
+          if (!isPlaying) return;
+          const elapsed = (now - startStamp) / 1000;
+          if (elapsed >= DURATION) {
+            updateView(DURATION - 0.03);
+            isPlaying = false;
+            return;
+          }
+          updateView(Math.floor(elapsed * FPS) / FPS);
+          animId = requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      } else {
+        updateView(0);
+      }
+    })();
+  </script>
+</body>
+</html>

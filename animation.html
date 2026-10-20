@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Pixel Art Rocket Launch - Enhanced Edition</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background-color: #0b0c10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #screen {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="screen" width="1080" height="1920"></canvas>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const W = 270;
+      const H = 480;
+      const SCALE = 4;
+
+      const screenCanvas = document.getElementById("screen");
+      const screenCtx = screenCanvas.getContext("2d", { alpha: false });
+      screenCtx.imageSmoothingEnabled = false;
+
+      const bufferCanvas = document.createElement("canvas");
+      bufferCanvas.width = W;
+      bufferCanvas.height = H;
+      const ctx = bufferCanvas.getContext("2d", { alpha: false });
+      ctx.imageSmoothingEnabled = false;
+
+      // Palet terbatas 16 warna konsisten
+      const PAL = {
+        VOID_BLACK:    "#0b0c10", // 0
+        DEEP_NAVY:     "#141b33", // 1
+        TWILIGHT_BLUE: "#24345c", // 2
+        DUSK_PURPLE:   "#3b2d54", // 3
+        CRIMSON_DUSK:  "#7a305c", // 4
+        MARS_RED:      "#c94a38", // 5
+        SUNSET_ORANGE: "#eb7b34", // 6
+        SOLAR_GOLD:    "#f7b545", // 7
+        STAR_YELLOW:   "#ffee83", // 8
+        PURE_WHITE:    "#f4f6f8", // 9
+        LIGHT_STEEL:   "#b8c4d4", // 10
+        MID_SLATE:     "#6f7f94", // 11
+        DARK_SLATE:    "#3c4657", // 12
+        CHARCOAL:      "#1f242d", // 13
+        ORBIT_TEAL:    "#2e8b6e", // 14
+        MISSION_GREEN: "#5ce6a0"  // 15
+      };
+
+      const BAYER4 = [
+        [ 0,  8,  2, 10],
+        [12,  4, 14,  6],
+        [ 3, 11,  1,  9],
+        [15,  7, 13,  5]
+      ];
+
+      // Font Pixel 5x7
+      const FONT_5X7 = {
+        "A": ["01110","10001","10001","11111","10001","10001","10001"],
+        "B": ["11110","10001","10001","11110","10001","10001","11110"],
+        "C": ["01110","10001","10000","10000","10000","10001","01110"],
+        "D": ["11110","10001","10001","10001","10001","10001","11110"],
+        "E": ["11111","10000","10000","11110","10000","10000","11111"],
+        "F": ["11111","10000","10000","11110","10000","10000","10000"],
+        "G": ["01110","10001","10000","10111","10001","10001","01110"],
+        "H": ["10001","10001","10001","11111","10001","10001","10001"],
+        "I": ["11111","00100","00100","00100","00100","00100","11111"],
+        "J": ["00111","00010","00010","00010","10010","10010","01100"],
+        "K": ["10001","10010","10100","11000","10100","10010","10001"],
+        "L": ["10000","10000","10000","10000","10000","10000","11111"],
+        "M": ["10001","11011","10101","10101","10001","10001","10001"],
+        "N": ["10001","11001","10101","10011","10001","10001","10001"],
+        "O": ["01110","10001","10001","10001","10001","10001","01110"],
+        "P": ["11110","10001","10001","11110","10000","10000","10000"],
+        "Q": ["01110","10001","10001","10001","10101","10010","01101"],
+        "R": ["11110","10001","10001","11110","10100","10010","10001"],
+        "S": ["01111","10000","10000","01110","00001","00001","11110"],
+        "T": ["11111","00100","00100","00100","00100","00100","00100"],
+        "U": ["10001","10001","10001","10001","10001","10001","01110"],
+        "V": ["10001","10001","10001","10001","10001","01010","00100"],
+        "W": ["10001","10001","10001","10101","10101","11011","10001"],
+        "X": ["10001","10001","01010","00100","01010","10001","10001"],
+        "Y": ["10001","10001","01010","00100","00100","00100","00100"],
+        "Z": ["11111","00001","00010","00100","01000","10000","11111"],
+        "0": ["01110","10001","10011","10101","11001","10001","01110"],
+        "1": ["00100","01100","00100","00100","00100","00100","01110"],
+        "2": ["01110","10001","00001","00110","01000","10000","11111"],
+        "3": ["11110","00001","00001","01110","00001","00001","11110"],
+        "4": ["00010","00110","01010","10010","11111","00010","00010"],
+        "5": ["11111","10000","10000","11110","00001","00001","11110"],
+        "6": ["01110","10000","10000","11110","10001","10001","01110"],
+        "7": ["11111","00001","00010","00100","01000","01000","01000"],
+        "8": ["01110","10001","10001","01110","10001","10001","01110"],
+        "9": ["01110","10001","10001","01111","00001","00001","01110"],
+        ":": ["00000","00100","00100","00000","00100","00100","00000"],
+        "-": ["00000","00000","00000","11111","00000","00000","00000"],
+        ".": ["00000","00000","00000","00000","00000","00110","00110"],
+        "!": ["00100","00100","00100","00100","00100","00000","00100"],
+        "_": ["00000","00000","00000","00000","00000","00000","11111"],
+        "[": ["01110","01000","01000","01000","01000","01000","01110"],
+        "]": ["01110","00010","00010","00010","00010","00010","01110"],
+        "/": ["00001","00010","00100","00100","01000","10000","00000"],
+        " ": ["00000","00000","00000","00000","00000","00000","00000"]
+      };
+
+      function hash(n) {
+        let x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+        return x - Math.floor(x);
+      }
+
+      function clamp(v, min, max) {
+        return v < min ? min : (v > max ? max : v);
+      }
+
+      function smoothstep(edge0, edge1, x) {
+        const t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+        return t * t * (3.0 - 2.0 * t);
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function rect(x, y, w, h, color) {
+        const rx = Math.floor(x);
+        const ry = Math.floor(y);
+        const rw = Math.floor(w);
+        const rh = Math.floor(h);
+        if (rw <= 0 || rh <= 0 || rx + rw <= 0 || ry + rh <= 0 || rx >= W || ry >= H) return;
+        ctx.fillStyle = color;
+        ctx.fillRect(rx, ry, rw, rh);
+      }
+
+      function circle(cx, cy, r, color) {
+        const icx = Math.floor(cx);
+        const icy = Math.floor(cy);
+        const ir = Math.floor(r);
+        if (ir <= 0) return;
+        ctx.fillStyle = color;
+        for (let dy = -ir; dy <= ir; dy++) {
+          const py = icy + dy;
+          if (py < 0 || py >= H) continue;
+          const dx = Math.floor(Math.sqrt(ir * ir - dy * dy));
+          const x1 = Math.max(0, icx - dx);
+          const x2 = Math.min(W - 1, icx + dx);
+          if (x2 >= x1) {
+            ctx.fillRect(x1, py, x2 - x1 + 1, 1);
+          }
+        }
+      }
+
+      function drawPixelLine(x0, y0, x1, y1, color) {
+        let ix0 = Math.floor(x0), iy0 = Math.floor(y0);
+        const ix1 = Math.floor(x1), iy1 = Math.floor(y1);
+        const dx = Math.abs(ix1 - ix0), sx = ix0 < ix1 ? 1 : -1;
+        const dy = -Math.abs(iy1 - iy0), sy = iy0 < iy1 ? 1 : -1;
+        let err = dx + dy;
+        ctx.fillStyle = color;
+        while (true) {
+          if (ix0 >= 0 && ix0 < W && iy0 >= 0 && iy0 < H) {
+            ctx.fillRect(ix0, iy0, 1, 1);
+          }
+          if (ix0 === ix1 && iy0 === iy1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; ix0 += sx; }
+          if (e2 <= dx) { err += dx; iy0 += sy; }
+        }
+      }
+
+      function drawPixelText(text, x, y, scale, color, shadowColor) {
+        const str = String(text).toUpperCase();
+        const s = Math.max(1, Math.floor(scale));
+        let curX = Math.floor(x);
+        const curY = Math.floor(y);
+
+        for (let i = 0; i < str.length; i++) {
+          const ch = str[i];
+          const glyph = FONT_5X7[ch] || FONT_5X7[" "];
+          for (let r = 0; r < 7; r++) {
+            const rowStr = glyph[r];
+            for (let c = 0; c < 5; c++) {
+              if (rowStr[c] === "1") {
+                if (shadowColor) {
+                  rect(curX + c * s + s, curY + r * s + s, s, s, shadowColor);
+                }
+                rect(curX + c * s, curY + r * s, s, s, color);
+              }
+            }
+          }
+          curX += 6 * s;
+        }
+      }
+
+      function measurePixelText(text, scale) {
+        const len = String(text).length;
+        if (len === 0) return 0;
+        return (len * 6 - 1) * Math.floor(scale);
+      }
+
+      function drawCenteredText(text, y, scale, color, shadowColor) {
+        const w = measurePixelText(text, scale);
+        const x = Math.floor((W - w) / 2);
+        drawPixelText(text, x, y, scale, color, shadowColor);
+      }
+
+      function drawDitheredSky(stops, yOffset) {
+        for (let py = 0; py < H; py++) {
+          const wy = py + yOffset;
+          let idx = 0;
+          while (idx < stops.length - 2 && wy > stops[idx + 1].y) {
+            idx++;
+          }
+          const s0 = stops[idx];
+          const s1 = stops[idx + 1];
+          const span = Math.max(1, s1.y - s0.y);
+          const ratio = clamp((wy - s0.y) / span, 0, 1);
+
+          if (ratio <= 0.05) {
+            rect(0, py, W, 1, s0.color);
+          } else if (ratio >= 0.95) {
+            rect(0, py, W, 1, s1.color);
+          } else {
+            const bayerRow = BAYER4[py & 3];
+            const thresh = Math.floor(ratio * 16);
+            rect(0, py, W, 1, s0.color);
+            ctx.fillStyle = s1.color;
+            for (let px = 0; px < W; px++) {
+              if (bayerRow[px & 3] < thresh) {
+                ctx.fillRect(px, py, 1, 1);
+              }
+            }
+          }
+        }
+      }
+
+      // Data Bintang & Nebula
+      const STARS = [];
+      for (let i = 0; i < 110; i++) {
+        STARS.push({
+          x: Math.floor(hash(i * 3 + 1) * W),
+          y: Math.floor(hash(i * 3 + 2) * H),
+          speed: 0.25 + hash(i * 3 + 3) * 0.85,
+          phase: hash(i * 7 + 5) * 12,
+          bright: i % 5 === 0,
+          med: i % 3 === 0
+        });
+      }
+
+      // Data Awan Berlapis
+      const CLOUDS = [
+        { x: 18,  y: 250, w: 68, h: 12, speed: 2.2, layer: 0 },
+        { x: 170, y: 278, w: 74, h: 14, speed: -1.8, layer: 0 },
+        { x: 92,  y: 210, w: 56, h: 10, speed: 1.5, layer: 0 },
+        { x: 12,  y: 120, w: 72, h: 12, speed: 2.8, layer: 1 },
+        { x: 162, y: 55,  w: 64, h: 11, speed: -2.4, layer: 1 },
+        { x: 48,  y: -50, w: 80, h: 12, speed: 2.0, layer: 2 },
+        { x: 155, y: -150, w: 66, h: 9, speed: -2.6, layer: 2 }
+      ];
+
+      function drawPixelCloud(cx, cy, cw, ch, colMain, colHighlight, colShadow) {
+        const x = Math.floor(cx);
+        const y = Math.floor(cy);
+        const w = Math.floor(cw);
+        const h = Math.floor(ch);
+        if (y > H + 20 || y + h < -20) return;
+        rect(x + 6, y, w - 12, h, colMain);
+        rect(x, y + 3, w, h - 4, colMain);
+        rect(x + 12, y - 4, Math.floor(w * 0.55), 5, colMain);
+        rect(x + 12, y - 4, Math.floor(w * 0.55), 2, colHighlight);
+        rect(x + 6, y, w - 12, 2, colHighlight);
+        rect(x + 2, y + h - 3, w - 4, 2, colShadow);
+      }
+
+      // Menggambar bintang & galaksi jauh
+      function drawStarfield(t, visibility, scrollOffset) {
+        if (visibility <= 0.02) return;
+
+        // Pita debu nebula tipis di angkasa dalam (hanya saat langit gelap)
+        if (visibility > 0.65) {
+          for (let py = 40; py < 340; py += 2) {
+            const bandX = Math.floor(40 + py * 0.45 + Math.sin(py * 0.05) * 18);
+            const bandW = 28 + Math.floor(Math.cos(py * 0.04) * 10);
+            for (let px = Math.max(0, bandX - bandW); px < Math.min(W, bandX + bandW); px += 2) {
+              if (BAYER4[py & 3][px & 3] < 3) {
+                rect(px, py, 1, 1, PAL.DEEP_NAVY);
+              }
+            }
+          }
+        }
+
+        const maxStars = Math.floor(STARS.length * clamp(visibility, 0, 1));
+        for (let i = 0; i < maxStars; i++) {
+          const st = STARS[i];
+          const sy = ((st.y + Math.floor(scrollOffset * st.speed)) % H + H) % H;
+          const sx = st.x;
+
+          const twinkle = Math.sin(t * 5.2 + st.phase);
+          if (st.bright && twinkle > 0.5) {
+            rect(sx, sy, 1, 1, PAL.PURE_WHITE);
+            rect(sx - 1, sy, 3, 1, PAL.STAR_YELLOW);
+            rect(sx, sy - 1, 1, 3, PAL.STAR_YELLOW);
+          } else if (st.med && twinkle > 0.0) {
+            rect(sx, sy, 1, 1, PAL.PURE_WHITE);
+          } else if (twinkle > -0.35) {
+            rect(sx, sy, 1, 1, PAL.LIGHT_STEEL);
+          } else {
+            rect(sx, sy, 1, 1, PAL.TWILIGHT_BLUE);
+          }
+        }
+      }
+
+      // =========================================================================
+      // KOMPLEKS LANDASAN PELUNCURAN (DENGAN RADAR, TANGKI, LAMPU SOROT)
+      // =========================================================================
+      function drawLaunchComplex(groundY, t, umbilicalRetract) {
+        const gy = Math.floor(groundY);
+        if (gy > H + 150) return;
+
+        // Matahari senja besar bergradasi dither di ufuk barat
+        const sunY = gy - 46;
+        circle(54, sunY, 32, PAL.SUNSET_ORANGE);
+        circle(54, sunY, 25, PAL.SOLAR_GOLD);
+        circle(54, sunY, 17, PAL.STAR_YELLOW);
+        // Pita siluet awan di depan matahari
+        rect(20, sunY + 5, 68, 2, PAL.SUNSET_ORANGE);
+        rect(24, sunY + 11, 60, 3, PAL.MARS_RED);
+        rect(30, sunY + 18, 48, 3, PAL.CRIMSON_DUSK);
+
+        // Pegunungan berlapis
+        for (let px = 0; px < W; px++) {
+          const mhFar = Math.floor(26 + Math.sin(px * 0.03) * 15 + Math.cos(px * 0.075 + 1.1) * 9);
+          rect(px, gy - mhFar, 1, mhFar, PAL.DUSK_PURPLE);
+
+          const mhMid = Math.floor(14 + Math.cos(px * 0.042 + 2.2) * 8 + Math.sin(px * 0.11) * 4);
+          rect(px, gy - mhMid, 1, mhMid, PAL.DARK_SLATE);
+        }
+
+        // Siluet gedung kendali & pangkalan di kejauhan (kanan)
+        rect(205, gy - 26, 38, 26, PAL.CHARCOAL);
+        rect(207, gy - 24, 34, 2, PAL.ORBIT_TEAL);
+        // Jendela gedung menyala
+        for (let wx = 210; wx < 238; wx += 6) {
+          for (let wy = gy - 19; wy < gy - 6; wy += 5) {
+            rect(wx, wy, 3, 2, PAL.STAR_YELLOW);
+          }
+        }
+        // Piringan Radar Berputar di atas gedung kendali
+        const radarX = 224;
+        const radarY = gy - 32;
+        rect(radarX - 1, radarY, 3, 6, PAL.MID_SLATE);
+        const dishW = Math.max(2, Math.floor(Math.abs(Math.cos(t * 3.5)) * 12));
+        rect(radarX - Math.floor(dishW / 2), radarY - 4, dishW, 4, PAL.LIGHT_STEEL);
+        rect(radarX, radarY - 7, 1, 3, (Math.floor(t * 6) % 2 === 0) ? PAL.MISSION_GREEN : PAL.ORBIT_TEAL);
+
+        // Tangki Bahan Bakar Kriogenik Bulat di sisi kiri
+        circle(32, gy - 16, 14, PAL.MID_SLATE);
+        circle(29, gy - 18, 10, PAL.LIGHT_STEEL);
+        circle(28, gy - 19, 6, PAL.PURE_WHITE);
+        rect(20, gy - 6, 24, 6, PAL.DARK_SLATE);
+        // Pipa saluran bahan bakar menuju landasan
+        rect(44, gy - 8, 45, 3, PAL.MID_SLATE);
+        rect(44, gy - 8, 45, 1, PAL.LIGHT_STEEL);
+
+        // Tanah utama kompleks
+        rect(0, gy, W, H - gy + 150, PAL.CHARCOAL);
+        rect(0, gy, W, 3, PAL.DARK_SLATE);
+        // Garis hazard kuning-hitam di tepi landasan
+        for (let hx = 60; hx < 205; hx += 8) {
+          rect(hx, gy + 1, 4, 2, PAL.SOLAR_GOLD);
+        }
+
+        // Bunker & Parit Api (Flame Trench)
+        rect(68, gy - 14, 134, 14, PAL.DARK_SLATE);
+        rect(78, gy - 18, 114, 4, PAL.MID_SLATE);
+        rect(108, gy - 12, 54, 12, PAL.VOID_BLACK);
+
+        // Dudukan Pad Peluncuran
+        rect(96, gy - 22, 78, 6, PAL.MID_SLATE);
+        rect(100, gy - 22, 70, 2, PAL.LIGHT_STEEL);
+
+        // Menara Penangkal Petir di sisi kanan pad
+        rect(184, gy - 92, 2, 78, PAL.DARK_SLATE);
+        rect(185, gy - 102, 1, 10, PAL.LIGHT_STEEL);
+        if (Math.floor(t * 5) % 2 === 0) {
+          rect(184, gy - 104, 3, 2, PAL.MARS_RED);
+        }
+
+        // Menara Umbilical Utama (Kiri)
+        const tx = 72;
+        const towerTop = gy - 122;
+        rect(tx, towerTop, 4, 108, PAL.MID_SLATE);
+        rect(tx + 18, towerTop, 4, 108, PAL.MID_SLATE);
+        rect(tx + 1, towerTop, 2, 108, PAL.LIGHT_STEEL);
+
+        for (let ty = towerTop + 4; ty < gy - 20; ty += 12) {
+          rect(tx, ty, 22, 2, PAL.DARK_SLATE);
+          drawPixelLine(tx + 3, ty + 2, tx + 18, ty + 11, PAL.DARK_SLATE);
+          drawPixelLine(tx + 18, ty + 2, tx + 3, ty + 11, PAL.DARK_SLATE);
+        }
+
+        // 3 Lengan Penyangga Umbilical (Membuka saat t > 3.0)
+        const armRatio = 1.0 - clamp(umbilicalRetract, 0, 1);
+        const armLen = Math.floor(42 * armRatio);
+        if (armLen > 2) {
+          const armHeights = [gy - 94, gy - 72, gy - 48];
+          for (let a = 0; a < armHeights.length; a++) {
+            const ay = armHeights[a];
+            rect(tx + 22, ay, armLen, 3, PAL.MID_SLATE);
+            rect(tx + 22, ay, armLen, 1, PAL.LIGHT_STEEL);
+          }
+        }
+
+        // Percikan bunga api pelepasan klem saat lepas landas (3.1 < t < 3.8)
+        if (umbilicalRetract > 0.05 && umbilicalRetract < 0.85) {
+          for (let s = 0; s < 10; s++) {
+            const ang = hash(s * 11 + Math.floor(t * 30)) * Math.PI * 2;
+            const dist = 4 + hash(s * 7 + Math.floor(t * 30)) * 18;
+            const sx = 114 + Math.cos(ang) * dist;
+            const sy = gy - 70 + Math.sin(ang) * dist;
+            rect(sx, sy, 2, 2, (s % 2 === 0) ? PAL.STAR_YELLOW : PAL.SOLAR_GOLD);
+          }
+        }
+
+        // Lampu suar menara
+        rect(tx + 8, towerTop - 5, 6, 5, PAL.DARK_SLATE);
+        const blink = Math.floor(t * 4) % 2 === 0;
+        rect(tx + 9, towerTop - 8, 4, 3, blink ? PAL.STAR_YELLOW : PAL.MARS_RED);
+      }
+
+      // =========================================================================
+      // ROKET 2 TINGKAT (MENDUKUNG PEMISAHAN BOOSTER & RCS THRUSTER)
+      // =========================================================================
+      function drawTwoStageRocket(rx, ry, t, thrustLevel, separated, sepTime, rcsLeft, rcsRight) {
+        const x = Math.floor(rx);
+        const y = Math.floor(ry); // Posisi dasar stage aktif (atau dasar booster jika belum pisah)
+
+        // Jika sudah terpisah (Stage Separation pada t >= 6.0), gambar Booster Tahap 1 yang jatuh ke bawah
+        if (separated && sepTime > 0 && sepTime < 2.2) {
+          const dropY = y + 26 + Math.floor(sepTime * sepTime * 95);
+          const driftX = x - Math.floor(sepTime * 14);
+          if (dropY - 30 < H) {
+            // Badan Booster Tahap 1 yang jatuh
+            rect(driftX - 11, dropY - 26, 22, 22, PAL.LIGHT_STEEL);
+            rect(driftX + 4, dropY - 26, 7, 22, PAL.MID_SLATE);
+            rect(driftX - 11, dropY - 26, 22, 4, PAL.CHARCOAL);
+            // Sirip Booster
+            for (let i = 0; i < 14; i++) {
+              const fw = Math.floor((14 - i) * 0.65) + 2;
+              rect(driftX - 11 - fw, dropY - 6 - i, fw, 1, PAL.MARS_RED);
+              rect(driftX + 11, dropY - 6 - i, fw, 1, PAL.MARS_RED);
+            }
+            rect(driftX - 6, dropY - 4, 12, 4, PAL.DARK_SLATE);
+
+            // Kepulan asap dingin pelepasan stage
+            if (sepTime < 0.7) {
+              const ringW = Math.floor(14 + sepTime * 55);
+              rect(x - Math.floor(ringW / 2), y - 22, ringW, 3, PAL.PURE_WHITE);
+              circle(x - Math.floor(ringW * 0.4), y - 21, 4, PAL.STAR_YELLOW);
+              circle(x + Math.floor(ringW * 0.4), y - 21, 4, PAL.STAR_YELLOW);
+            }
+          }
+        }
+
+        // Posisi dasar kapsul atas (Stage 2)
+        const stage2BaseY = separated ? (y - 22) : (y - 24);
+
+        // --- A. SEMBURAN API MESIN ---
+        if (thrustLevel > 0) {
+          const flicker = Math.floor(hash(Math.floor(t * 60)) * 8);
+          if (!separated) {
+            // Api Booster Tahap 1 (Atmosfer: Besar, Merah-Oranye-Emas)
+            const flameLen = Math.floor((22 + flicker) * thrustLevel);
+            const flameW = Math.max(4, Math.floor(15 * thrustLevel));
+            rect(x - Math.floor(flameW / 2), y, flameW, Math.floor(flameLen * 0.78), PAL.MARS_RED);
+            rect(x - Math.floor(flameW / 2) + 2, y + 2, flameW - 4, Math.floor(flameLen * 0.92), PAL.SUNSET_ORANGE);
+            rect(x - Math.floor(flameW * 0.35), y, Math.floor(flameW * 0.7), Math.floor(flameLen * 0.65), PAL.SOLAR_GOLD);
+            rect(x - 3, y, 6, Math.floor(flameLen * 0.42), PAL.STAR_YELLOW);
+            rect(x - 2, y, 4, Math.floor(flameLen * 0.22), PAL.PURE_WHITE);
+          } else {
+            // Api Mesin Vakum Tahap 2 (Angkasa: Runcing & Bersih, Kuning-Putih-Hijau Toska)
+            const vacLen = Math.floor((16 + flicker * 0.6) * thrustLevel);
+            const vacW = Math.max(4, Math.floor(10 * thrustLevel));
+            rect(x - Math.floor(vacW / 2), stage2BaseY + 3, vacW, Math.floor(vacLen * 0.7), PAL.ORBIT_TEAL);
+            rect(x - Math.floor(vacW * 0.35), stage2BaseY + 3, Math.floor(vacW * 0.7), Math.floor(vacLen * 0.85), PAL.SOLAR_GOLD);
+            rect(x - 2, stage2BaseY + 3, 4, Math.floor(vacLen * 0.55), PAL.STAR_YELLOW);
+            rect(x - 1, stage2BaseY + 3, 2, Math.floor(vacLen * 0.35), PAL.PURE_WHITE);
+          }
+        }
+
+        // --- B. BOOSTER TAHAP 1 (Jika belum terpisah) ---
+        if (!separated) {
+          // Nozzle utama
+          rect(x - 6, y - 5, 12, 3, PAL.DARK_SLATE);
+          rect(x - 8, y - 2, 16, 2, PAL.MID_SLATE);
+
+          // Sirip aerodinamis kiri & kanan
+          for (let i = 0; i < 16; i++) {
+            const fw = Math.floor((16 - i) * 0.65) + 2;
+            rect(x - 11 - fw, y - 6 - i, fw, 1, PAL.MARS_RED);
+            rect(x + 11, y - 6 - i, fw, 1, PAL.MARS_RED);
+          }
+          rect(x - 13, y - 20, 2, 12, PAL.SUNSET_ORANGE);
+          rect(x - 2, y - 20, 4, 15, PAL.MARS_RED);
+
+          // Tabung Booster Bawah (y-25 s/d y-5)
+          rect(x - 11, y - 25, 22, 20, PAL.PURE_WHITE);
+          rect(x + 4, y - 25, 7, 20, PAL.LIGHT_STEEL);
+          rect(x + 8, y - 25, 3, 20, PAL.MID_SLATE);
+
+          // Cincin Interstage Checkerboard (y-29 s/d y-25)
+          rect(x - 11, y - 29, 22, 4, PAL.CHARCOAL);
+          for (let cx = -10; cx < 10; cx += 4) {
+            rect(x + cx, y - 29, 2, 2, PAL.PURE_WHITE);
+            rect(x + cx + 2, y - 27, 2, 2, PAL.PURE_WHITE);
+          }
+        } else {
+          // Nozzle Mesin Vakum Stage 2
+          rect(x - 5, stage2BaseY, 10, 3, PAL.DARK_SLATE);
+          rect(x - 6, stage2BaseY + 2, 12, 2, PAL.MID_SLATE);
+          // Sirip kecil pengarah orbit Stage 2
+          rect(x - 14, stage2BaseY - 8, 3, 7, PAL.MARS_RED);
+          rect(x + 11, stage2BaseY - 8, 3, 7, PAL.MARS_RED);
+        }
+
+        // --- C. KAPSUL UTAMA TAHAP 2 (y-52 s/d y-29) ---
+        const topBodyY = y - 52;
+        const bodyH = separated ? 30 : 23;
+        rect(x - 11, topBodyY, 22, bodyH, PAL.PURE_WHITE);
+        rect(x + 4, topBodyY, 7, bodyH, PAL.LIGHT_STEEL);
+        rect(x + 8, topBodyY, 3, bodyH, PAL.MID_SLATE);
+        rect(x - 11, topBodyY + 2, 22, 3, PAL.MARS_RED);
+
+        // Jendela Porthole Kosmonot
+        circle(x, y - 39, 6, PAL.DARK_SLATE);
+        circle(x, y - 39, 4, PAL.TWILIGHT_BLUE);
+        rect(x - 2, y - 41, 2, 2, PAL.MISSION_GREEN);
+        rect(x - 1, y - 42, 1, 1, PAL.PURE_WHITE);
+
+        // Kerucut Hidung (Nosecone: y-72 s/d y-52)
+        for (let i = 0; i < 20; i++) {
+          const halfW = Math.max(1, Math.floor(((20 - i) / 20) * 11));
+          const rowY = y - 53 - i;
+          rect(x - halfW, rowY, halfW * 2, 1, PAL.MARS_RED);
+          if (halfW > 3) {
+            rect(x - halfW + 1, rowY, 2, 1, PAL.SUNSET_ORANGE);
+            rect(x + halfW - 3, rowY, 3, 1, PAL.CRIMSON_DUSK);
+          }
+        }
+
+        // Antena Sensor Pucuk
+        rect(x - 1, y - 78, 2, 6, PAL.LIGHT_STEEL);
+        rect(x - 1, y - 79, 2, 2, (Math.floor(t * 6) % 2 === 0) ? PAL.STAR_YELLOW : PAL.MARS_RED);
+
+        // --- D. SEMBURAN GAS RCS (REACTION CONTROL SYSTEM) DI SAMPING ROKET ---
+        if (rcsLeft) {
+          rect(x - 18, y - 48, 6, 2, PAL.PURE_WHITE);
+          rect(x - 22, y - 49, 4, 4, PAL.LIGHT_STEEL);
+        }
+        if (rcsRight) {
+          rect(x + 12, y - 48, 6, 2, PAL.PURE_WHITE);
+          rect(x + 18, y - 49, 4, 4, PAL.LIGHT_STEEL);
+        }
+      }
+
+      // Menggambar efek kerucut menembus batas kecepatan suara (Max-Q Vapor Cone)
+      function drawMachCone(rx, ry, alpha) {
+        if (alpha <= 0.05) return;
+        const x = Math.floor(rx);
+        const y = Math.floor(ry - 56);
+        for (let i = 0; i < 18; i++) {
+          const spread = Math.floor(i * 1.45);
+          const py = y + i;
+          if ((i + Math.floor(alpha * 10)) % 2 === 0) {
+            rect(x - spread - 2, py, 3, 1, PAL.PURE_WHITE);
+            rect(x + spread, py, 3, 1, PAL.LIGHT_STEEL);
+          }
+        }
+      }
+
+      // Menggambar kepulan asap
+      function drawSmokePuffs(t, rocketX, nozzleY, intensity, isLiftoff) {
+        if (intensity <= 0.02) return;
+        const numParticles = isLiftoff ? 40 : 26;
+        for (let i = 0; i < numParticles; i++) {
+          const cycle = isLiftoff ? 1.05 : 1.7;
+          const localT = (t * (isLiftoff ? 2.3 : 1.3) + i * (cycle / numParticles)) % cycle;
+          const progress = localT / cycle;
+
+          const dir = (i % 2 === 0) ? 1 : -1;
+          const randSpread = 0.4 + hash(i * 19 + 7) * 0.9;
+
+          let px, py, radius;
+          if (!isLiftoff) {
+            px = rocketX + dir * (6 + progress * 52 * randSpread * intensity);
+            py = nozzleY + 2 - Math.sin(progress * Math.PI) * 9 - progress * 12 * intensity;
+            radius = Math.floor((3 + progress * 7) * intensity);
+          } else {
+            px = rocketX + dir * (3 + Math.pow(progress, 0.85) * 38 * randSpread);
+            py = nozzleY + 8 + progress * 115;
+            radius = Math.floor((4 + progress * 10) * intensity);
+          }
+
+          let col = PAL.PURE_WHITE;
+          if (progress > 0.72) col = PAL.DARK_SLATE;
+          else if (progress > 0.45) col = PAL.MID_SLATE;
+          else if (progress > 0.20) col = PAL.LIGHT_STEEL;
+          else if (isLiftoff && progress < 0.14) col = PAL.SOLAR_GOLD;
+
+          if (progress < 0.92 && radius > 0) {
+            circle(px, py, radius, col);
+          }
+        }
+      }
+
+      // Menggambar Planet Besar Bercincin + Bulan + Reticle Target
+      function drawOrbitPlanet(cx, cy, r, t, lockProgress) {
+        const icx = Math.floor(cx);
+        const icy = Math.floor(cy);
+        if (icy + r + 35 < 0 || icy - r - 35 > H) return;
+
+        // Cincin bagian belakang
+        for (let a = Math.PI; a < Math.PI * 2; a += 0.014) {
+          const rx = Math.floor(icx + Math.cos(a) * (r * 1.68) + Math.sin(a) * 10);
+          const ry = Math.floor(icy + Math.sin(a) * (r * 0.42) - Math.cos(a) * 18);
+          rect(rx, ry, 3, 2, PAL.MID_SLATE);
+          const rx2 = Math.floor(icx + Math.cos(a) * (r * 1.46) + Math.sin(a) * 8);
+          const ry2 = Math.floor(icy + Math.sin(a) * (r * 0.36) - Math.cos(a) * 15);
+          rect(rx2, ry2, 2, 2, PAL.SOLAR_GOLD);
+        }
+
+        // Bola Planet
+        for (let dy = -r; dy <= r; dy++) {
+          const py = icy + dy;
+          if (py < 0 || py >= H) continue;
+          const halfW = Math.floor(Math.sqrt(r * r - dy * dy));
+          for (let dx = -halfW; dx <= halfW; dx++) {
+            const px = icx + dx;
+            if (px < 0 || px >= W) continue;
+
+            const light = (-dx * 0.65 - dy * 0.45) / r;
+            const band = Math.sin((dy + Math.sin((dx + t * 2) * 0.08) * 4) * 0.22);
+
+            let col = PAL.TWILIGHT_BLUE;
+            if (light < -0.28) {
+              col = PAL.VOID_BLACK;
+            } else if (light < -0.05) {
+              col = (BAYER4[py & 3][px & 3] < 8) ? PAL.DEEP_NAVY : PAL.VOID_BLACK;
+            } else if (light < 0.15) {
+              col = PAL.DEEP_NAVY;
+            } else {
+              if (band > 0.35) col = PAL.ORBIT_TEAL;
+              else if (band > -0.15) col = PAL.TWILIGHT_BLUE;
+              else col = PAL.DUSK_PURPLE;
+
+              if (light > 0.55 && band > 0.1) {
+                col = PAL.MISSION_GREEN;
+              }
+            }
+
+            if (dx <= -halfW + 2 && light > 0) {
+              col = PAL.LIGHT_STEEL;
+            }
+
+            ctx.fillStyle = col;
+            ctx.fillRect(px, py, 1, 1);
+          }
+        }
+
+        // Cincin bagian depan
+        for (let a = 0; a < Math.PI; a += 0.011) {
+          const rx = Math.floor(icx + Math.cos(a) * (r * 1.68) + Math.sin(a) * 10);
+          const ry = Math.floor(icy + Math.sin(a) * (r * 0.42) - Math.cos(a) * 18);
+          rect(rx, ry, 3, 2, PAL.LIGHT_STEEL);
+
+          const rx2 = Math.floor(icx + Math.cos(a) * (r * 1.46) + Math.sin(a) * 8);
+          const ry2 = Math.floor(icy + Math.sin(a) * (r * 0.36) - Math.cos(a) * 15);
+          rect(rx2, ry2, 3, 2, PAL.SOLAR_GOLD);
+
+          const rx3 = Math.floor(icx + Math.cos(a) * (r * 1.28) + Math.sin(a) * 7);
+          const ry3 = Math.floor(icy + Math.sin(a) * (r * 0.30) - Math.cos(a) * 13);
+          rect(rx3, ry3, 2, 1, PAL.SUNSET_ORANGE);
+        }
+
+        // Bulan Kecil Berkawah
+        const mx = icx - r - 26;
+        const my = icy - r + 14 + Math.floor(Math.sin(t * 1.5) * 2);
+        circle(mx, my, 12, PAL.MID_SLATE);
+        circle(mx - 2, my - 2, 9, PAL.LIGHT_STEEL);
+        circle(mx + 3, my + 2, 3, PAL.DARK_SLATE);
+        circle(mx - 4, my + 4, 2, PAL.MID_SLATE);
+
+        // Siku Target Pengunci Orbit (Muncul saat t > 7.2)
+        if (lockProgress > 0.05) {
+          const boxR = Math.floor(r + 14 + (1.0 - lockProgress) * 20);
+          const col = (lockProgress >= 0.95 || Math.floor(t * 8) % 2 === 0) ? PAL.MISSION_GREEN : PAL.STAR_YELLOW;
+          const len = 10;
+          // Kiri-Atas
+          rect(icx - boxR, icy - boxR, len, 2, col);
+          rect(icx - boxR, icy - boxR, 2, len, col);
+          // Kanan-Atas
+          rect(icx + boxR - len, icy - boxR, len, 2, col);
+          rect(icx + boxR - 2, icy - boxR, 2, len, col);
+          // Kiri-Bawah
+          rect(icx - boxR, icy + boxR - 2, len, 2, col);
+          rect(icx - boxR, icy + boxR - len, 2, len, col);
+          // Kanan-Bawah
+          rect(icx + boxR - len, icy + boxR - 2, len, 2, col);
+          rect(icx + boxR - 2, icy + boxR - len, 2, len, col);
+
+          if (lockProgress >= 0.95) {
+            drawPixelText("TARGET:SATURN-IV", icx - 46, icy - boxR - 10, 1, PAL.MISSION_GREEN, PAL.VOID_BLACK);
+          }
+        }
+      }
+
+      // Menggambar Satelit Orbit yang melintas
+      function drawSatellite(sx, sy, t) {
+        const x = Math.floor(sx);
+        const y = Math.floor(sy);
+        if (y < -20 || y > H + 20) return;
+        // Panel surya kiri & kanan
+        rect(x - 18, y - 3, 12, 6, PAL.TWILIGHT_BLUE);
+        rect(x - 18, y - 3, 12, 1, PAL.LIGHT_STEEL);
+        rect(x + 6, y - 3, 12, 6, PAL.TWILIGHT_BLUE);
+        rect(x + 6, y - 3, 12, 1, PAL.LIGHT_STEEL);
+        // Badan satelit
+        rect(x - 5, y - 4, 10, 8, PAL.LIGHT_STEEL);
+        rect(x - 3, y - 2, 6, 4, PAL.SOLAR_GOLD);
+        // Antena satelit
+        rect(x, y - 9, 1, 5, PAL.PURE_WHITE);
+        if (Math.floor(t * 5) % 2 === 0) {
+          rect(x - 1, y - 10, 3, 2, PAL.MISSION_GREEN);
+        }
+      }
+
+      // Menggambar Lengkungan Horizon Bumi di Bawah Layar (Saat Memasuki Orbit)
+      function drawEarthLimbHorizon(baseY) {
+        const by = Math.floor(baseY);
+        if (by >= H + 40) return;
+        for (let px = 0; px < W; px++) {
+          const dx = (px - W / 2) / (W / 2);
+          const curve = Math.floor(dx * dx * 28);
+          const yTop = by + curve;
+          if (yTop < H) {
+            rect(px, yTop, 1, 2, PAL.MISSION_GREEN);
+            rect(px, yTop + 2, 1, 4, PAL.ORBIT_TEAL);
+            rect(px, yTop + 6, 1, 10, PAL.TWILIGHT_BLUE);
+            rect(px, yTop + 16, 1, H - yTop, PAL.DEEP_NAVY);
+          }
+        }
+      }
+
+      // HUD Atas dengan Bar Progress Misi
+      function drawTopHUD(sceneLabel, altKm, progressRatio, alertText, t) {
+        rect(8, 8, W - 16, 26, PAL.CHARCOAL);
+        rect(8, 8, W - 16, 2, PAL.ORBIT_TEAL);
+        rect(8, 32, W - 16, 2, PAL.DARK_SLATE);
+        rect(8, 8, 2, 26, PAL.ORBIT_TEAL);
+        rect(W - 10, 8, 2, 26, PAL.ORBIT_TEAL);
+
+        drawPixelText(sceneLabel, 14, 14, 1, PAL.MISSION_GREEN, null);
+        const altStr = "ALT:" + String(Math.floor(altKm)).padStart(3, "0") + "KM";
+        drawPixelText(altStr, W - 14 - measurePixelText(altStr, 1), 14, 1, PAL.STAR_YELLOW, null);
+
+        // Bar Progres Trajectory menuju Orbit
+        rect(14, 25, W - 28, 4, PAL.VOID_BLACK);
+        const fillW = Math.floor((W - 30) * clamp(progressRatio, 0, 1));
+        rect(15, 26, fillW, 2, PAL.ORBIT_TEAL);
+        rect(15 + Math.max(0, fillW - 3), 25, 3, 4, PAL.STAR_YELLOW);
+
+        // Banner Aba-Aba Peringatan di bawah HUD jika aktif
+        if (alertText) {
+          const blink = Math.floor(t * 8) % 2 === 0;
+          const bgCol = blink ? PAL.MARS_RED : PAL.CHARCOAL;
+          const txtCol = blink ? PAL.STAR_YELLOW : PAL.PURE_WHITE;
+          rect(35, 38, W - 70, 15, bgCol);
+          rect(35, 38, W - 70, 1, PAL.STAR_YELLOW);
+          rect(35, 52, W - 70, 1, PAL.STAR_YELLOW);
+          drawCenteredText(alertText, 42, 1, txtCol, null);
+        }
+      }
+
+      // =========================================================================
+      // FUNGSI UTAMA: drawFrame(t) — Sepenuhnya Kontinu Tanpa Jump-Cut!
+      // =========================================================================
+      function drawFrame(t) {
+        const time = clamp(Number(t) || 0, 0, 12.0);
+        ctx.fillStyle = PAL.VOID_BLACK;
+        ctx.fillRect(0, 0, W, H);
+
+        // -----------------------------------------------------------------------
+        // 1. HITUNG PERGERAKAN KAMERA & LANGIT KONTINU (0.0 s/d 12.0 dtk)
+        // -----------------------------------------------------------------------
+        let camScroll = 0;
+        if (time > 3.5) {
+          const ascentT = clamp((time - 3.5) / 4.5, 0.0, 1.0);
+          camScroll = smoothstep(0.0, 1.0, ascentT) * 1250;
+        }
+
+        const skyStops = [
+          { y: -1300, color: PAL.VOID_BLACK },
+          { y: -620,  color: PAL.VOID_BLACK },
+          { y: -380,  color: PAL.DEEP_NAVY },
+          { y: -150,  color: PAL.TWILIGHT_BLUE },
+          { y:   50,  color: PAL.DUSK_PURPLE },
+          { y:  180,  color: PAL.CRIMSON_DUSK },
+          { y:  280,  color: PAL.MARS_RED },
+          { y:  360,  color: PAL.SUNSET_ORANGE },
+          { y:  435,  color: PAL.SOLAR_GOLD },
+          { y:  480,  color: PAL.STAR_YELLOW }
+        ];
+        drawDitheredSky(skyStops, -camScroll);
+
+        // Visibilitas Bintang (Tampak tipis saat senja, lalu penuh saat langit gelap)
+        const starVis = clamp(0.18 + (camScroll / 650) * 0.82, 0.18, 1.0);
+        const starScroll = camScroll * 0.35 + (time > 8.0 ? (time - 8.0) * 14 : 0);
+        drawStarfield(time, starVis, starScroll);
+
+        // Bintang jatuh (meteor) melintas di angkasa
+        if (time > 8.6 && time < 9.5) {
+          const sp = (time - 8.6) / 0.9;
+          const sx = Math.floor(240 - sp * 190);
+          const sy = Math.floor(52 + sp * 70);
+          for (let k = 0; k < 10; k++) {
+            rect(sx + k * 2, sy - k, 2, 1, k < 3 ? PAL.PURE_WHITE : PAL.STAR_YELLOW);
+          }
+        }
+
+        // -----------------------------------------------------------------------
+        // 2. PLANET BESAR & BULAN (MULAI TURUN DARI ATAS SEJAK DETIK 6.2!)
+        //    Memberikan aba-aba visual bahwa roket sedang mendekati tujuan orbit
+        // -----------------------------------------------------------------------
+        if (time >= 6.0) {
+          const approach = smoothstep(6.0, 8.3, time);
+          const planetY = lerp(-95, 168, approach);
+          const lockProg = smoothstep(7.4, 8.4, time);
+          drawOrbitPlanet(178, planetY, 58, time, lockProg);
+        }
+
+        // Satelit orbit rendah melintas sebagai penanda memasuki luar angkasa
+        if (time >= 5.2 && time <= 12.0) {
+          const satApproach = smoothstep(5.2, 8.5, time);
+          const satX = Math.floor(42 + Math.sin(time * 0.8) * 12);
+          const satY = Math.floor(lerp(-30, 92, satApproach) + Math.cos(time * 1.5) * 4);
+          drawSatellite(satX, satY, time);
+        }
+
+        // Lengkungan Atmosfer Bumi di bagian bawah layar saat mencapai orbit (t >= 6.5)
+        if (time >= 6.5) {
+          const limbSlide = smoothstep(6.5, 8.5, time);
+          const limbY = lerp(H + 30, 435, limbSlide);
+          drawEarthLimbHorizon(limbY);
+        }
+
+        // -----------------------------------------------------------------------
+        // 3. AWAN & KOMPLEKS LANDASAN PELUNCURAN
+        // -----------------------------------------------------------------------
+        for (let i = 0; i < CLOUDS.length; i++) {
+          const c = CLOUDS[i];
+          const cy = c.y + camScroll * 0.78;
+          if (cy > -30 && cy < H + 30) {
+            const cx = ((c.x + time * c.speed) % (W + 90)) - 45;
+            const isHigh = c.layer >= 1;
+            drawPixelCloud(
+              cx,
+              cy,
+              c.w,
+              c.h,
+              isHigh ? PAL.TWILIGHT_BLUE : PAL.CRIMSON_DUSK,
+              isHigh ? PAL.LIGHT_STEEL : PAL.SUNSET_ORANGE,
+              isHigh ? PAL.DEEP_NAVY : PAL.DUSK_PURPLE
+            );
+          }
+        }
+
+        const groundY = 395 + camScroll;
+        const umbilicalRetract = smoothstep(3.0, 3.7, time);
+        drawLaunchComplex(groundY, time, umbilicalRetract);
+
+        // -----------------------------------------------------------------------
+        // 4. KOREOGRAFI ROKET KONTINU (TANPA LOMPATAN POSISI!)
+        // -----------------------------------------------------------------------
+        // Posisi X roket: di tengah (135) saat lepas landas, lalu bermanuver mulus ke kiri (76)
+        // pada detik 6.0 - 8.2 saat planet muncul di kanan atas.
+        const orbitShift = smoothstep(6.0, 8.2, time);
+        const baseRocketX = lerp(135, 76, orbitShift);
+
+        // Posisi Y roket: di landasan (373) sampai t=3.4, lalu naik ke tengah layar (285),
+        // dan mengapung lembut di orbit (298).
+        const liftProgress = smoothstep(3.4, 5.0, time);
+        const orbitYAdjust = smoothstep(6.2, 8.2, time) * 14;
+        const hoverWave = time > 7.5 ? Math.sin((time - 7.5) * 2.4) * 4 : 0;
+        const baseRocketY = lerp(373, 285, liftProgress) + orbitYAdjust + hoverWave;
+
+        // Getaran mesin (kuat saat lepas landas, mereda di ruang hampa)
+        let shakeAmp = 0;
+        if (time > 3.2 && time < 7.2) {
+          shakeAmp = (1.0 - smoothstep(4.5, 7.2, time)) * 1.8;
+        }
+        const shakeX = Math.floor(Math.sin(time * 115) * shakeAmp);
+        const shakeY = Math.floor(Math.cos(time * 98) * shakeAmp);
+
+        const rocketX = Math.floor(baseRocketX + shakeX);
+        const rocketY = Math.floor(baseRocketY + shakeY);
+
+        // Garis kecepatan vertikal (speed lines) saat akselerasi atmosfer (4.2 - 6.8 dtk)
+        if (time > 4.2 && time < 6.8) {
+          const lineCount = time < 6.0 ? 9 : 4;
+          for (let s = 0; s < lineCount; s++) {
+            const lx = Math.floor(hash(s * 13 + 9) * (W - 24)) + 12;
+            if (Math.abs(lx - rocketX) > 30) {
+              const ly = Math.floor((time * 440 + s * 67) % (H + 60)) - 30;
+              rect(lx, ly, 1, 16, PAL.MID_SLATE);
+            }
+          }
+        }
+
+        // Kepulan asap: di landasan (0-4s), tebal saat naik (4-6s), lalu menipis habis di ruang hampa (6-6.8s)
+        if (time < 3.6) {
+          const preSmoke = 0.45 + (time / 3.6) * 0.65;
+          drawSmokePuffs(time, rocketX, rocketY, preSmoke, false);
+        } else if (time < 6.8) {
+          const vacFade = 1.0 - smoothstep(5.6, 6.6, time);
+          drawSmokePuffs(time, rocketX, rocketY, vacFade, true);
+        }
+
+        // Status Stage Separation (terjadi tepat pada t = 6.0 dtk!)
+        const isSeparated = time >= 6.0;
+        const sepElapsed = isSeparated ? (time - 6.0) : 0;
+
+        // Kekuatan semburan api
+        let thrust = 0;
+        if (time > 3.1 && time < 6.0) {
+          thrust = smoothstep(3.1, 3.6, time) * 1.15;
+        } else if (time >= 6.0) {
+          // Semburan mesin vakum tahap 2: kuat saat t=6.1..7.8, lalu mengecil saat orbit stabil
+          thrust = lerp(1.05, 0.45, smoothstep(7.5, 8.4, time));
+        }
+
+        // Semburan RCS samping untuk manuver mengarahkan roket ke jalur orbit (t = 6.1 - 8.1)
+        const rcsRightActive = (time > 6.1 && time < 6.9) && (Math.floor(time * 12) % 2 === 0);
+        const rcsLeftActive  = (time > 7.4 && time < 8.1) && (Math.floor(time * 12) % 2 === 0);
+
+        drawTwoStageRocket(rocketX, rocketY, time, thrust, isSeparated, sepElapsed, rcsLeftActive, rcsRightActive);
+
+        // Efek Mach Cone (Gelombang Kejut Max-Q) pada detik 4.7 - 5.5
+        if (time > 4.7 && time < 5.5) {
+          const machAlpha = Math.sin(((time - 4.7) / 0.8) * Math.PI);
+          drawMachCone(rocketX, rocketY, machAlpha);
+        }
+
+        // -----------------------------------------------------------------------
+        // 5. OVERLAY TEKS & HUD TIAP FASE
+        // -----------------------------------------------------------------------
+        const altKm = Math.floor(smoothstep(3.5, 8.2, time) * 420);
+        const missionProg = clamp(time / 8.2, 0, 1);
+
+        let hudTitle = "PRE-LAUNCH";
+        let alertBanner = null;
+
+        if (time < 3.4) {
+          hudTitle = "T-MINUS SEQ";
+        } else if (time < 4.7) {
+          hudTitle = "LIFTOFF!";
+        } else if (time < 5.5) {
+          hudTitle = "MAX-Q PASS";
+          alertBanner = "SUPERSONIC MAX-Q";
+        } else if (time < 6.0) {
+          hudTitle = "MECO PREP";
+          alertBanner = "STAGE 1 SEP INBOUND";
+        } else if (time < 6.9) {
+          hudTitle = "STAGE 2 IGN";
+          alertBanner = "STAGE SEPARATION!";
+        } else if (time < 8.0) {
+          hudTitle = "ORBIT APPR";
+          alertBanner = "ORBITAL INSERTION";
+        } else {
+          hudTitle = "ORBIT LOCKED";
+        }
+
+        drawTopHUD(hudTitle, altKm, missionProg, alertBanner, time);
+
+        // Panel Hitung Mundur 3 - 2 - 1 (Adegan 1: 0.0 s/d 3.85 dtk)
+        if (time < 3.85) {
+          let countText = "3";
+          if (time >= 1.1 && time < 2.2) countText = "2";
+          else if (time >= 2.2 && time < 3.25) countText = "1";
+          else if (time >= 3.25) countText = "GO!";
+
+          // Animasi slide-up keluar layar saat GO!
+          const panelSlide = smoothstep(3.45, 3.85, time) * 130;
+          const py = Math.floor(66 - panelSlide);
+
+          rect(72, py, 126, 90, PAL.CHARCOAL);
+          rect(72, py, 126, 3, PAL.SOLAR_GOLD);
+          rect(72, py + 87, 126, 3, PAL.MARS_RED);
+          rect(72, py, 3, 90, PAL.SOLAR_GOLD);
+          rect(195, py, 3, 90, PAL.SOLAR_GOLD);
+
+          drawCenteredText("LAUNCH SEQUENCE", py + 10, 1, PAL.LIGHT_STEEL, PAL.VOID_BLACK);
+          const digitScale = countText === "GO!" ? 5 : 7;
+          const digitColor = countText === "GO!" ? PAL.MISSION_GREEN : PAL.STAR_YELLOW;
+          drawCenteredText(countText, py + 28, digitScale, digitColor, PAL.MARS_RED);
+        }
+
+        // Panel Bawah "MISSION START" (Mulai slide-up masuk pada t = 7.75 dtk)
+        if (time >= 7.75) {
+          const slideIn = smoothstep(7.75, 8.2, time);
+          const boxY = Math.floor(lerp(H + 10, 358, slideIn));
+
+          // Kotak Dialog Utama
+          rect(14, boxY, W - 28, 86, PAL.CHARCOAL);
+          rect(14, boxY, W - 28, 3, PAL.MISSION_GREEN);
+          rect(14, boxY + 83, W - 28, 3, PAL.ORBIT_TEAL);
+          rect(14, boxY, 3, 86, PAL.MISSION_GREEN);
+          rect(W - 17, boxY, 3, 86, PAL.MISSION_GREEN);
+
+          // Header kecil di dalam kotak
+          rect(20, boxY + 6, W - 40, 11, PAL.DEEP_NAVY);
+          drawPixelText("SYS:TELEMETRY LINKED", 24, boxY + 8, 1, PAL.ORBIT_TEAL, null);
+
+          // Efek Ketik "MISSION START" (Mulai mengetik pada t = 8.30 dtk)
+          const fullText = "MISSION START";
+          const typeStart = 8.30;
+          const charRate = 6.8;
+          const typedCount = clamp(Math.floor((time - typeStart) * charRate), 0, fullText.length);
+          const visibleText = fullText.slice(0, typedCount);
+
+          const showCursor = (typedCount < fullText.length) || (Math.floor(time * 4) % 2 === 0);
+          const displayStr = visibleText + (showCursor && typedCount < fullText.length ? "_" : "");
+
+          const scale = 2;
+          const fullW = measurePixelText(fullText, scale);
+          const textX = Math.floor((W - fullW) / 2);
+          drawPixelText(displayStr, textX, boxY + 26, scale, PAL.MISSION_GREEN, PAL.VOID_BLACK);
+
+          // Grafik Gelombang Sinyal & Status Orbit di bagian bawah kotak
+          for (let wx = 24; wx < W - 24; wx += 3) {
+            const waveH = Math.floor(3 + Math.abs(Math.sin(time * 9 + wx * 0.15)) * 6);
+            rect(wx, boxY + 74 - waveH, 2, waveH, PAL.ORBIT_TEAL);
+          }
+
+          if (typedCount >= fullText.length) {
+            const blinkSub = Math.floor(time * 3.5) % 2 === 0;
+            drawCenteredText(
+              "ORBIT VEL: 28000 KMH",
+              boxY + 52,
+              1,
+              blinkSub ? PAL.STAR_YELLOW : PAL.LIGHT_STEEL,
+              PAL.VOID_BLACK
+            );
+          }
+        }
+
+        // Upscale 4x Nearest-Neighbor ke 1080x1920
+        screenCtx.imageSmoothingEnabled = false;
+        screenCtx.drawImage(bufferCanvas, 0, 0, W, H, 0, 0, W * SCALE, H * SCALE);
+      }
+
+      window.drawFrame = drawFrame;
+
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("headless")) {
+        let startTime = null;
+        function loop(now) {
+          if (!startTime) startTime = now;
+          const elapsed = ((now - startTime) / 1000) % 12.0;
+          const quantizedT = Math.floor(elapsed * 30) / 30;
+          drawFrame(quantizedT);
+          requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+      } else {
+        drawFrame(0);
+      }
+    })();
+  </script>
+</body>
+</html>

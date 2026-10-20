@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Joulfiand Studio — Final Showcase (70s Script Synced)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #09090b;
+      color: #f4f3ef;
+      font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #stage {
+      height: calc(100vh - 64px);
+      aspect-ratio: 9 / 16;
+      display: block;
+      background: #0f0f11;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
+    }
+    #controls {
+      height: 58px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px;
+      background: #141417;
+      border-top: 1px solid #242429;
+      width: 100%;
+      font-size: 11px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    button {
+      background: #1e1e24;
+      color: #e6e5e0;
+      border: 1px solid #32323a;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #2b2b33;
+      border-color: #4a4a55;
+    }
+    button.primary {
+      background: #ebb343;
+      color: #0e0e10;
+      border-color: #ebb343;
+      font-weight: 700;
+    }
+    button.primary:hover {
+      background: #ffd066;
+    }
+    input[type="range"] {
+      width: 150px;
+      cursor: pointer;
+      accent-color: #ebb343;
+    }
+    #timeLabel {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      color: #ebb343;
+      font-weight: 700;
+      min-width: 115px;
+      text-align: right;
+    }
+    body.headless {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+    body.headless #stage {
+      width: 1080px !important;
+      height: 1920px !important;
+      box-shadow: none;
+    }
+    body.headless #controls {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kanvas 2x Supersampled (2160x3840 -> 1080x1920) -->
+  <canvas id="stage" width="2160" height="3840"></canvas>
+
+  <div id="controls">
+    <button id="btnPlay" class="primary">Play / Pause</button>
+    <button id="b1">1. Nama (1.0s)</button>
+    <button id="b2">2. VS (5.8s)</button>
+    <button id="b3">3. Claude (11.0s)</button>
+    <button id="b4">4. Gemini (20.5s)</button>
+    <button id="b5">5. ERD (28.0s)</button>
+    <button id="b6">6. Showdown (33.5s)</button>
+    <button id="b7">7. Soal (38.5s)</button>
+    <button id="b8">8. Iris Scan (53.0s)</button>
+    <button id="b9">9. Bar Kirim (62.0s)</button>
+    <button id="b10">10. 1× Kirim (66.5s)</button>
+    <input id="slider" type="range" min="0" max="2099" value="0" />
+    <span id="timeLabel">00.00 / 70.00 s</span>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const params = new URLSearchParams(window.location.search);
+      const isHeadless = params.has("headless") || params.has("render");
+      if (isHeadless) {
+        document.body.classList.add("headless");
+      }
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const W = 1080;
+      const H = 1920;
+      const SSAA = 2;
+      const FPS = 30;
+      const DURATION = 70.00; // Sinkron 100% dengan Naskah Dialog
+      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 2100 frame
+
+      const LEFT_COL_X = 48;
+      const RIGHT_COL_X = 564;
+      const COL_W = 468;
+
+      const SHADOW_CODE_CLAUDE = [
+        "import { W, H, FPS, T } from './timeline.js';",
+        "const fb = new Uint8Array(W * H);",
+        "export function drawFrame(t) {",
+        "  const f = Math.round(t * FPS);",
+        "  const c = cam(f / FPS), sh = shake(t, f);",
+        "  for (let y = 0; y < H; y++) {",
+        "    const ay = GROUND - y + c;",
+        "    for (let x = 0; x < W; x++) {",
+        "      fb[y * W + x] = skyIndex(ay, x, ay);",
+        "    }",
+        "  }",
+        "  drawStars(fb, t, f, c);",
+        "  drawPlanet(fb, t, LIGHT_VEC);",
+        "  if (t >= T.liftoff) drawTrail(fb, t, c, sh);",
+        "  drawRocket(fb, rocketPose(t), flameLength(t, f), f, sh);",
+        "  drawCountdown(fb, t, f);",
+        "  drawMission(fb, t, f);",
+        "  return Uint32Array.from(fb, idx => RGBA32[idx]);",
+        "}",
+        "export function vnoise(x, y, seed = 0) {",
+        "  const xi = Math.floor(x), yi = Math.floor(y);",
+        "  const u = (x - xi) * (x - xi) * (3 - 2 * (x - xi));",
+        "  return lerp(lerp(h00, h10, u), lerp(h01, h11, u), v);",
+        "}"
+      ];
+
+      const SHADOW_CODE_GEMINI = [
+        "const PALETTE_16 = Object.freeze([",
+        "  '#0b0c10', '#141b33', '#24345c', '#3b2d54',",
+        "  '#7a305c', '#c94a38', '#eb7b34', '#f7b545',",
+        "  '#ffee83', '#f4f6f8', '#b8c4d4', '#6f7f94'",
+        "]);",
+        "function renderTwoStageRocket(ctx, rx, ry, t, sep) {",
+        "  const shake = Math.sin(t * 115) * (1 - smoothstep(4.5, 7.2, t));",
+        "  if (sep && t < 8.2) {",
+        "    const dropY = ry + 26 + Math.pow(t - 6.0, 2) * 95;",
+        "    drawBoosterStage1(ctx, rx - (t - 6.0) * 14, dropY);",
+        "  }",
+        "  drawVacuumPlume(ctx, rx + shake, ry - 22, t);",
+        "  drawCapsuleBody(ctx, rx + shake, ry - 52, PALETTE_16);",
+        "  if (t > 6.1 && t < 8.1) triggerRCSThrusters(ctx, rx, ry, t);",
+        "}",
+        "async function synthesizeChiptuneWAV(sampleRate = 44100) {",
+        "  const pcm16 = new Int16Array(sampleRate * 12);",
+        "  for (let i = 0; i < pcm16.length; i++) {",
+        "    pcm16[i] = mixLeadSquare(i) + mixTurbineSweep(i);",
+        "  }",
+        "  return encodeRIFFHeader(pcm16, sampleRate);",
+        "}"
+      ];
+
+      const PROMPT_LINES = [
+        "Buat video animasi pixel art vertikal berdurasi",
+        "12 detik, sepenuhnya dari kode.",
+        "",
+        "Tema: peluncuran roket kecil dari bumi ke orbit.",
+        "",
+        "Struktur 3 adegan:",
+        "1. (0-4 dtk) Landasan peluncuran saat senja.",
+        "Hitung mundur 3-2-1 sebagai teks pixel di layar.",
+        "Asap kecil keluar dari dasar roket.",
+        "2. (4-8 dtk) Roket lepas landas. Kamera mengikuti",
+        "ke atas, langit berubah dari oranye ke biru tua",
+        "lalu hitam. Bintang mulai muncul.",
+        "3. (8-12 dtk) Roket mencapai orbit. Planet besar",
+        "di latar, bintang berkelip, teks pixel \"MISSION",
+        "START\" muncul dengan efek ketik.",
+        "",
+        "Ketentuan teknis:",
+        "- Murni HTML Canvas 2D, tanpa library, gambar,",
+        "  atau aset eksternal.",
+        "- Resolusi internal 270x480, ditampilkan 1080x1920",
+        "  dengan nearest-neighbor (piksel tajam, tidak blur).",
+        "- 30 fps, 360 frame. Semua animasi digerakkan oleh",
+        "  waktu (fungsi drawFrame(t)) supaya hasil render",
+        "  konsisten setiap dijalankan.",
+        "- Render frame demi frame dengan Playwright headless",
+        "  Chromium, lalu gabungkan jadi MP4 dengan ffmpeg.",
+        "- Palet warna terbatas (maksimal 16 warna) dan",
+        "  konsisten antar adegan.",
+        "- Tambahkan musik latar sederhana dan efek suara",
+        "  peluncuran yang dibuat dari kode, lalu gabungkan",
+        "  ke video.",
+        "",
+        "Keluaran akhir: file source code siap render dan",
+        "petunjuk cara menjalankannya.",
+        "Jalankan sendiri, periksa hasilnya, dan perbaiki",
+        "jika ada error sebelum menyerahkan."
+      ];
+
+      // Perhitungan timestamp pengetikan santai (38.60s - 49.50s)
+      const LINE_CHAR_OFFSETS = [];
+      const CHAR_REL_WEIGHTS = [];
+      let totalPromptChars = 0;
+
+      function pseudoRand(n) {
+        const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+        return x - Math.floor(x);
+      }
+
+      for (let i = 0; i < PROMPT_LINES.length; i++) {
+        LINE_CHAR_OFFSETS.push(totalPromptChars);
+        const line = PROMPT_LINES[i];
+        for (let c = 0; c < line.length; c++) {
+          const ch = line[c];
+          let w = 0.90 + pseudoRand(totalPromptChars + c * 7) * 0.45;
+          if (ch === " ") w += 0.85;
+          else if (ch === "," || ch === "-" || ch === "(" || ch === ")") w += 2.2;
+          else if (ch === ":" || ch === ".") w += 3.8;
+          if (i >= 16) w *= 0.78;
+          CHAR_REL_WEIGHTS.push(w);
+          totalPromptChars++;
+        }
+        const lineBreakWeight = line.length === 0 ? 5.2 : (line.endsWith(":") || line.endsWith(".") ? 3.8 : 1.4);
+        CHAR_REL_WEIGHTS.push(lineBreakWeight);
+        totalPromptChars++;
+      }
+
+      const PAGE1_TYPING_START = 38.60;
+      const PAGE1_TYPING_END   = 49.50;
+      const CHAR_TIMESTAMPS = new Float32Array(totalPromptChars);
+      let sumWeights = 0;
+      for (let i = 0; i < totalPromptChars; i++) sumWeights += CHAR_REL_WEIGHTS[i];
+      let accWeight = 0;
+      for (let i = 0; i < totalPromptChars; i++) {
+        accWeight += CHAR_REL_WEIGHTS[i];
+        CHAR_TIMESTAMPS[i] = PAGE1_TYPING_START + (accWeight / sumWeights) * (PAGE1_TYPING_END - PAGE1_TYPING_START);
+      }
+
+      function getExactTypedChars(time) {
+        if (time <= PAGE1_TYPING_START) return 0;
+        if (time >= PAGE1_TYPING_END) return totalPromptChars;
+        let lo = 0, hi = totalPromptChars - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (CHAR_TIMESTAMPS[mid] < time) lo = mid + 1;
+          else hi = mid;
+        }
+        const tPrev = lo > 0 ? CHAR_TIMESTAMPS[lo - 1] : PAGE1_TYPING_START;
+        const tCurr = CHAR_TIMESTAMPS[lo];
+        const frac = Math.max(0, Math.min(1, (time - tPrev) / Math.max(0.0001, tCurr - tPrev)));
+        return lo + frac;
+      }
+
+      // 5 POIN PENTING IRIS SCANNER SESUAI NASKAH BINTANG USER
+      const SCAN_TARGETS = [
+        { line: 0,  phrase: "animasi pixel art", tag: "VISUAL",   tLock: 52.80 },
+        { line: 1,  phrase: "12 detik",          tag: "DURASI",   tLock: 54.40 },
+        { line: 3,  phrase: "bumi ke orbit",     tag: "TEMA",     tLock: 56.00 },
+        { line: 17, phrase: "HTML Canvas 2D",    tag: "ENGINE",   tLock: 57.60 },
+        { line: 19, phrase: "270x480",           tag: "RESOLUSI", tLock: 59.40 }
+      ];
+
+      // --- Matematika & Easing ---
+      const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * (3 - 2 * k);
+      };
+      const smootherstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * k * (k * (k * 6 - 15) + 10);
+      };
+      const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+      const easeInOutCubic = (x) => {
+        const k = clamp(x, 0, 1);
+        return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      };
+      function softBounceOut(x, overshoot = 1.15) {
+        const k = clamp(x, 0, 1);
+        const c1 = overshoot;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.lineTo(x + w - rad, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+        ctx.lineTo(x + w, y + h - rad);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        ctx.lineTo(x + rad, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+        ctx.lineTo(x, y + rad);
+        ctx.quadraticCurveTo(x, y, x + rad, y);
+        ctx.closePath();
+      }
+
+      function drawCrosshair(x, y, size, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - size, y - 0.5, size * 2 + 1, 1);
+        ctx.fillRect(x - 0.5, y - size, 1, size * 2 + 1);
+      }
+
+      function fillTrackedText(text, x, y, tracking, align = "left") {
+        const chars = String(text).split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += tracking * Math.max(0, chars.length - 1);
+
+        let curX = x;
+        if (align === "right") curX = x - totalW;
+        else if (align === "center") curX = x - totalW / 2;
+
+        ctx.textAlign = "left";
+        for (let i = 0; i < chars.length; i++) {
+          ctx.fillText(chars[i], curX, y);
+          curX += widths[i] + tracking;
+        }
+        return totalW;
+      }
+
+      function drawClaudeWheelLogo(cx, cy, radius, angleRad, color = "#e07a5f", alpha = 1.0) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(cx, cy);
+        ctx.rotate(angleRad);
+
+        const numSpokes = 12;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2.5, radius * 0.16);
+        ctx.lineCap = "round";
+
+        for (let i = 0; i < numSpokes; i++) {
+          const a = (i / numSpokes) * Math.PI * 2;
+          const innerR = radius * 0.22;
+          const outerR = (i % 2 === 0) ? radius : radius * 0.82;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+          ctx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.24, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawGeminiSparkleLogo(cx, cy, radius, angleRad, alpha = 1.0) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(cx, cy);
+        ctx.rotate(angleRad);
+
+        const grad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+        grad.addColorStop(0, "#6ea8fe");
+        grad.addColorStop(0.55, "#8b5cf6");
+        grad.addColorStop(1, "#38bdf8");
+
+        ctx.beginPath();
+        ctx.moveTo(0, -radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.quadraticCurveTo(0, 0, 0, radius);
+        ctx.quadraticCurveTo(0, 0, -radius, 0);
+        ctx.quadraticCurveTo(0, 0, 0, -radius);
+        ctx.closePath();
+
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "rgba(110, 168, 254, 0.55)";
+        ctx.shadowBlur = 22;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawCursorArrow(x, y, scale = 1.0, alpha = 1.0) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 5;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 35);
+        ctx.lineTo(8.8, 27.2);
+        ctx.lineTo(14.8, 40);
+        ctx.lineTo(20.5, 37.5);
+        ctx.lineTo(14.5, 24.5);
+        ctx.lineTo(25.5, 24.5);
+        ctx.closePath();
+
+        ctx.fillStyle = "#111215";
+        ctx.fill();
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = "#f4f3ef";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText, entranceProg) {
+        if (entranceProg <= 0.01) return;
+        ctx.save();
+        const ease = easeOutCubic(entranceProg);
+        ctx.globalAlpha = clamp(entranceProg * 1.6, 0, 1);
+        ctx.translate(0, (1 - ease) * -24);
+
+        roundRect(ctx, x, y, w, h, 10);
+        ctx.fillStyle = "#151518";
+        ctx.fill();
+
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = "#26262c";
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.fillRect(x + 12, y + 1, w - 24, 1);
+
+        const dotSize = 13;
+        const dotX = x + 22;
+        const dotY = y + (h - dotSize) / 2;
+        roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
+        ctx.fillStyle = accentHex;
+        ctx.fill();
+
+        ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accentHex;
+        ctx.textBaseline = "middle";
+        const brandX = dotX + dotSize + 13;
+        const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+
+        ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
+        ctx.restore();
+      }
+
+      function drawIrisScannerBox(x, y, w, h, tagText, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        ctx.shadowColor = "rgba(235, 179, 67, 0.28)";
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "rgba(235, 179, 67, 0.18)";
+        ctx.fillRect(x, y, w, h);
+        ctx.shadowColor = "transparent";
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(255, 246, 205, 0.32)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 10, y + h);
+        ctx.lineTo(x + 24, y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(x, y, w, h);
+
+        const nodeSize = 7;
+        const outerCorners = [
+          { cx: x - nodeSize, cy: y - nodeSize },
+          { cx: x + w,        cy: y - nodeSize },
+          { cx: x - nodeSize, cy: y + h },
+          { cx: x + w,        cy: y + h }
+        ];
+
+        for (let i = 0; i < outerCorners.length; i++) {
+          const oc = outerCorners[i];
+          ctx.fillStyle = "#141418";
+          ctx.fillRect(oc.cx, oc.cy, nodeSize, nodeSize);
+          ctx.strokeStyle = "#ffe07d";
+          ctx.lineWidth = 1.6;
+          ctx.strokeRect(oc.cx, oc.cy, nodeSize, nodeSize);
+        }
+
+        if (tagText) {
+          ctx.font = "800 13px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          const tagW = ctx.measureText(tagText).width + 16;
+          const tagH = 21;
+          const tagX = x;
+          const tagY = y - nodeSize - tagH - 3;
+
+          roundRect(ctx, tagX, tagY, tagW, tagH, 4);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.fillStyle = "#0e0e10";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(tagText, tagX + 8, tagY + tagH / 2 + 0.5);
+        }
+
+        ctx.restore();
+      }
+
+      function drawAICodeBoardSequence(opts) {
+        const {
+          brand, accentHex, accentDim, codeLines, initModel, targetModel,
+          revealProg, scrollProg, dropdownOpenProg, modelSelected,
+          sendClickProg, flyToCenterProg, cursorPos, revealMode
+        } = opts;
+
+        const baseX = 64;
+        const baseY = 540;
+        const fullW = W - 128;
+        const fullH = 680;
+
+        const flyEase = easeInOutCubic(flyToCenterProg);
+        const boxW = lerp(fullW * (revealMode === "wheel" ? revealProg : 1), 320, flyEase);
+        const boxH = lerp(fullH * (revealMode === "starburst" ? revealProg : 1), 110, flyEase);
+        const boxX = revealMode === "wheel"
+          ? lerp(baseX, (W - boxW) / 2, flyEase)
+          : (W - boxW) / 2;
+        const boxY = lerp(baseY, (H - boxH) / 2, flyEase);
+
+        const boardAlpha = clamp(revealProg * 2.5, 0, 1) * (1 - smoothstep(0.75, 1.0, flyToCenterProg));
+
+        if (boardAlpha > 0.01 && boxW > 20 && boxH > 20) {
+          ctx.save();
+          ctx.globalAlpha = boardAlpha;
+
+          ctx.shadowColor = accentDim;
+          ctx.shadowBlur = 36;
+          roundRect(ctx, boxX, boxY, boxW, boxH, 14);
+          ctx.fillStyle = "#131317";
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = accentHex;
+          ctx.stroke();
+
+          ctx.beginPath();
+          roundRect(ctx, boxX + 2, boxY + 2, Math.max(1, boxW - 4), Math.max(1, boxH - 4), 12);
+          ctx.clip();
+
+          ctx.fillStyle = "#18181e";
+          ctx.fillRect(boxX, boxY, boxW, 56);
+          ctx.fillStyle = "#262630";
+          ctx.fillRect(boxX, boxY + 56, boxW, 1);
+
+          if (brand === "CLAUDE") {
+            drawClaudeWheelLogo(boxX + 34, boxY + 28, 12, scrollProg * Math.PI * 2, accentHex, 1);
+          } else {
+            drawGeminiSparkleLogo(boxX + 34, boxY + 28, 14, scrollProg * Math.PI, 1);
+          }
+
+          ctx.font = "700 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#e6e5e0";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(brand === "CLAUDE" ? "claude_workspace // rocket_sim.js" : "gemini_studio // orbital_core.js", boxX + 58, boxY + 28);
+
+          ctx.font = "500 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = accentHex;
+          ctx.textAlign = "right";
+          ctx.fillText("SILHOUETTE CODE INSPECTOR", boxX + boxW - 24, boxY + 28);
+
+          const codeAreaTop = boxY + 60;
+          const codeAreaH = boxH - 136;
+          const lineH = 32;
+          const maxScroll = Math.max(0, codeLines.length * lineH - codeAreaH + 40);
+
+          let scrollPos = 0;
+          if (scrollProg <= 0.55) {
+            scrollPos = easeInOutCubic(scrollProg / 0.55) * maxScroll;
+          } else {
+            scrollPos = (1 - easeInOutCubic((scrollProg - 0.55) / 0.45)) * maxScroll;
+          }
+
+          const scannerY = codeAreaTop + (scrollProg <= 0.55
+            ? (scrollProg / 0.55) * codeAreaH
+            : (1 - (scrollProg - 0.55) / 0.45) * codeAreaH);
+
+          ctx.font = "500 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.textBaseline = "top";
+          ctx.textAlign = "left";
+
+          for (let i = 0; i < codeLines.length; i++) {
+            const ly = codeAreaTop + 18 + i * lineH - scrollPos;
+            if (ly + lineH < codeAreaTop || ly > codeAreaTop + codeAreaH) continue;
+
+            const distFromScanner = Math.abs((ly + lineH / 2) - scannerY);
+            const spotlightIntensity = clamp(1 - distFromScanner / 150, 0, 1);
+
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+            ctx.fillText(codeLines[i], boxX + 68 + 3, ly + 3);
+
+            ctx.fillStyle = spotlightIntensity > 0.3 ? accentHex : "#3a3a44";
+            ctx.fillText(String(i + 1).padStart(2, "0"), boxX + 24, ly);
+
+            if (spotlightIntensity > 0.05) {
+              ctx.save();
+              ctx.shadowColor = accentHex;
+              ctx.shadowBlur = spotlightIntensity * 14;
+              ctx.fillStyle = spotlightIntensity > 0.55 ? "#f4f3ef" : accentHex;
+              ctx.fillText(codeLines[i], boxX + 68, ly);
+              ctx.restore();
+            } else {
+              ctx.fillStyle = "#32323d";
+              ctx.fillText(codeLines[i], boxX + 68, ly);
+            }
+          }
+
+          if (scrollProg > 0.02 && scrollProg < 0.98) {
+            const scanGrad = ctx.createLinearGradient(boxX, scannerY - 45, boxX, scannerY + 45);
+            scanGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+            scanGrad.addColorStop(0.5, accentDim);
+            scanGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            ctx.fillStyle = scanGrad;
+            ctx.fillRect(boxX + 4, scannerY - 45, boxW - 8, 90);
+
+            ctx.fillStyle = accentHex;
+            ctx.fillRect(boxX + 12, scannerY, boxW - 24, 1.5);
+          }
+
+          const sbTrackH = Math.max(20, codeAreaH - 24);
+          const sbThumbH = 64;
+          const sbY = codeAreaTop + 12 + (maxScroll > 0 ? (scrollPos / maxScroll) * (sbTrackH - sbThumbH) : 0);
+          roundRect(ctx, boxX + boxW - 12, sbY, 5, sbThumbH, 2.5);
+          ctx.fillStyle = accentHex;
+          ctx.fill();
+
+          const footTop = boxY + boxH - 76;
+          ctx.fillStyle = "#18181f";
+          ctx.fillRect(boxX, footTop, boxW, 76);
+          ctx.fillStyle = "#282833";
+          ctx.fillRect(boxX, footTop, boxW, 1.5);
+
+          const pillX = boxX + 22;
+          const pillY = footTop + 15;
+          const pillW = 295;
+          const pillH = 46;
+
+          roundRect(ctx, pillX, pillY, pillW, pillH, 9);
+          ctx.fillStyle = modelSelected ? "rgba(255, 255, 255, 0.06)" : "#121217";
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = modelSelected ? accentHex : "#343440";
+          ctx.stroke();
+
+          roundRect(ctx, pillX + 14, pillY + 15, 16, 16, 4);
+          ctx.fillStyle = modelSelected ? accentHex : "#6e6d68";
+          ctx.fill();
+
+          ctx.font = "700 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = modelSelected ? "#f4f3ef" : "#969590";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          const activeModelLabel = modelSelected ? targetModel : initModel;
+          ctx.fillText(activeModelLabel, pillX + 40, pillY + pillH / 2 + 0.5);
+
+          ctx.fillStyle = "#8a8984";
+          ctx.font = "600 16px ui-monospace, Consolas, monospace";
+          ctx.fillText("▾", pillX + pillW - 26, pillY + pillH / 2 + 1);
+
+          if (dropdownOpenProg > 0.02) {
+            ctx.save();
+            ctx.globalAlpha = boardAlpha * dropdownOpenProg;
+            const menuW = 310;
+            const menuH = 108;
+            const menuX = pillX;
+            const menuY = pillY - menuH - 10;
+
+            roundRect(ctx, menuX, menuY, menuW, menuH, 10);
+            ctx.fillStyle = "#1c1c24";
+            ctx.fill();
+            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = accentHex;
+            ctx.stroke();
+
+            ctx.font = "500 18px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#787670";
+            ctx.textAlign = "left";
+            ctx.fillText(initModel + "  ( Default )", menuX + 18, menuY + 28);
+
+            roundRect(ctx, menuX + 8, menuY + 52, menuW - 16, 46, 7);
+            ctx.fillStyle = accentDim;
+            ctx.fill();
+            ctx.strokeStyle = accentHex;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.font = "800 19px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = accentHex;
+            ctx.fillText("✦ " + targetModel, menuX + 20, menuY + 75);
+            ctx.restore();
+          }
+
+          const sendW = 142;
+          const sendH = 46;
+          const sendX = boxX + boxW - sendW - 22;
+          const sendY = footTop + 15;
+          const btnScale = 1 - 0.09 * Math.sin(sendClickProg * Math.PI);
+
+          ctx.save();
+          ctx.translate(sendX + sendW / 2, sendY + sendH / 2);
+          ctx.scale(btnScale, btnScale);
+          roundRect(ctx, -sendW / 2, -sendH / 2, sendW, sendH, 9);
+          ctx.fillStyle = accentHex;
+          ctx.fill();
+
+          ctx.font = "800 18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#0e0e10";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("KIRIM  ↑", 0, 1);
+          ctx.restore();
+
+          ctx.restore();
+        }
+
+        if (revealMode === "wheel" && revealProg > 0.01 && revealProg < 0.99) {
+          const wheelX = boxX + boxW;
+          const wheelY = boxY + boxH / 2;
+          const wheelAngle = revealProg * Math.PI * 5;
+          drawClaudeWheelLogo(wheelX, wheelY, 54, wheelAngle, accentHex, 1.0);
+        }
+
+        if (revealMode === "starburst" && revealProg > 0.01 && revealProg < 0.99) {
+          const starScale = lerp(1.6, 0.9, revealProg);
+          drawGeminiSparkleLogo(W / 2, boxY, 44 * starScale, revealProg * Math.PI, 1 - revealProg * 0.5);
+          drawGeminiSparkleLogo(W / 2, boxY + boxH, 44 * starScale, -revealProg * Math.PI, 1 - revealProg * 0.5);
+        }
+
+        if (cursorPos && cursorPos.alpha > 0.01) {
+          drawCursorArrow(cursorPos.x, cursorPos.y, cursorPos.scale || 1.0, cursorPos.alpha);
+        }
+      }
+
+      // =========================================================================
+      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 70.00 s)
+      // =========================================================================
+      function drawFrame(t) {
+        const time = clamp(Number(t) || 0, 0, DURATION);
+
+        ctx.save();
+        ctx.scale(SSAA, SSAA);
+
+        ctx.fillStyle = "#0f0f11";
+        ctx.fillRect(0, 0, W, H);
+
+        const wash = ctx.createRadialGradient(W / 2, H / 2 - 120, 40, W / 2, H / 2 - 120, 720);
+        wash.addColorStop(0, "rgba(235, 179, 67, 0.045)");
+        wash.addColorStop(0.5, "rgba(110, 168, 254, 0.025)");
+        wash.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = wash;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.strokeStyle = "#1e1e23";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
+
+        ctx.fillStyle = "#1e1e23";
+        ctx.fillRect(24, 122, W - 48, 1);
+        ctx.fillRect(24, 1792, W - 48, 1);
+
+        if (time >= 37.80) {
+          ctx.fillStyle = "#1d1d22";
+          ctx.fillRect(539.5, 44, 1, 212);
+          ctx.fillRect(539.5, 495, 1, 1297);
+        }
+
+        drawCrosshair(540, 122, 4, "#36363f");
+        drawCrosshair(540, 1792, 4, "#36363f");
+
+        // MASTHEAD ATAS
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(48, 80, 6, 6);
+        ctx.fillStyle = "#7c7b76";
+        fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
+
+        ctx.fillStyle = "#969590";
+        if (time < 37.80) {
+          fillTrackedText("00 — INTRO  ·  BENCHMARK", W - 48, 83.5, 1.8, "right");
+        } else {
+          fillTrackedText("01 — SOAL  ·  1 SHOT", W - 48, 83.5, 1.8, "right");
+        }
+
+        // =======================================================================
+        // SCENE 1 (0.00s - 5.50s): "Project Rixsan Joulfiand"
+        // =======================================================================
+        if (time < 5.50) {
+          const inProg = smootherstep(0.10, 0.95, time);
+          const outProg = smootherstep(4.40, 5.40, time);
+          const alpha = inProg * (1 - outProg);
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          const yShift = (1 - easeOutCubic(inProg)) * 28 - easeInOutCubic(outProg) * 24;
+          ctx.translate(0, yShift);
+
+          const lineW = lerp(0, 420, easeOutCubic(inProg)) * (1 - outProg * 0.5);
+          ctx.fillStyle = "#ebb343";
+          ctx.fillRect(W / 2 - lineW / 2, 818, lineW, 2);
+
+          ctx.font = "600 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8f8d87";
+          ctx.textBaseline = "middle";
+          fillTrackedText("ORIGINAL PRODUCTION  ·  2026", W / 2, 868, 3.5, "center");
+
+          ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f5f4f0";
+          ctx.textAlign = "center";
+          ctx.fillText("Project", W / 2, 938);
+
+          ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("Rixsan Joulfiand", W / 2, 1022);
+
+          roundRect(ctx, W / 2 - 195, 1092, 390, 42, 8);
+          ctx.fillStyle = "#16161b";
+          ctx.fill();
+          ctx.strokeStyle = "#2b2b34";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#969590";
+          fillTrackedText("PURE CODE ANIMATION EXPERIMENT", W / 2, 1113, 1.5, "center");
+
+          ctx.restore();
+        }
+
+        // =======================================================================
+        // SCENE 2 (5.50s - 9.80s): "Gemini AI VS Claude Code"
+        // [LURUS 100%]: Kolom logo persis sama tegak lurus, teks persis rata kiri
+        // =======================================================================
+        if (time >= 5.50 && time < 9.85) {
+          const fadeIn = smootherstep(5.50, 6.20, time);
+          const zoomClaude = smootherstep(7.90, 9.50, time);
+          const alpha = fadeIn * (1 - smootherstep(9.40, 9.80, time));
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          const scale = lerp(1.0, 1.22, easeInOutCubic(zoomClaude));
+          const focusY = lerp(930, 780, easeInOutCubic(zoomClaude));
+          ctx.translate(W / 2, focusY);
+          ctx.scale(scale, scale);
+
+          // Grid Kolom Bersama yang Simetris Sempurna
+          const colStartX = -260; // Titik awal bounding box di tengah
+          const logoCenterX = colStartX + 28; // X=-232 untuk SEMUA logo!
+          const textStartX = colStartX + 56 + 24; // X=-180 untuk SEMUA teks!
+
+          // Gemini AI (Atas)
+          const gemAlpha = 1 - smoothstep(7.85, 8.45, time);
+          if (gemAlpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = alpha * gemAlpha;
+            drawGeminiSparkleLogo(logoCenterX, -118, 28, time * 0.8, 1);
+
+            ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#6ea8fe";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText("Gemini AI", textStartX, -118);
+
+            // Kapsul VS di Tengah
+            roundRect(ctx, -52, -26, 104, 46, 23);
+            ctx.fillStyle = "#18181f";
+            ctx.fill();
+            ctx.strokeStyle = "#ebb343";
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+            ctx.font = "800 22px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#ebb343";
+            ctx.textAlign = "center";
+            ctx.fillText("VS", 0, -3);
+            ctx.restore();
+          }
+
+          // Claude Code (Bawah) — Sejajar Lurus dengan Gemini!
+          const claudeY = lerp(110, 0, easeInOutCubic(zoomClaude));
+          const claudeLogoR = lerp(28, 34, zoomClaude);
+
+          drawClaudeWheelLogo(logoCenterX, claudeY, claudeLogoR, time * 2.2, "#e07a5f", 1);
+
+          ctx.font = "900 70px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#e07a5f";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText("Claude Code", textStartX, claudeY + 2);
+
+          ctx.restore();
+        }
+
+        // =======================================================================
+        // SCENE 3 (9.80s - 18.20s): Claude Workspace Inspection & Selection
+        // =======================================================================
+        if (time >= 9.80 && time < 18.25) {
+          const hdrAlpha = smoothstep(9.80, 10.30, time) * (1 - smoothstep(17.50, 18.00, time));
+          ctx.save();
+          ctx.globalAlpha = hdrAlpha;
+          drawClaudeWheelLogo(96, 360, 26, time * 1.8, "#e07a5f", 1);
+          ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText("Claude ", 140, 362);
+          const cw = ctx.measureText("Claude ").width;
+          ctx.fillStyle = "#e07a5f";
+          ctx.fillText("Code.", 140 + cw, 362);
+
+          ctx.font = "500 20px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8e8d88";
+          ctx.fillText("KONFIGURASI ENGINE & INSPEKSI KODE", 64, 430);
+          ctx.restore();
+
+          const revealProg = smootherstep(9.85, 10.90, time);
+          const scrollProg = clamp((time - 10.90) / 3.40, 0, 1); // 10.9s - 14.3s
+          const dropdownOpen = smoothstep(15.10, 15.35, time) * (1 - smoothstep(16.30, 16.50, time));
+          const modelSelected = time >= 16.30;
+          const sendClick = (time >= 17.35 && time <= 17.70) ? (time - 17.35) / 0.35 : 0;
+          const flyCenter = smootherstep(17.65, 18.20, time);
+
+          let cur = { x: 540, y: 1450, scale: 1.0, alpha: 0 };
+          if (time >= 14.30 && time <= 17.80) {
+            cur.alpha = smoothstep(14.30, 14.60, time) * (1 - smoothstep(17.55, 17.80, time));
+            const pillCenter = { x: 210, y: 1180 };
+            const menuTarget = { x: 220, y: 1105 };
+            const sendBtn = { x: 915, y: 1180 };
+
+            if (time < 15.10) {
+              const k = easeOutCubic((time - 14.30) / 0.80);
+              cur.x = lerp(520, pillCenter.x, k);
+              cur.y = lerp(1420, pillCenter.y, k);
+            } else if (time < 15.70) {
+              const k = easeInOutCubic((time - 15.10) / 0.60);
+              cur.x = lerp(pillCenter.x, menuTarget.x, k);
+              cur.y = lerp(pillCenter.y, menuTarget.y, k);
+            } else if (time < 16.40) {
+              cur.x = menuTarget.x;
+              cur.y = menuTarget.y;
+              if (time >= 16.10 && time <= 16.35) cur.scale = 0.88;
+            } else if (time < 17.35) {
+              const k = easeInOutCubic((time - 16.40) / 0.95);
+              cur.x = lerp(menuTarget.x, sendBtn.x, k);
+              cur.y = lerp(menuTarget.y, sendBtn.y, k);
+            } else {
+              cur.x = sendBtn.x;
+              cur.y = sendBtn.y;
+              if (time >= 17.35 && time <= 17.60) cur.scale = 0.88;
+            }
+          }
+
+          drawAICodeBoardSequence({
+            brand: "CLAUDE",
+            accentHex: "#e07a5f",
+            accentDim: "rgba(224, 122, 95, 0.22)",
+            codeLines: SHADOW_CODE_CLAUDE,
+            initModel: "Fable",
+            targetModel: "Opus 5.5 Extra",
+            revealProg,
+            scrollProg,
+            dropdownOpenProg: dropdownOpen,
+            modelSelected,
+            sendClickProg: sendClick,
+            flyToCenterProg: flyCenter,
+            cursorPos: cur,
+            revealMode: "wheel"
+          });
+        }
+
+        // =======================================================================
+        // SCENE 4 & 5 (18.20s - 27.20s): Loading Ring -> Gemini Studio
+        // =======================================================================
+        if (time >= 18.00 && time < 19.50) {
+          const loadProg = clamp((time - 18.00) / 1.50, 0, 1);
+          const loadAlpha = smoothstep(18.00, 18.30, time) * (1 - smoothstep(19.20, 19.50, time));
+
+          ctx.save();
+          ctx.globalAlpha = loadAlpha;
+          ctx.translate(W / 2, H / 2);
+
+          const ringR = 74;
+          ctx.strokeStyle = "#262630";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+          ctx.stroke();
+
+          const startAng = time * 7.5;
+          ctx.strokeStyle = loadProg < 0.5 ? "#e07a5f" : "#6ea8fe";
+          ctx.lineWidth = 5;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.arc(0, 0, ringR, startAng, startAng + Math.PI * 1.35);
+          ctx.stroke();
+
+          if (loadProg < 0.52) {
+            drawClaudeWheelLogo(0, 0, 32 * (1 - loadProg * 1.2), time * 6, "#e07a5f", 1);
+          } else {
+            const gemScale = softBounceOut((loadProg - 0.52) / 0.48, 1.4);
+            drawGeminiSparkleLogo(0, 0, 42 * gemScale, time * 2, 1);
+          }
+
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillText(
+            loadProg < 0.5 ? "CLAUDE OPUS 5.5 DISPATCHED..." : "INITIALIZING GEMINI AI...",
+            0,
+            ringR + 26
+          );
+          ctx.restore();
+        }
+
+        if (time >= 19.30 && time < 27.25) {
+          const hdrAlpha = smoothstep(19.30, 19.80, time) * (1 - smoothstep(26.50, 27.00, time));
+          ctx.save();
+          ctx.globalAlpha = hdrAlpha;
+          drawGeminiSparkleLogo(96, 360, 28, time * 1.2, 1);
+          ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText("Gemini ", 140, 362);
+          const gw = ctx.measureText("Gemini ").width;
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fillText("AI.", 140 + gw, 362);
+
+          ctx.font = "500 20px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8e8d88";
+          ctx.fillText("PRISM MATRIX & PEMILIHAN MODEL", 64, 430);
+          ctx.restore();
+
+          const revealProg = smootherstep(19.40, 20.30, time);
+          const scrollProg = clamp((time - 20.30) / 2.90, 0, 1); // 20.3s - 23.2s
+          const dropdownOpen = smoothstep(23.70, 23.95, time) * (1 - smoothstep(24.90, 25.10, time));
+          const modelSelected = time >= 24.90;
+          const sendClick = (time >= 26.00 && time <= 26.35) ? (time - 26.00) / 0.35 : 0;
+          const flyCenter = smootherstep(26.30, 27.10, time);
+
+          let cur = { x: 540, y: 1450, scale: 1.0, alpha: 0 };
+          if (time >= 23.00 && time <= 26.50) {
+            cur.alpha = smoothstep(23.00, 23.30, time) * (1 - smoothstep(26.25, 26.50, time));
+            const pillCenter = { x: 210, y: 1180 };
+            const menuTarget = { x: 220, y: 1105 };
+            const sendBtn = { x: 915, y: 1180 };
+
+            if (time < 23.70) {
+              const k = easeOutCubic((time - 23.00) / 0.70);
+              cur.x = lerp(520, pillCenter.x, k);
+              cur.y = lerp(1420, pillCenter.y, k);
+            } else if (time < 24.30) {
+              const k = easeInOutCubic((time - 23.70) / 0.60);
+              cur.x = lerp(pillCenter.x, menuTarget.x, k);
+              cur.y = lerp(pillCenter.y, menuTarget.y, k);
+            } else if (time < 25.00) {
+              cur.x = menuTarget.x;
+              cur.y = menuTarget.y;
+              if (time >= 24.70 && time <= 24.95) cur.scale = 0.88;
+            } else if (time < 26.00) {
+              const k = easeInOutCubic((time - 25.00) / 1.00);
+              cur.x = lerp(menuTarget.x, sendBtn.x, k);
+              cur.y = lerp(menuTarget.y, sendBtn.y, k);
+            } else {
+              cur.x = sendBtn.x;
+              cur.y = sendBtn.y;
+              if (time >= 26.00 && time <= 26.25) cur.scale = 0.88;
+            }
+          }
+
+          drawAICodeBoardSequence({
+            brand: "GEMINI",
+            accentHex: "#6ea8fe",
+            accentDim: "rgba(110, 168, 254, 0.22)",
+            codeLines: SHADOW_CODE_GEMINI,
+            initModel: "Flash Lite",
+            targetModel: "Argon 4 High",
+            revealProg,
+            scrollProg,
+            dropdownOpenProg: dropdownOpen,
+            modelSelected,
+            sendClickProg: sendClick,
+            flyToCenterProg: flyCenter,
+            cursorPos: cur,
+            revealMode: "starburst"
+          });
+        }
+
+        // =======================================================================
+        // SCENE 6 (27.20s - 33.00s): KOMPUTASI PENUH (ERD Matrix Bersih & Manis)
+        // =======================================================================
+        if (time >= 27.20 && time < 33.10) {
+          const erdIn = smootherstep(27.20, 27.80, time);
+          const erdOut = smootherstep(32.40, 33.00, time);
+          const alpha = erdIn * (1 - erdOut);
+          const chargeProg = clamp((time - 27.60) / 4.40, 0, 1);
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          ctx.font = "600 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          fillTrackedText("DUAL ARCHITECTURE SCHEMA  ·  TOKEN POWER TELEMETRY", W / 2, 230, 2.0, "center");
+
+          ctx.font = "900 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textAlign = "center";
+          ctx.fillText("Komputasi Penuh.", W / 2, 290);
+
+          // Root Node Bersih
+          const rootW = 520, rootH = 100;
+          const rootX = (W - rootW) / 2, rootY = 370;
+
+          roundRect(ctx, rootX, rootY, rootW, rootH, 12);
+          ctx.fillStyle = "#141419";
+          ctx.fill();
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = "#ebb343";
+          ctx.stroke();
+
+          ctx.fillStyle = "#1e1b14";
+          roundRect(ctx, rootX + 2, rootY + 2, rootW - 4, 38, 10);
+          ctx.fill();
+
+          ctx.font = "700 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("SCHEMA :: PROMPT_PAYLOAD_V1 [PRIMARY_KEY]", W / 2, rootY + 20);
+
+          ctx.font = "500 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("SPEC: 12s  ·  270×480 -> 1080×1920  ·  16 PALETTE  ·  360F", W / 2, rootY + 60);
+          ctx.font = "600 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("RELATION: 1 -> [N=2] DUAL EXECUTION ENGINES", W / 2, rootY + 84);
+
+          // Jalur Bus Relasional
+          const leftCardX = 48, rightCardX = 564, cardW = 468, cardY = 620, cardH = 345;
+          const leftBusX = leftCardX + cardW / 2;
+          const rightBusX = rightCardX + cardW / 2;
+          const busSplitY = 530;
+
+          ctx.strokeStyle = "#2b2b35";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(W / 2, rootY + rootH);
+          ctx.lineTo(W / 2, busSplitY);
+          ctx.lineTo(leftBusX, busSplitY);
+          ctx.lineTo(leftBusX, cardY);
+          ctx.moveTo(W / 2, busSplitY);
+          ctx.lineTo(rightBusX, busSplitY);
+          ctx.lineTo(rightBusX, cardY);
+          ctx.stroke();
+
+          for (let p = 0; p < 4; p++) {
+            const u = ((time * 1.6 + p * 0.25) % 1.0);
+            const py = lerp(busSplitY, cardY, u);
+            ctx.fillStyle = "#6ea8fe";
+            ctx.fillRect(leftBusX - 3, py - 3, 6, 7);
+            ctx.fillStyle = "#e07a5f";
+            ctx.fillRect(rightBusX - 3, py - 3, 6, 7);
+          }
+
+          // Node AI & Segmented Battery
+          const drawSweetNode = (x, y, w, h, brand, accentHex, isLeft) => {
+            roundRect(ctx, x, y, w, h, 14);
+            ctx.fillStyle = "#131317";
+            ctx.fill();
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = accentHex;
+            ctx.stroke();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+            ctx.fillRect(x + 2, y + 2, w - 4, 56);
+            ctx.fillStyle = "#262630";
+            ctx.fillRect(x, y + 58, w, 1.5);
+
+            if (isLeft) {
+              drawGeminiSparkleLogo(x + 32, y + 30, 16, time * 1.6, 1);
+            } else {
+              drawClaudeWheelLogo(x + 32, y + 30, 15, time * 2.5, accentHex, 1);
+            }
+
+            ctx.font = "800 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = accentHex;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(brand, x + 58, y + 30);
+
+            roundRect(ctx, x + w - 165, y + 16, 145, 28, 6);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+            ctx.fill();
+            ctx.strokeStyle = "#383844";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.font = "700 13px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#5ce6a0";
+            ctx.textAlign = "center";
+            ctx.fillText("ACTIVE COMPUTE", x + w - 92, y + 30);
+
+            const specs = isLeft
+              ? [
+                  { label: "FK_TIER", val: "ARGON_4_HIGH" },
+                  { label: "ENGINE ", val: "CANVAS_2D_SUPERSAMPLE" },
+                  { label: "AUDIO  ", val: "SYNTH_PCM16_CHIPTUNE" }
+                ]
+              : [
+                  { label: "FK_TIER", val: "OPUS_5_5_EXTRA" },
+                  { label: "ENGINE ", val: "UINT8_INDEXED_CANVAS" },
+                  { label: "AUDIO  ", val: "SYNTH_PROCEDURAL_WAV" }
+                ];
+
+            ctx.font = "500 15px ui-monospace, Consolas, monospace";
+            ctx.textAlign = "left";
+            for (let s = 0; s < specs.length; s++) {
+              const sy = y + 84 + s * 26;
+              ctx.fillStyle = "#7a7974";
+              ctx.fillText(`▸ ${specs[s].label}:`, x + 24, sy);
+              ctx.fillStyle = "#e6e5e0";
+              ctx.fillText(specs[s].val, x + 130, sy);
+            }
+
+            const meterY = y + 180;
+            ctx.font = "700 14px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#9c9a94";
+            ctx.fillText("TOKEN POWER DRAIN TELEMETRY", x + 24, meterY);
+
+            const pctVal = Math.min(100, Math.floor(chargeProg * 100));
+            ctx.fillStyle = accentHex;
+            ctx.textAlign = "right";
+            ctx.font = "800 16px ui-monospace, Consolas, monospace";
+            ctx.fillText(`${pctVal}% LOAD`, x + w - 24, meterY);
+
+            const bx = x + 24, by = meterY + 14, bw = w - 48, bh = 42;
+            roundRect(ctx, bx, by, bw, bh, 7);
+            ctx.fillStyle = "#0c0c10";
+            ctx.fill();
+            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = "#32323d";
+            ctx.stroke();
+
+            ctx.fillStyle = "#32323d";
+            ctx.fillRect(bx + bw + 2, by + 12, 5, 18);
+
+            const numCells = 14, gap = 4, pad = 5;
+            const cellW = (bw - pad * 2 - gap * (numCells - 1)) / numCells;
+            const cellH = bh - pad * 2;
+            const activeCells = Math.floor(chargeProg * numCells);
+
+            for (let c = 0; c < numCells; c++) {
+              const cx = bx + pad + c * (cellW + gap);
+              const cy = by + pad;
+              if (c < activeCells) {
+                ctx.fillStyle = c >= 11 ? "#ebb343" : accentHex;
+                roundRect(ctx, cx, cy, cellW, cellH, 3);
+                ctx.fill();
+              } else if (c === activeCells && chargeProg < 1.0) {
+                ctx.fillStyle = (Math.floor(time * 20) % 2 === 0) ? accentHex : "#1e1e28";
+                roundRect(ctx, cx, cy, cellW, cellH, 3);
+                ctx.fill();
+              } else {
+                ctx.fillStyle = "#181822";
+                roundRect(ctx, cx, cy, cellW, cellH, 3);
+                ctx.fill();
+              }
+            }
+
+            const maxTok = isLeft ? 34820 : 38450;
+            const curTok = Math.floor(easeOutCubic(chargeProg) * maxTok);
+            ctx.font = "700 17px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#ebb343";
+            ctx.textAlign = "left";
+            ctx.fillText(`⚡ TOKENS USED : ${curTok.toLocaleString("en-US")}`, x + 24, by + bh + 30);
+          };
+
+          drawSweetNode(leftCardX, cardY, cardW, cardH, "GEMINI", "#6ea8fe", true);
+          drawSweetNode(rightCardX, cardY, cardW, cardH, "CLAUDE", "#e07a5f", false);
+
+          const botY = 1045;
+          roundRect(ctx, W / 2 - 240, botY, 480, 88, 10);
+          ctx.fillStyle = "#15151b";
+          ctx.fill();
+          ctx.strokeStyle = chargeProg > 0.85 ? "#5ce6a0" : "#383844";
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+
+          ctx.font = "700 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = chargeProg > 0.85 ? "#5ce6a0" : "#969590";
+          ctx.textAlign = "center";
+          ctx.fillText("TARGET_HARNESS :: PLAYWRIGHT + FFMPEG X264", W / 2, botY + 34);
+
+          ctx.font = "500 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#787670";
+          ctx.fillText(chargeProg > 0.85 ? "STATUS: COMPILED & LOCKED FOR EXECUTION" : "ALLOCATING SHADER FRAMEBUFFER...", W / 2, botY + 62);
+
+          ctx.restore();
+        }
+
+        // =======================================================================
+        // SCENE 7 (33.00s - 37.80s): OUTRO SHOWDOWN [LOGO PETIR DIHAPUS TOTAL!]
+        // =======================================================================
+        if (time >= 33.00 && time < 38.00) {
+          const inProg = smootherstep(33.00, 33.70, time);
+          const outProg = smootherstep(37.30, 37.80, time);
+          const alpha = inProg * (1 - outProg);
+          const scale = lerp(0.94, 1.0, softBounceOut(clamp((time - 33.00) / 0.70, 0, 1), 1.12));
+
+          if (alpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(W / 2, H / 2 - 40);
+            ctx.scale(scale, scale);
+
+            const cardW = 960, cardH = 620;
+            roundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 16);
+            ctx.fillStyle = "#131317";
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#2d2d36";
+            ctx.stroke();
+
+            ctx.fillStyle = "#ebb343";
+            ctx.fillRect(-160, -cardH / 2, 320, 4);
+
+            const pillW = 400, pillH = 66, pillY = -cardH / 2 + 64;
+
+            // Kiri: Gemini
+            roundRect(ctx, -cardW / 2 + 44, pillY, pillW, pillH, 12);
+            ctx.fillStyle = "#171922";
+            ctx.fill();
+            ctx.strokeStyle = "#6ea8fe";
+            ctx.lineWidth = 1.6;
+            ctx.stroke();
+            drawGeminiSparkleLogo(-cardW / 2 + 82, pillY + pillH / 2, 16, time * 1.5, 1);
+            ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#6ea8fe";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText("GEMINI", -cardW / 2 + 112, pillY + pillH / 2 + 1);
+            ctx.font = "500 18px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#c4c3be";
+            ctx.fillText("Argon 4 · High", -cardW / 2 + 215, pillY + pillH / 2 + 1);
+
+            // [PEMBATAS MINIMALIS MEWAH — BEBAS DARI PETIR ALAY!]
+            ctx.fillStyle = "#3a3a46";
+            ctx.fillRect(-1.5, pillY + 12, 3, pillH - 24);
+
+            // Kanan: Claude
+            roundRect(ctx, cardW / 2 - 44 - pillW, pillY, pillW, pillH, 12);
+            ctx.fillStyle = "#211816";
+            ctx.fill();
+            ctx.strokeStyle = "#e07a5f";
+            ctx.lineWidth = 1.6;
+            ctx.stroke();
+            drawClaudeWheelLogo(cardW / 2 - 44 - pillW + 38, pillY + pillH / 2, 15, time * 2, "#e07a5f", 1);
+            ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#e07a5f";
+            ctx.textAlign = "left";
+            ctx.fillText("CLAUDE", cardW / 2 - 44 - pillW + 68, pillY + pillH / 2 + 1);
+            ctx.font = "500 18px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#c4c3be";
+            ctx.fillText("Opus 5.5 · Extra", cardW / 2 - 44 - pillW + 175, pillY + pillH / 2 + 1);
+
+            ctx.font = "900 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#f5f4f0";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("2 Model AI", 0, -32);
+
+            ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#ebb343";
+            ctx.fillText("Tier Tertinggi di Adu.", 0, 58);
+
+            ctx.fillStyle = "#262630";
+            ctx.fillRect(-cardW / 2 + 64, 145, cardW - 128, 1.5);
+
+            const specs = [
+              { top: "1 PROMPT IDENTIK",   bot: "TANPA REVISI" },
+              { top: "MURNI KODE CANVAS",  bot: "TANPA LIBRARY" },
+              { top: "360 FRAME · 30 FPS", bot: "PIXEL ART TAJAM" }
+            ];
+            for (let s = 0; s < specs.length; s++) {
+              const sx = (s - 1) * 300;
+              ctx.font = "700 19px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#e6e5e0";
+              ctx.fillText(specs[s].top, sx, 202);
+              ctx.font = "600 16px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#ebb343";
+              ctx.fillText(specs[s].bot, sx, 232);
+            }
+            ctx.restore();
+          }
+        }
+
+        // =======================================================================
+        // SCENE 8, 9, 10 (37.80s - 70.00s): HALAMAN 1 (SOAL · 1 SHOT)
+        // =======================================================================
+        if (time >= 37.80) {
+          const p1Enter = clamp((time - 37.80) / 0.60, 0, 1);
+          drawModelBadge(LEFT_COL_X,  162, COL_W, 56, "#6ea8fe", "GEMINI", "4 Argon · High",   p1Enter);
+          drawModelBadge(RIGHT_COL_X, 162, COL_W, 56, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra", p1Enter);
+
+          const headProg = easeOutCubic(clamp((time - 38.00) / 0.60, 0, 1));
+          ctx.save();
+          ctx.globalAlpha = headProg;
+          ctx.translate(0, (1 - headProg) * 18);
+
+          roundRect(ctx, LEFT_COL_X, 266, 11, 11, 2.5);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.font = "600 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8f8d87";
+          ctx.textBaseline = "middle";
+          fillTrackedText("SOALNYA", LEFT_COL_X + 22, 272, 2.0, "left");
+
+          ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "top";
+          ctx.textAlign = "left";
+          ctx.fillStyle = "#f5f4f0";
+          ctx.fillText("Satu prompt,", LEFT_COL_X, 302);
+
+          const line2Part1 = "sama ";
+          const line2Part2 = "persis.";
+          ctx.fillStyle = "#f5f4f0";
+          ctx.fillText(line2Part1, LEFT_COL_X, 386);
+          const l2w = ctx.measureText(line2Part1).width;
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText(line2Part2, LEFT_COL_X + l2w, 386);
+          ctx.restore();
+
+          // Kotak prompt.txt & Transisi Melipat ke Bar Bawah (61.20s - 62.80s)
+          const prepFade = smootherstep(61.20, 61.80, time);
+          const slideToBottom = smootherstep(61.60, 62.80, time);
+          const cardAppear = easeOutCubic(clamp((time - 38.20) / 0.60, 0, 1));
+
+          const cardX = LEFT_COL_X;
+          const cardW = 984;
+          const cardY = lerp(528, 1272, slideToBottom);
+          const cardH = lerp(632, 92, smootherstep(61.40, 62.70, time));
+
+          if (cardAppear > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = cardAppear;
+
+            roundRect(ctx, cardX, cardY, cardW, cardH, 11);
+            ctx.fillStyle = "#141418";
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = slideToBottom > 0.5 ? "#2f2f38" : "#26262e";
+            ctx.stroke();
+
+            if (slideToBottom < 0.98) {
+              const headerAlpha = 1 - prepFade;
+              const headerH = lerp(54, 0, smootherstep(61.40, 62.20, time));
+
+              if (headerAlpha > 0.01) {
+                ctx.save();
+                ctx.globalAlpha = cardAppear * headerAlpha;
+                ctx.fillStyle = "#19191f";
+                roundRect(ctx, cardX + 1, cardY + 1, cardW - 2, 54, 10);
+                ctx.fill();
+                ctx.fillStyle = "#24242c";
+                ctx.fillRect(cardX, cardY + 54, cardW, 1);
+
+                ctx.font = "600 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+                ctx.textBaseline = "middle";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#d8d7d2";
+                ctx.fillText("prompt.txt", cardX + 28, cardY + 28);
+
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#787670";
+                ctx.fillText("24 baris  ·  sama untuk keduanya", cardX + cardW - 28, cardY + 28);
+                ctx.restore();
+              }
+
+              const bodyTop = cardY + headerH;
+              const bodyH = Math.max(10, cardH - headerH);
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(cardX + 2, bodyTop, cardW - 4, bodyH);
+              ctx.clip();
+
+              const lineH = 34;
+              const padX = cardX + lerp(28, 32, slideToBottom);
+              const textStartY = bodyTop + lerp(24, 34, slideToBottom);
+              const maxScroll = Math.max(0, PROMPT_LINES.length * lineH - (632 - 58 - 44));
+
+              const exactChars = getExactTypedChars(time);
+              const fullTypedChars = Math.floor(exactChars);
+              const charFrac = exactChars - fullTypedChars;
+
+              let continuousTypedLine = 0;
+              for (let i = 0; i < PROMPT_LINES.length; i++) {
+                const off = LINE_CHAR_OFFSETS[i];
+                const len = Math.max(1, PROMPT_LINES[i].length);
+                if (exactChars >= off) {
+                  const frac = clamp((exactChars - off) / len, 0, 1);
+                  continuousTypedLine = i + frac;
+                }
+              }
+
+              let scrollY = 0;
+              if (time < 49.50) {
+                const rawDesired = (continuousTypedLine + 1.8) * lineH - (574 - 44);
+                scrollY = clamp(rawDesired, 0, maxScroll);
+              } else if (time < 52.80) {
+                // Scroll balik ke atas santai bersiap untuk iris
+                const k = smootherstep(49.50, 52.50, time);
+                scrollY = lerp(maxScroll, 0, k);
+              } else if (time < 60.50) {
+                // Mengikuti posisi iris target
+                let sIdx = 0;
+                for (let s = 0; s < SCAN_TARGETS.length - 1; s++) {
+                  if (time >= SCAN_TARGETS[s].tLock) sIdx = s;
+                }
+                const sNext = Math.min(SCAN_TARGETS.length - 1, sIdx + 1);
+                const t0 = SCAN_TARGETS[sIdx].tLock;
+                const t1 = SCAN_TARGETS[sNext].tLock;
+                const k = sIdx === sNext ? 0 : smootherstep(t0, t1, time);
+                const smoothScanLine = lerp(SCAN_TARGETS[sIdx].line, SCAN_TARGETS[sNext].line, k);
+                scrollY = clamp((smoothScanLine - 4.5) * lineH, 0, maxScroll);
+              } else {
+                const upK = smootherstep(60.50, 61.20, time);
+                const startUpScroll = clamp((SCAN_TARGETS[SCAN_TARGETS.length - 1].line - 4.5) * lineH, 0, maxScroll);
+                scrollY = lerp(startUpScroll, 0, upK);
+              }
+
+              ctx.font = "400 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.textBaseline = "top";
+              ctx.textAlign = "left";
+
+              // Highlight Kuning Iris
+              if (time >= 52.80 && time <= 61.80) {
+                const fadeOutHighlights = 1 - smootherstep(61.00, 61.60, time);
+                for (let s = 0; s < SCAN_TARGETS.length; s++) {
+                  const st = SCAN_TARGETS[s];
+                  if (time >= st.tLock - 0.08) {
+                    const hlAlpha = smootherstep(st.tLock - 0.08, st.tLock + 0.14, time) * fadeOutHighlights;
+                    const lineStr = PROMPT_LINES[st.line];
+                    const colIdx = lineStr.indexOf(st.phrase);
+                    if (colIdx >= 0) {
+                      const preW = ctx.measureText(lineStr.slice(0, colIdx)).width;
+                      const phrW = ctx.measureText(st.phrase).width;
+                      const hx = padX + preW - 6;
+                      const hy = textStartY + st.line * lineH - scrollY - 4;
+                      const hw = phrW + 12;
+                      const hh = 30;
+
+                      ctx.save();
+                      ctx.globalAlpha = cardAppear * hlAlpha;
+                      roundRect(ctx, hx, hy, hw, hh, 4);
+                      ctx.fillStyle = "rgba(235, 179, 67, 0.20)";
+                      ctx.fill();
+                      ctx.strokeStyle = "rgba(235, 179, 67, 0.48)";
+                      ctx.lineWidth = 1.2;
+                      ctx.stroke();
+                      ctx.restore();
+                    }
+                  }
+                }
+              }
+
+              // Baris Teks
+              let cursorDrawn = false;
+              const otherLinesAlpha = (1 - prepFade) * (1 - slideToBottom);
+
+              for (let i = 0; i < PROMPT_LINES.length; i++) {
+                const lineOffset = LINE_CHAR_OFFSETS[i];
+                const fullLine = PROMPT_LINES[i];
+                if (exactChars < lineOffset) break;
+
+                const lineAlpha = i === 0 ? (1 - smootherstep(61.80, 62.40, time)) : otherLinesAlpha;
+                if (lineAlpha <= 0.01) continue;
+
+                const charsInLine = clamp(fullTypedChars - lineOffset, 0, fullLine.length);
+                const visibleStr = fullLine.slice(0, charsInLine);
+                const ly = textStartY + i * lineH - scrollY;
+
+                if (ly + lineH >= bodyTop - 15 && ly <= bodyTop + bodyH + 15) {
+                  ctx.save();
+                  ctx.globalAlpha = cardAppear * lineAlpha;
+                  ctx.fillStyle = "#d8d7d2";
+                  ctx.fillText(visibleStr, padX, ly);
+
+                  const isTypingThisLine = fullTypedChars >= lineOffset && fullTypedChars < lineOffset + fullLine.length;
+                  if (isTypingThisLine && charFrac > 0.02) {
+                    const nextChar = fullLine[charsInLine];
+                    const prefixW = ctx.measureText(visibleStr).width;
+                    ctx.globalAlpha = cardAppear * lineAlpha * charFrac;
+                    ctx.fillText(nextChar, padX + prefixW, ly);
+                  }
+
+                  if (time >= 52.80 && time <= 61.60) {
+                    const hlFade = 1 - smootherstep(61.00, 61.60, time);
+                    for (let s = 0; s < SCAN_TARGETS.length; s++) {
+                      const st = SCAN_TARGETS[s];
+                      if (st.line === i && time >= st.tLock - 0.05) {
+                        const colIdx = fullLine.indexOf(st.phrase);
+                        if (colIdx >= 0) {
+                          const preW = ctx.measureText(fullLine.slice(0, colIdx)).width;
+                          ctx.globalAlpha = cardAppear * lineAlpha * hlFade;
+                          ctx.fillStyle = "#ffe896";
+                          ctx.fillText(st.phrase, padX + preW, ly);
+                        }
+                      }
+                    }
+                  }
+                  ctx.restore();
+                }
+
+                if (!cursorDrawn && (fullTypedChars <= lineOffset + fullLine.length || i === PROMPT_LINES.length - 1)) {
+                  cursorDrawn = true;
+                  if (time < 49.80) {
+                    const blink = time < 49.50 || Math.sin(time * 10) > -0.2;
+                    if (blink) {
+                      const baseW = ctx.measureText(visibleStr).width;
+                      const nextChW = (fullTypedChars < lineOffset + fullLine.length)
+                        ? ctx.measureText(fullLine[charsInLine] || "").width * charFrac
+                        : 0;
+                      ctx.fillStyle = "#ebb343";
+                      roundRect(ctx, padX + baseW + nextChW + 3, ly + 2, 10, 22, 2);
+                      ctx.fill();
+                    }
+                  }
+                }
+              }
+
+              // Kotak Iris Pemindai Kuning (5 Poin Bintang!)
+              if (time >= 52.70 && time <= 61.20) {
+                const appearAlpha = smootherstep(52.70, 52.95, time);
+                const vanishAlpha = 1 - smootherstep(60.70, 61.15, time);
+                const irisAlpha = appearAlpha * vanishAlpha;
+
+                let idxA = 0;
+                for (let s = 0; s < SCAN_TARGETS.length - 1; s++) {
+                  if (time >= SCAN_TARGETS[s].tLock) idxA = s;
+                }
+                const idxB = Math.min(SCAN_TARGETS.length - 1, idxA + 1);
+                const tA = SCAN_TARGETS[idxA].tLock;
+                const tB = SCAN_TARGETS[idxB].tLock;
+
+                const glideRaw = idxA === idxB ? 0 : clamp((time - (tA + 0.08)) / Math.max(0.05, tB - tA - 0.08), 0, 1);
+                const moveK = smootherstep(0, 1, glideRaw);
+
+                const rectForTarget = (st) => {
+                  const lStr = PROMPT_LINES[st.line];
+                  const cIdx = Math.max(0, lStr.indexOf(st.phrase));
+                  const px = padX + ctx.measureText(lStr.slice(0, cIdx)).width - 8;
+                  const pw = ctx.measureText(st.phrase).width + 16;
+                  const py = textStartY + st.line * lineH - scrollY - 5;
+                  return { x: px, y: py, w: pw, h: 32, tag: st.tag };
+                };
+
+                const rA = rectForTarget(SCAN_TARGETS[idxA]);
+                const rB = rectForTarget(SCAN_TARGETS[idxB]);
+
+                const curX = lerp(rA.x, rB.x, moveK);
+                const curY = lerp(rA.y, rB.y, moveK);
+                const curW = lerp(rA.w, rB.w, moveK);
+                const curH = lerp(rA.h, rB.h, moveK);
+                const curTag = moveK > 0.5 ? rB.tag : rA.tag;
+
+                drawIrisScannerBox(curX, curY, curW, curH, curTag, irisAlpha);
+              }
+
+              ctx.restore();
+            }
+
+            // Tampilan Bar Input Bawah + Tombol Kirim [↑]
+            if (slideToBottom > 0.35) {
+              const barAlpha = smootherstep(0.35, 0.92, slideToBottom);
+              ctx.save();
+              ctx.globalAlpha = barAlpha;
+
+              ctx.font = "400 23px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.fillStyle = "#e6e5e0";
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+              ctx.fillText("Buat video animasi pixel art vertikal be…", cardX + 32, cardY + cardH / 2);
+
+              const btnSize = 58;
+              const btnX = cardX + cardW - btnSize - 17;
+              const btnY = cardY + (cardH - btnSize) / 2;
+
+              let btnScale = smootherstep(62.40, 62.80, time);
+              if (time >= 63.95 && time <= 64.55) {
+                const dt = time - 63.95;
+                if (dt < 0.08) {
+                  btnScale = lerp(1.0, 0.91, easeOutCubic(dt / 0.08));
+                } else {
+                  const bt = clamp((dt - 0.08) / 0.42, 0, 1);
+                  btnScale = lerp(0.91, 1.0, softBounceOut(bt, 1.35));
+                }
+              }
+
+              ctx.save();
+              ctx.translate(btnX + btnSize / 2, btnY + btnSize / 2);
+              ctx.scale(btnScale, btnScale);
+              roundRect(ctx, -btnSize / 2, -btnSize / 2, btnSize, btnSize, 12);
+              ctx.fillStyle = "#ebb343";
+              ctx.fill();
+
+              ctx.strokeStyle = "#111215";
+              ctx.lineWidth = 3.2;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              ctx.beginPath();
+              ctx.moveTo(0, 11);
+              ctx.lineTo(0, -11);
+              ctx.moveTo(-9, -2);
+              ctx.lineTo(0, -11);
+              ctx.lineTo(9, -2);
+              ctx.stroke();
+              ctx.restore();
+
+              ctx.restore();
+            }
+
+            ctx.restore();
+          }
+
+          // Kursor Mengklik Tombol Kirim (63.00s - 64.80s)
+          const btnCenterX = LEFT_COL_X + 984 - 17 - 29;
+          const btnCenterY = 1272 + 46;
+
+          if (time >= 64.00 && time <= 64.90) {
+            const rProg = clamp((time - 64.00) / 0.90, 0, 1);
+            const rAlpha = Math.pow(1 - rProg, 1.6);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(btnCenterX, btnCenterY, 22 + easeOutCubic(rProg) * 115, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(235, 179, 67, ${(rAlpha * 0.75).toFixed(3)})`;
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          if (time >= 64.00 && time <= 64.70) {
+            const flyRaw = clamp((time - 64.00) / 0.50, 0, 1);
+            const flyEase = softBounceOut(flyRaw, 1.10);
+            const fadeOutSplit = 1 - smoothstep(64.50, 64.70, time);
+
+            const fx = lerp(btnCenterX - 18, W / 2, easeOutCubic(flyRaw));
+            const fy = lerp(btnCenterY - 24, 895, flyEase);
+            const fScale = lerp(0.82, 1.0, easeOutCubic(flyRaw));
+
+            const pillW = 156, pillH = 36;
+            ctx.save();
+            ctx.globalAlpha = fadeOutSplit;
+            ctx.translate(fx, fy);
+            ctx.scale(fScale, fScale);
+            roundRect(ctx, -pillW / 2, -pillH / 2, pillW, pillH, 8);
+            ctx.fillStyle = "#1c1914";
+            ctx.fill();
+            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = "#ebb343";
+            ctx.stroke();
+
+            ctx.font = "600 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#ffe58f";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("↗ prompt.txt", 0, 1);
+            ctx.restore();
+          }
+
+          if (time >= 62.80 && time <= 65.20) {
+            const curAlpha = smoothstep(62.80, 63.10, time) * (1 - smoothstep(64.80, 65.20, time));
+            let cx = btnCenterX + 6, cy = btnCenterY + 8, cScale = 1.0;
+
+            if (time < 63.95) {
+              const m = softBounceOut(clamp((time - 62.80) / 1.15, 0, 1), 0.95);
+              cx = lerp(740, btnCenterX + 6, m);
+              cy = lerp(1530, btnCenterY + 8, m);
+            } else {
+              const dt = time - 63.95;
+              if (dt < 0.08) {
+                cScale = lerp(1.0, 0.90, easeOutCubic(dt / 0.08));
+                cx = btnCenterX + 5; cy = btnCenterY + 10;
+              } else {
+                const bt = clamp((dt - 0.08) / 0.60, 0, 1);
+                cScale = lerp(0.90, 1.0, softBounceOut(bt, 1.30));
+                const moveBack = easeInOutCubic(clamp((dt - 0.12) / 0.65, 0, 1));
+                cx = lerp(btnCenterX + 6, btnCenterX + 38, moveBack);
+                cy = lerp(btnCenterY + 8, btnCenterY + 108, moveBack);
+              }
+            }
+
+            drawCursorArrow(cx, cy, cScale, curAlpha);
+          }
+
+          if (time >= 64.60) {
+            const drawSmoothAICard = (targetX, targetY, w, h, title, sub, borderHex, titleHex, startT) => {
+              if (time < startT) return;
+              const raw = clamp((time - startT) / 0.65, 0, 1);
+              const ease = softBounceOut(raw, 1.15);
+              const alpha = smoothstep(0, 0.35, raw);
+
+              const curX = lerp(W / 2 - w / 2, targetX, ease);
+              const curY = lerp(targetY + 42, targetY, ease);
+              const cardScale = lerp(0.92, 1.0, ease);
+
+              ctx.save();
+              ctx.globalAlpha = alpha;
+              ctx.translate(curX + w / 2, curY + h / 2);
+              ctx.scale(cardScale, cardScale);
+              roundRect(ctx, -w / 2, -h / 2, w, h, 10);
+              ctx.fillStyle = "#141418";
+              ctx.fill();
+              ctx.lineWidth = 1.6;
+              ctx.strokeStyle = borderHex;
+              ctx.stroke();
+
+              ctx.font = "800 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+              ctx.fillStyle = titleHex;
+              ctx.textAlign = "left";
+              ctx.textBaseline = "top";
+              ctx.fillText(title, -w / 2 + 32, -h / 2 + 34);
+            
+              ctx.font = "500 22px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.fillStyle = "#969590";
+              ctx.fillText(sub, -w / 2 + 32, -h / 2 + 86);
+              ctx.restore();
+            };
+
+            drawSmoothAICard(LEFT_COL_X, 820, COL_W, 154, "Gemini Code", "1 prompt masuk", "rgba(110, 168, 254, 0.48)", "#6ea8fe", 64.60);
+            drawSmoothAICard(RIGHT_COL_X, 820, COL_W, 154, "Claude Code", "1 prompt masuk", "rgba(224, 122, 95, 0.48)", "#e07a5f", 64.72);
+          }
+
+          // STEMPEL GOLD: "1× KIRIM · 0 REVISI" (66.50s - 70.00s)
+          if (time >= 66.50) {
+            const raw = clamp((time - 66.50) / 0.60, 0, 1);
+            const ease = softBounceOut(raw, 1.15);
+            const stampScale = lerp(0.90, 1.0, ease);
+            const stampAlpha = smoothstep(0, 0.30, raw);
+
+            const stW = 540, stH = 68;
+            const stCX = W / 2;
+            const stCY = lerp(1116, 1094, ease);
+
+            ctx.save();
+            ctx.globalAlpha = stampAlpha;
+            ctx.translate(stCX, stCY);
+            ctx.rotate(-3.2 * (Math.PI / 180));
+            ctx.scale(stampScale, stampScale);
+
+            roundRect(ctx, -stW / 2, -stH / 2, stW, stH, 10);
+            ctx.fillStyle = "#161410";
+            ctx.fill();
+            ctx.lineWidth = 2.4;
+            ctx.strokeStyle = "#ebb343";
+            ctx.stroke();
+
+            ctx.font = "800 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#f4f3ef";
+            ctx.textBaseline = "middle";
+            fillTrackedText("1× KIRIM  ·  0 REVISI", 0, 1, 2.2, "center");
+            ctx.restore();
+          }
+        }
+
+        // FOOTER
+        const footY = 1834;
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#6e6d68";
+
+        const mm = String(Math.floor(time)).padStart(2, "0");
+        const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
+        fillTrackedText(`00:${mm}:${ff}`, 48, footY, 1.2, "left");
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(152, footY - 4, 7, 7);
+
+        ctx.fillStyle = "#6e6d68";
+        fillTrackedText("120 BPM", 172, footY, 1.2, "left");
+        fillTrackedText("1080×1920  ·  30FPS", W - 48, footY, 1.2, "right");
+
+        ctx.restore();
+      }
+
+      window.drawFrame = drawFrame;
+      window.DURATION = DURATION;
+      window.TOTAL_FRAMES = TOTAL_FRAMES;
+
+      let currentTime = Number(params.get("t") ?? 0);
+      let isPlaying = !isHeadless;
+      let startStamp = performance.now();
+
+      const slider = document.getElementById("slider");
+      const timeLabel = document.getElementById("timeLabel");
+      const btnPlay = document.getElementById("btnPlay");
+
+      function updateView(sec) {
+        currentTime = clamp(sec, 0, DURATION);
+        drawFrame(currentTime);
+        if (slider) slider.value = Math.min(TOTAL_FRAMES - 1, Math.floor(currentTime * FPS));
+        if (timeLabel) timeLabel.textContent = `${currentTime.toFixed(2).padStart(5, "0")} / ${DURATION.toFixed(2)} s`;
+      }
+
+      if (!isHeadless) {
+        const jump = (s) => { isPlaying = false; updateView(s); };
+        document.getElementById("b1").onclick = () => jump(1.0);
+        document.getElementById("b2").onclick = () => jump(5.8);
+        document.getElementById("b3").onclick = () => jump(11.0);
+        document.getElementById("b4").onclick = () => jump(20.5);
+        document.getElementById("b5").onclick = () => jump(28.0);
+        document.getElementById("b6").onclick = () => jump(33.5);
+        document.getElementById("b7").onclick = () => jump(38.5);
+        document.getElementById("b8").onclick = () => jump(53.0);
+        document.getElementById("b9").onclick = () => jump(62.0);
+        document.getElementById("b10").onclick = () => jump(66.5);
+
+        slider.oninput = () => {
+          isPlaying = false;
+          updateView(Number(slider.value) / FPS);
+        };
+
+        btnPlay.onclick = () => {
+          isPlaying = !isPlaying;
+          if (isPlaying) {
+            if (currentTime >= DURATION - 0.1) currentTime = 0;
+            startStamp = performance.now() - currentTime * 1000;
+            requestAnimationFrame(tick);
+          }
+        };
+
+        function tick(now) {
+          if (!isPlaying) return;
+          const elapsed = (now - startStamp) / 1000;
+          if (elapsed >= DURATION) {
+            updateView(DURATION - 0.03);
+            isPlaying = false;
+            return;
+          }
+          updateView(Math.floor(elapsed * FPS) / FPS);
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      } else {
+        updateView(0);
+      }
+    })();
+  </script>
+</body>
+</html>

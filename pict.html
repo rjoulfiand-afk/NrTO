@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Joulfiand Studio — Gemini vs Claude Showcase</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #09090b;
+      color: #f4f3ef;
+      font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Ditampilkan proporsional di browser, dirender 2x Supersampled (2160x3840 -> 1080x1920) */
+    #stage {
+      height: calc(100vh - 60px);
+      aspect-ratio: 9 / 16;
+      display: block;
+      background: #0e0e10;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+    }
+    #controls {
+      height: 52px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px;
+      background: #141417;
+      border-top: 1px solid #242429;
+      width: 100%;
+      font-size: 12px;
+    }
+    button {
+      background: #1e1e24;
+      color: #e6e5e0;
+      border: 1px solid #32323a;
+      padding: 6px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+    button:hover {
+      background: #2b2b33;
+    }
+    button.primary {
+      background: #ebb343;
+      color: #0e0e10;
+      border-color: #ebb343;
+      font-weight: 700;
+    }
+    input[type="range"] {
+      width: 130px;
+      cursor: pointer;
+    }
+    body.headless {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+    body.headless #stage {
+      width: 1080px !important;
+      height: 1920px !important;
+      box-shadow: none;
+    }
+    body.headless #controls {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kanvas beresolusi internal 2x (2160x3840) agar teks & garis luar sangat tajam (Supersampled) -->
+  <canvas id="stage" width="2160" height="3840"></canvas>
+
+  <div id="controls">
+    <button id="btnSenja">1 · Senja (2.0s)</button>
+    <button id="btnLift">2 · Lepas Landas (6.0s)</button>
+    <button id="btnOrbit">3 · Orbit (11.97s)</button>
+    <button id="btnPlay">Play Timeline</button>
+    <input id="slider" type="range" min="0" max="359" value="359" />
+    <button id="btnSwap">Urutan: GEMINI vs CLAUDE</button>
+    <button id="btnChroma">Layar: Hitam</button>
+    <button id="btnDownload" class="primary">Download PNG Tajam</button>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const params = new URLSearchParams(window.location.search);
+      const isHeadless = params.has("headless") || params.has("render");
+      if (isHeadless) {
+        document.body.classList.add("headless");
+      }
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      // Koordinat desain menggunakan ruang 1080x1920, digambar pada skala 2x (2160x3840)
+      const W = 1080;
+      const H = 1920;
+      const SSAA = 2;
+      const FPS = 30;
+      const DURATION = 12.0;
+
+      // Ukuran 2 Layar Pembagi Diperbesar: 468x832 (Rasio Murni 9:16 -> 468/9 = 52, 52*16 = 832)
+      const LEFT_BOX  = { x: 48,  y: 464, w: 468, h: 832 };
+      const RIGHT_BOX = { x: 564, y: 464, w: 468, h: 832 };
+
+      let screenFillMode = params.get("screen") === "green" ? "green" : "black";
+      // Default: false = GEMINI di Kiri, CLAUDE di Kanan ("GEMINI VS CLAUDE.")
+      let swapColumns = params.get("swap") === "1";
+
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      // Menggambar tanda crosshair (+) halus ala desain editorial teknis
+      function drawCrosshair(x, y, size, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - size, y - 0.5, size * 2 + 1, 1);
+        ctx.fillRect(x - 0.5, y - size, 1, size * 2 + 1);
+      }
+
+      // Menggambar teks dengan kerning/letter-spacing presisi
+      function fillTrackedText(text, x, y, tracking, align = "left") {
+        const chars = String(text).split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += tracking * Math.max(0, chars.length - 1);
+
+        let curX = x;
+        if (align === "right") curX = x - totalW;
+        else if (align === "center") curX = x - totalW / 2;
+
+        ctx.textAlign = "left";
+        for (let i = 0; i < chars.length; i++) {
+          ctx.fillText(chars[i], curX, y);
+          curX += widths[i] + tracking;
+        }
+        return totalW;
+      }
+
+      // Menggambar Kapsul Badge Model (Matte Editorial Style)
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, 10);
+        ctx.fillStyle = "#151518";
+        ctx.fill();
+
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = "#26262c";
+        ctx.stroke();
+
+        // Garis kilau tipis di tepi atas kapsul
+        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.fillRect(x + 12, y + 1, w - 24, 1);
+
+        // Indikator kotak beraksen lembut
+        const dotSize = 13;
+        const dotX = x + 22;
+        const dotY = y + (h - dotSize) / 2;
+        roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
+        ctx.fillStyle = accentHex;
+        ctx.fill();
+
+        // Nama Model Utama (GEMINI / CLAUDE)
+        ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accentHex;
+        ctx.textBaseline = "middle";
+        const brandX = dotX + dotSize + 13;
+        const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+
+        // Sub-versi Model (4 Argon · High / Opus 5.5 · Extra)
+        ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
+        ctx.restore();
+      }
+
+      // Menggambar Bingkai Slot Video (Bersih, Tajam, Tanpa Ornamen Berlebihan)
+      function drawViewportSlot(box, captionLeft, captionRight) {
+        ctx.save();
+
+        // Bayangan lembut di bawah kartu video
+        ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 8;
+        ctx.fillStyle = screenFillMode === "green" ? "#00ff00" : "#050507";
+        ctx.fillRect(box.x, box.y, box.w, box.h);
+        ctx.shadowColor = "transparent";
+
+        // Bezel luar 1.5px yang tenang & elegan
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#292930";
+        ctx.strokeRect(box.x - 0.75, box.y - 0.75, box.w + 1.5, box.h + 1.5);
+
+        // Crosshair halus di 4 sudut luar bingkai
+        drawCrosshair(box.x - 1, box.y - 1, 4, "#4a4a52");
+        drawCrosshair(box.x + box.w + 1, box.y - 1, 4, "#4a4a52");
+        drawCrosshair(box.x - 1, box.y + box.h + 1, 4, "#4a4a52");
+        drawCrosshair(box.x + box.w + 1, box.y + box.h + 1, 4, "#4a4a52");
+
+        // Caption bawah kiri (Nama & Durasi)
+        ctx.font = "500 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#969590";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(captionLeft, box.x, box.y + box.h + 18);
+
+        // Caption bawah kanan (Tag Resolusi Internal)
+        ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#525259";
+        ctx.textAlign = "right";
+        ctx.fillText(captionRight, box.x + box.w, box.y + box.h + 21);
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 12.00)
+      // =========================================================================
+      function drawFrame(t) {
+        const time = Math.max(0, Math.min(DURATION, Number(t) || 0));
+
+        ctx.save();
+        ctx.scale(SSAA, SSAA);
+
+        // 1. Latar Belakang Warm Obsidian (#0f0f11)
+        ctx.fillStyle = "#0f0f11";
+        ctx.fillRect(0, 0, W, H);
+
+        // Pendaran cahaya hangat (warm editorial wash) yang sangat halus di area atas
+        const topWash = ctx.createRadialGradient(340, 260, 20, 340, 260, 680);
+        topWash.addColorStop(0, "rgba(235, 179, 67, 0.048)");
+        topWash.addColorStop(0.6, "rgba(224, 122, 95, 0.018)");
+        topWash.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = topWash;
+        ctx.fillRect(0, 0, W, 950);
+
+        // 2. Garis Grid & Struktur Editorial (1px Hairline)
+        ctx.strokeStyle = "#1e1e23";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
+
+        // Garis horizontal masthead atas & footer bawah
+        ctx.fillStyle = "#1e1e23";
+        ctx.fillRect(24, 122, W - 48, 1);
+        ctx.fillRect(24, 1792, W - 48, 1);
+
+        // Garis vertikal pembagi tengah (x = 540) — TERPUTUS RAPI di area Judul & Timeline!
+        ctx.fillStyle = "#1d1d22";
+        ctx.fillRect(539.5, 44, 1, 212);    // Segmen atas (Masthead & Badge)
+        ctx.fillRect(539.5, 446, 1, 902);   // Segmen tengah (Di antara 2 layar video)
+        ctx.fillRect(539.5, 1520, 1, 272);  // Segmen bawah
+
+        // Crosshair struktural
+        drawCrosshair(540, 122, 4, "#36363f");
+        drawCrosshair(540, 1792, 4, "#36363f");
+
+        // -----------------------------------------------------------------------
+        // 3. MASTHEAD ATAS: JOULFIAND STUDIO · ADU MODEL | 03 — HASIL · 1 SHOT
+        // -----------------------------------------------------------------------
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+
+        // Titik aksen emas di kiri masthead
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(48, 80, 6, 6);
+
+        ctx.fillStyle = "#7c7b76";
+        fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
+
+        ctx.fillStyle = "#969590";
+        fillTrackedText("03 — HASIL  ·  1 SHOT", W - 48, 83.5, 1.8, "right");
+
+        // -----------------------------------------------------------------------
+        // 4. MODEL BADGES & JUDUL UTAMA (SINKRON KIRI & KANAN!)
+        // -----------------------------------------------------------------------
+        const leftModel = swapColumns
+          ? { accent: "#e07a5f", brand: "CLAUDE", ver: "Opus 5.5 · Extra", cap: "Claude Code  ·  12.0 s" }
+          : { accent: "#6ea8fe", brand: "GEMINI", ver: "4 Argon · High",   cap: "Gemini Code  ·  12.0 s" };
+
+        const rightModel = swapColumns
+          ? { accent: "#6ea8fe", brand: "GEMINI", ver: "4 Argon · High",   cap: "Gemini Code  ·  12.0 s" }
+          : { accent: "#e07a5f", brand: "CLAUDE", ver: "Opus 5.5 · Extra", cap: "Claude Code  ·  12.0 s" };
+
+        drawModelBadge(LEFT_BOX.x,  162, LEFT_BOX.w,  56, leftModel.accent,  leftModel.brand,  leftModel.ver);
+        drawModelBadge(RIGHT_BOX.x, 162, RIGHT_BOX.w, 56, rightModel.accent, rightModel.brand, rightModel.ver);
+
+        // Kicker: [■] HASIL · ONE SHOT
+        roundRect(ctx, LEFT_BOX.x, 276, 11, 11, 2.5);
+        ctx.fillStyle = "#ebb343";
+        ctx.fill();
+
+        ctx.font = "600 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8f8d87";
+        ctx.textBaseline = "middle";
+        fillTrackedText("HASIL  ·  ONE SHOT", LEFT_BOX.x + 22, 282, 2.0, "left");
+
+        // Judul Utama Besar: "GEMINI VS CLAUDE." (Atau "CLAUDE VS GEMINI." jika di-swap)
+        const word1 = leftModel.brand + " ";
+        const word2 = "VS " + rightModel.brand + ".";
+        ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+
+        const titleY = 314;
+        ctx.fillStyle = "#f5f4f0";
+        ctx.fillText(word1, LEFT_BOX.x, titleY);
+
+        const w1Width = ctx.measureText(word1).width;
+        ctx.fillStyle = "#ebb343";
+        ctx.fillText(word2, LEFT_BOX.x + w1Width, titleY);
+
+        // -----------------------------------------------------------------------
+        // 5. DUA LAYAR PEMBAGI PRESISI (468 x 832 px)
+        // -----------------------------------------------------------------------
+        drawViewportSlot(LEFT_BOX,  leftModel.cap,  "270×480 · 4X NN");
+        drawViewportSlot(RIGHT_BOX, rightModel.cap, "270×480 · 4X NN");
+
+        // -----------------------------------------------------------------------
+        // 6. TIMELINE SINKRON 3 ADEGAN (1 · SENJA | 2 · LEPAS LANDAS | 3 · ORBIT)
+        // -----------------------------------------------------------------------
+        const tlX = LEFT_BOX.x;                        // 48
+        const tlW = (RIGHT_BOX.x + RIGHT_BOX.w) - tlX; // 984 px (Habis dibagi 3 = 328 px per segmen)
+        const segW = tlW / 3;                          // 328 px
+        const tlY = 1382;
+
+        // Track dasar timeline
+        ctx.fillStyle = "#25252b";
+        ctx.fillRect(tlX, tlY, tlW, 2);
+
+        // Track progres yang sudah berjalan
+        const progRatio = Math.max(0, Math.min(1, time / DURATION));
+        const progW = tlW * progRatio;
+        ctx.fillStyle = "#787670";
+        ctx.fillRect(tlX, tlY, progW, 2);
+
+        // 4 Garis Sekat Bab (0s, 4s, 8s, 12s)
+        for (let i = 0; i <= 3; i++) {
+          const tx = Math.round(tlX + i * segW);
+          ctx.fillStyle = i * 4 <= time + 0.01 ? "#8f8d87" : "#36363e";
+          ctx.fillRect(tx, tlY - 5, 1.5, 12);
+        }
+
+        // Jarum Playhead Emas Aktif
+        const playheadX = Math.round(tlX + progW);
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(playheadX - 1.5, tlY - 9, 3, 20);
+
+        // Label 3 Bab (1 · SENJA, 2 · LEPAS LANDAS, 3 · ORBIT)
+        const activeStage = time < 4.0 ? 1 : (time < 8.0 ? 2 : 3);
+        const stages = [
+          { id: 1, label: "1  ·  SENJA",        x: tlX },
+          { id: 2, label: "2  ·  LEPAS LANDAS", x: tlX + segW },
+          { id: 3, label: "3  ·  ORBIT",        x: tlX + segW * 2 }
+        ];
+
+        ctx.font = "700 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "top";
+        for (const st of stages) {
+          if (st.id === activeStage) {
+            ctx.fillStyle = "#ebb343";
+          } else if (st.id < activeStage) {
+            ctx.fillStyle = "#8a8882";
+          } else {
+            ctx.fillStyle = "#4d4d55";
+          }
+          fillTrackedText(st.label, st.x, tlY + 20, 0.8, "left");
+        }
+
+        // Baris Counter Waktu & Frame
+        const timeY = tlY + 62;
+        ctx.font = "600 24px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#f4f3ef";
+        const curSecStr = time.toFixed(2).padStart(5, "0");
+        ctx.fillText(curSecStr, tlX, timeY);
+
+        const curSecW = ctx.measureText(curSecStr).width;
+        ctx.fillStyle = "#6e6d68";
+        ctx.fillText(" / 12.00 s", tlX + curSecW, timeY);
+
+        // Indikator Frame di sisi kanan timeline
+        const frameNum = Math.min(360, Math.floor(time * FPS) + 1);
+        ctx.font = "500 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#5c5b57";
+        ctx.fillText(`FRAME ${String(frameNum).padStart(3, "0")} / 360`, tlX + tlW, timeY + 4);
+
+        // -----------------------------------------------------------------------
+        // 7. FOOTER BAWAH
+        // -----------------------------------------------------------------------
+        const footY = 1834;
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#6e6d68";
+        fillTrackedText("00:12:00", LEFT_BOX.x, footY, 1.2, "left");
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(LEFT_BOX.x + 104, footY - 4, 7, 7);
+
+        ctx.fillStyle = "#6e6d68";
+        fillTrackedText("120 BPM", LEFT_BOX.x + 124, footY, 1.2, "left");
+
+        fillTrackedText("1080×1920  ·  30FPS", RIGHT_BOX.x + RIGHT_BOX.w, footY, 1.2, "right");
+
+        ctx.restore();
+      }
+
+      // Ekspos API global untuk Playwright
+      window.drawFrame = drawFrame;
+      window.BOX_COORDS = { LEFT_BOX, RIGHT_BOX };
+
+      // Kontrol Interaktif Browser
+      let currentTime = Number(params.get("t") ?? 11.97);
+      let isPlaying = false;
+      let animId = null;
+      let startStamp = 0;
+
+      const slider = document.getElementById("slider");
+      const btnPlay = document.getElementById("btnPlay");
+      const btnChroma = document.getElementById("btnChroma");
+      const btnSwap = document.getElementById("btnSwap");
+
+      function updateView(sec) {
+        currentTime = Math.max(0, Math.min(DURATION, sec));
+        drawFrame(currentTime);
+        if (slider) {
+          slider.value = Math.min(359, Math.floor(currentTime * FPS));
+        }
+      }
+
+      if (!isHeadless) {
+        document.getElementById("btnSenja").onclick = () => {
+          isPlaying = false;
+          btnPlay.textContent = "Play Timeline";
+          updateView(2.0);
+        };
+        document.getElementById("btnLift").onclick = () => {
+          isPlaying = false;
+          btnPlay.textContent = "Play Timeline";
+          updateView(6.0);
+        };
+        document.getElementById("btnOrbit").onclick = () => {
+          isPlaying = false;
+          btnPlay.textContent = "Play Timeline";
+          updateView(11.97);
+        };
+
+        slider.oninput = () => {
+          isPlaying = false;
+          btnPlay.textContent = "Play Timeline";
+          updateView(Number(slider.value) / FPS);
+        };
+
+        btnPlay.onclick = () => {
+          isPlaying = !isPlaying;
+          btnPlay.textContent = isPlaying ? "Pause" : "Play Timeline";
+          if (isPlaying) {
+            if (currentTime >= 11.95) currentTime = 0;
+            startStamp = performance.now() - currentTime * 1000;
+            const tick = (now) => {
+              if (!isPlaying) return;
+              const elapsed = (now - startStamp) / 1000;
+              if (elapsed >= DURATION) {
+                updateView(11.97);
+                isPlaying = false;
+                btnPlay.textContent = "Play Timeline";
+                return;
+              }
+              updateView(Math.floor(elapsed * FPS) / FPS);
+              animId = requestAnimationFrame(tick);
+            };
+            animId = requestAnimationFrame(tick);
+          } else if (animId) {
+            cancelAnimationFrame(animId);
+          }
+        };
+
+        btnSwap.onclick = () => {
+          swapColumns = !swapColumns;
+          btnSwap.textContent = swapColumns
+            ? "Urutan: CLAUDE vs GEMINI"
+            : "Urutan: GEMINI vs CLAUDE";
+          updateView(currentTime);
+        };
+
+        btnChroma.onclick = () => {
+          screenFillMode = screenFillMode === "black" ? "green" : "black";
+          btnChroma.textContent = screenFillMode === "black" ? "Layar: Hitam" : "Layar: Hijau (Chroma)";
+          updateView(currentTime);
+        };
+
+        document.getElementById("btnDownload").onclick = () => {
+          // Ekspor PNG ukuran 1080x1920 tajam dari buffer 2160x3840
+          const outCanvas = document.createElement("canvas");
+          outCanvas.width = W;
+          outCanvas.height = H;
+          const outCtx = outCanvas.getContext("2d");
+          outCtx.imageSmoothingEnabled = true;
+          outCtx.imageSmoothingQuality = "high";
+          outCtx.drawImage(canvas, 0, 0, W, H);
+
+          const a = document.createElement("a");
+          const sceneTag = currentTime < 4 ? "senja" : (currentTime < 8 ? "lepas_landas" : "orbit");
+          a.download = `pict_${sceneTag}_${currentTime.toFixed(2)}s.png`;
+          a.href = outCanvas.toDataURL("image/png");
+          a.click();
+        };
+      }
+
+      updateView(currentTime);
+    })();
+  </script>
+</body>
+</html>
