@@ -1,4 +1,30 @@
-node_modules/ 
-frames*/ 
-*.mp4 
-*.wav 
+# Dependencies
+node_modules/
+package-lock.json
+
+# Render Frames & Media output
+frames*/
+*.mp4
+*.wav
+*.png
+*.jpg
+*.jpeg
+
+# Python & Private Scripts/Databases (User Private Files - DO NOT COMMIT)
+*.py
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+Osintgram/
+numint/
+downloads/
+ig_vault*
+.build_cache.json
+*.bak
+
+# Test artifacts
+test_screenshots/

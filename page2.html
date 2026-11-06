@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Joulfiand Studio — Halaman 2 (Proses & Audit Objektif)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #09090b;
+      color: #f4f3ef;
+      font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #stage {
+      height: calc(100vh - 58px);
+      aspect-ratio: 9 / 16;
+      display: block;
+      background: #0f0f11;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+    }
+    #controls {
+      height: 52px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      background: #141417;
+      border-top: 1px solid #242429;
+      width: 100%;
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: #1e1e24;
+      color: #e6e5e0;
+      border: 1px solid #32323a;
+      padding: 5px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    button:hover {
+      background: #2b2b33;
+    }
+    button.primary {
+      background: #ebb343;
+      color: #0e0e10;
+      border-color: #ebb343;
+      font-weight: 700;
+    }
+    input[type="range"] {
+      width: 160px;
+      cursor: pointer;
+      accent-color: #ebb343;
+    }
+    #timeLabel {
+      color: #ebb343;
+      font-weight: 700;
+      min-width: 105px;
+      text-align: right;
+    }
+    body.headless {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+    body.headless #stage {
+      width: 1080px !important;
+      height: 1920px !important;
+      box-shadow: none;
+    }
+    body.headless #controls {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kanvas 2x Supersampled (2160x3840 -> ditampilkan 1080x1920) -->
+  <canvas id="stage" width="2160" height="3840"></canvas>
+
+  <div id="controls">
+    <button id="btnPlay" class="primary">Play / Pause</button>
+    <button id="btnS1">1. Transisi (1.0s)</button>
+    <button id="btnS2">2. X-Ray & Log (4.2s)</button>
+    <button id="btnS3">3. Iris Scan (7.5s)</button>
+    <button id="btnS4">4. Audit 16 Warna (11.8s)</button>
+    <button id="btnS5">5. LETSGO!! (15.8s)</button>
+    <button id="btnS6">6. Hook Page 3 (17.2s)</button>
+    <input id="slider" type="range" min="0" max="539" value="0" />
+    <span id="timeLabel">00.00 / 18.00 s</span>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const params = new URLSearchParams(window.location.search);
+      const isHeadless = params.has("headless") || params.has("render");
+      if (isHeadless) {
+        document.body.classList.add("headless");
+      }
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const W = 1080;
+      const H = 1920;
+      const SSAA = 2;
+      const FPS = 30;
+      const DURATION = 18.0;
+      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 540 frame
+
+      // Koordinat Presisi 100% Identik dengan Halaman 1 & Halaman 3 (pict.html)
+      const LEFT_BOX  = { x: 48,  y: 464, w: 468, h: 832 };
+      const RIGHT_BOX = { x: 564, y: 464, w: 468, h: 832 };
+
+      // Palet 16 Warna Asli dari Kode Gemini (animation.html)
+      const GEMINI_PALETTE_16 = [
+        "#0b0c10", "#141b33", "#24345c", "#3b2d54",
+        "#7a305c", "#c94a38", "#eb7b34", "#f7b545",
+        "#ffee83", "#f4f6f8", "#b8c4d4", "#6f7f94",
+        "#3c4657", "#1f242d", "#2e8b6e", "#5ce6a0"
+      ];
+
+      // Palet 16 Warna Asli dari Kode Claude (palette.js)
+      const CLAUDE_PALETTE_16 = [
+        "#000000", "#F5F5F5", "#9CA3AF", "#3A3F4B",
+        "#0B1230", "#1D2B64", "#3B82F6", "#60A5FA",
+        "#F2763A", "#FFC94A", "#D63C2F", "#6B3A6E",
+        "#E8907A", "#2A1E1A", "#3E8F6A", "#1F5C6B"
+      ];
+
+      // Data Log Eksekusi Faktual
+      const GEMINI_LOGS = [
+        { t: 2.3, txt: "$ node render.js", col: "#f4f3ef" },
+        { t: 2.7, txt: "✓ write animation.html (438L)", col: "#969590" },
+        { t: 3.1, txt: "✓ write render.js (146L)", col: "#969590" },
+        { t: 3.6, txt: "▸ synth audio.wav (PCM16 44.1kHz)", col: "#6ea8fe" },
+        { t: 4.3, txt: "▸ playwright: 270x480 -> 4x NN", col: "#d8d7d2" },
+        { t: 5.1, txt: "▸ rendering 360 frames @ 30fps...", col: "#d8d7d2" },
+        { t: 6.2, txt: "⚡ fix: libx264 level 4.1 + stereo", col: "#ebb343" },
+        { t: 7.1, txt: "✓ mux rocket_launch_pixelart.mp4", col: "#5ce6a0" }
+      ];
+
+      const CLAUDE_LOGS = [
+        { t: 2.3, txt: "$ npm run build", col: "#f4f3ef" },
+        { t: 2.7, txt: "✓ load 6 ES6 modules (src/*.js)", col: "#969590" },
+        { t: 3.1, txt: "✓ alloc Uint8Array(129600) FB", col: "#969590" },
+        { t: 3.6, txt: "▸ tools/audio.mjs -> audio.wav", col: "#e07a5f" },
+        { t: 4.3, txt: "▸ tools/render.mjs (headless)", col: "#d8d7d2" },
+        { t: 5.1, txt: "▸ rendering 360 frames @ 30fps...", col: "#d8d7d2" },
+        { t: 6.2, txt: "⚡ tools/check.mjs: <= 16 colors", col: "#ebb343" },
+        { t: 7.1, txt: "✓ mux claude_rocket_pixelart.mp4", col: "#5ce6a0" }
+      ];
+
+      // --- Fungsi Matematika & Easing ---
+      const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * (3 - 2 * k);
+      };
+      const smootherstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * k * (k * (k * 6 - 15) + 10);
+      };
+      const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+      function softBounceOut(x, overshoot = 1.12) {
+        const k = clamp(x, 0, 1);
+        const c1 = overshoot;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.lineTo(x + w - rad, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+        ctx.lineTo(x + w, y + h - rad);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        ctx.lineTo(x + rad, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+        ctx.lineTo(x, y + rad);
+        ctx.quadraticCurveTo(x, y, x + rad, y);
+        ctx.closePath();
+      }
+
+      function drawCrosshair(x, y, size, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - size, y - 0.5, size * 2 + 1, 1);
+        ctx.fillRect(x - 0.5, y - size, 1, size * 2 + 1);
+      }
+
+      function fillTrackedText(text, x, y, tracking, align = "left") {
+        const chars = String(text).split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += tracking * Math.max(0, chars.length - 1);
+
+        let curX = x;
+        if (align === "right") curX = x - totalW;
+        else if (align === "center") curX = x - totalW / 2;
+
+        ctx.textAlign = "left";
+        for (let i = 0; i < chars.length; i++) {
+          ctx.fillText(chars[i], curX, y);
+          curX += widths[i] + tracking;
+        }
+        return totalW;
+      }
+
+      function drawClaudeWheel(cx, cy, radius, angleRad, color = "#e07a5f") {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angleRad);
+        const numSpokes = 12;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2.2, radius * 0.16);
+        ctx.lineCap = "round";
+
+        for (let i = 0; i < numSpokes; i++) {
+          const a = (i / numSpokes) * Math.PI * 2;
+          const innerR = radius * 0.22;
+          const outerR = (i % 2 === 0) ? radius : radius * 0.82;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+          ctx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.24, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawGeminiSparkle(cx, cy, radius, angleRad, color = "#6ea8fe") {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angleRad);
+        const grad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+        grad.addColorStop(0, "#6ea8fe");
+        grad.addColorStop(0.55, "#8b5cf6");
+        grad.addColorStop(1, "#38bdf8");
+
+        ctx.beginPath();
+        ctx.moveTo(0, -radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.quadraticCurveTo(0, 0, 0, radius);
+        ctx.quadraticCurveTo(0, 0, -radius, 0);
+        ctx.quadraticCurveTo(0, 0, 0, -radius);
+        ctx.closePath();
+
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "rgba(110, 168, 254, 0.45)";
+        ctx.shadowBlur = 16;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, 10);
+        ctx.fillStyle = "#151518";
+        ctx.fill();
+
+        ctx.lineWidth = 1.25;
+        ctx.strokeStyle = "#26262c";
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.fillRect(x + 12, y + 1, w - 24, 1);
+
+        const dotSize = 13;
+        const dotX = x + 22;
+        const dotY = y + (h - dotSize) / 2;
+        roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
+        ctx.fillStyle = accentHex;
+        ctx.fill();
+
+        ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accentHex;
+        ctx.textBaseline = "middle";
+        const brandX = dotX + dotSize + 13;
+        const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+
+        ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
+        ctx.restore();
+      }
+
+      // Menggambar Kotak Iris Kaca Kuning dengan 4 Kotak Kecil di Luar Sudutnya (Konsisten dengan Halaman 1)
+      function drawIrisScannerBox(x, y, w, h, tagText, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        ctx.shadowColor = "rgba(235, 179, 67, 0.28)";
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "rgba(235, 179, 67, 0.16)";
+        ctx.fillRect(x, y, w, h);
+        ctx.shadowColor = "transparent";
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.strokeStyle = "rgba(255, 246, 205, 0.30)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 10, y + h);
+        ctx.lineTo(x + 26, y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect(x, y, w, h);
+
+        // 4 Kotak Kecil di Luar Sudut (7x7 px)
+        const nodeSize = 7;
+        const outerCorners = [
+          { cx: x - nodeSize, cy: y - nodeSize },
+          { cx: x + w,        cy: y - nodeSize },
+          { cx: x - nodeSize, cy: y + h },
+          { cx: x + w,        cy: y + h }
+        ];
+        for (let i = 0; i < outerCorners.length; i++) {
+          const oc = outerCorners[i];
+          ctx.fillStyle = "#141418";
+          ctx.fillRect(oc.cx, oc.cy, nodeSize, nodeSize);
+          ctx.strokeStyle = "#ffe07d";
+          ctx.lineWidth = 1.6;
+          ctx.strokeRect(oc.cx, oc.cy, nodeSize, nodeSize);
+        }
+
+        if (tagText) {
+          ctx.font = "800 12.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          const tagW = ctx.measureText(tagText).width + 16;
+          const tagH = 20;
+          const tagX = x;
+          const tagY = y - nodeSize - tagH - 3;
+
+          roundRect(ctx, tagX, tagY, tagW, tagH, 4);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.fillStyle = "#0e0e10";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(tagText, tagX + 8, tagY + tagH / 2 + 0.5);
+        }
+
+        ctx.restore();
+      }
+
+      // Menggambar Diagram X-Ray Arsitektur File (Monolitik 2 File vs Modular 6 File)
+      function drawXRayBlueprint(x, y, w, h, isGemini, time) {
+        ctx.save();
+        roundRect(ctx, x, y, w, h, 8);
+        ctx.fillStyle = "#0b0b0e";
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "#22222a";
+        ctx.stroke();
+
+        const accent = isGemini ? "#6ea8fe" : "#e07a5f";
+        ctx.font = "700 13px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#6e6d68";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(isGemini ? "X-RAY :: MONOLITHIC PIPELINE" : "X-RAY :: MODULAR ES6 PIPELINE", x + 14, y + 12);
+
+        if (isGemini) {
+          // Gemini: 2 Blok File Besar Terpadu (animation.html + render.js)
+          const b1X = x + 16, b1Y = y + 40, b1W = 190, b1H = 74;
+          roundRect(ctx, b1X, b1Y, b1W, b1H, 6);
+          ctx.fillStyle = "rgba(110, 168, 254, 0.10)";
+          ctx.fill();
+          ctx.strokeStyle = accent;
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "700 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.fillText("animation.html", b1X + 12, b1Y + 14);
+          ctx.font = "400 12.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#969590";
+          ctx.fillText("• Canvas2D 270×480", b1X + 12, b1Y + 36);
+          ctx.fillText("• 438 baris (All-in-One)", b1X + 12, b1Y + 53);
+
+          const b2X = x + 16, b2Y = y + 124, b2W = 190, b2H = 54;
+          roundRect(ctx, b2X, b2Y, b2W, b2H, 6);
+          ctx.fillStyle = "#14151c";
+          ctx.fill();
+          ctx.strokeStyle = "#36394a";
+          ctx.stroke();
+
+          ctx.font = "700 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("render.js (146L)", b2X + 12, b2Y + 11);
+          ctx.font = "400 12px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("• Playwright + WAV Synth", b2X + 12, b2Y + 31);
+
+          // Panah Aliran ke Buffer Kanan
+          const outX = x + 236, outY = y + 56, outW = 180, outH = 106;
+          ctx.strokeStyle = accent;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(b1X + b1W, b1Y + b1H / 2);
+          ctx.lineTo(outX, outY + 34);
+          ctx.moveTo(b2X + b2W, b2Y + b2H / 2);
+          ctx.lineTo(outX, outY + 76);
+          ctx.stroke();
+
+          roundRect(ctx, outX, outY, outW, outH, 6);
+          ctx.fillStyle = "#12141c";
+          ctx.fill();
+          ctx.strokeStyle = accent;
+          ctx.stroke();
+
+          ctx.font = "700 13.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = accent;
+          ctx.fillText("OFFSCREEN BUFFER", outX + 12, outY + 16);
+          ctx.font = "400 12px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("drawImage(4× Scale)", outX + 12, outY + 40);
+          ctx.fillText("Bayer 4×4 Dither", outX + 12, outY + 58);
+          ctx.fillStyle = "#5ce6a0";
+          ctx.fillText("-> 1080×1920 MP4", outX + 12, outY + 80);
+        } else {
+          // Claude: 6 Modul ES6 Kecil Terpisah -> Uint8Array Indexed Framebuffer
+          const mods = [
+            "timeline.js", "palette.js",
+            "scenes.js",   "font.js",
+            "util.js",     "draw.js"
+          ];
+          const mW = 92, mH = 38, gapX = 8, gapY = 8;
+          const startX = x + 16, startY = y + 40;
+
+          for (let i = 0; i < mods.length; i++) {
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const mx = startX + col * (mW + gapX);
+            const my = startY + row * (mH + gapY);
+
+            const pulse = Math.sin(time * 5 - i * 0.7) > 0.4;
+            roundRect(ctx, mx, my, mW, mH, 5);
+            ctx.fillStyle = pulse ? "rgba(224, 122, 95, 0.14)" : "#151418";
+            ctx.fill();
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = pulse ? accent : "#34323c";
+            ctx.stroke();
+
+            ctx.font = "600 11.5px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = pulse ? "#f4f3ef" : "#a09f9a";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(mods[i], mx + mW / 2, my + mH / 2 + 0.5);
+          }
+
+          // Konektor ke Uint8Array Framebuffer
+          const outX = x + 236, outY = y + 56, outW = 180, outH = 106;
+          ctx.strokeStyle = accent;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(startX + mW * 2 + gapX, startY + 65);
+          ctx.lineTo(outX, outY + 53);
+          ctx.stroke();
+
+          roundRect(ctx, outX, outY, outW, outH, 6);
+          ctx.fillStyle = "#1a1413";
+          ctx.fill();
+          ctx.strokeStyle = accent;
+          ctx.stroke();
+
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+          ctx.font = "700 13.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = accent;
+          ctx.fillText("INDEXED BUFFER", outX + 12, outY + 16);
+          ctx.font = "400 12px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("Uint8Array(129600)", outX + 12, outY + 40);
+          ctx.fillText("RGBA32[idx] Lookup", outX + 12, outY + 58);
+          ctx.fillStyle = "#5ce6a0";
+          ctx.fillText("-> 1080×1920 MP4", outX + 12, outY + 80);
+        }
+
+        ctx.restore();
+      }
+
+      // Menggambar Audit Laboratorium: 16-Color Swatch Grid + 4x Pixel Loupe + Rapor ffprobe
+      function drawSpecAuditInsidePanel(box, isGemini, auditProg, time) {
+        const x = box.x + 20;
+        const y = box.y + 72;
+        const w = box.w - 40;
+        const palette = isGemini ? GEMINI_PALETTE_16 : CLAUDE_PALETTE_16;
+
+        ctx.save();
+
+        // 1. Audit Palet 16 Warna Murni
+        roundRect(ctx, x, y, w, 178, 8);
+        ctx.fillStyle = "#0b0b0e";
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "#24242c";
+        ctx.stroke();
+
+        const checkedColors = Math.min(16, Math.floor(clamp(auditProg * 1.4, 0, 1) * 16));
+        ctx.font = "700 14px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#969590";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText("AUDIT PALET WARNA UNIK", x + 14, y + 14);
+
+        ctx.textAlign = "right";
+        ctx.fillStyle = checkedColors === 16 ? "#5ce6a0" : "#ebb343";
+        ctx.fillText(`${String(checkedColors).padStart(2, "0")} / 16 WARNA ✓`, x + w - 14, y + 14);
+
+        // Grid 8x2 Swatch Warna Asli
+        const cols = 8;
+        const swGap = 6;
+        const swW = (w - 28 - swGap * (cols - 1)) / cols;
+        const swH = 44;
+
+        for (let i = 0; i < 16; i++) {
+          const r = Math.floor(i / cols);
+          const c = i % cols;
+          const sx = x + 14 + c * (swW + swGap);
+          const sy = y + 44 + r * (swH + 18);
+          const isActive = i < checkedColors;
+
+          roundRect(ctx, sx, sy, swW, swH, 5);
+          ctx.fillStyle = isActive ? palette[i] : "#16161c";
+          ctx.fill();
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = isActive ? "rgba(255,255,255,0.22)" : "#262630";
+          ctx.stroke();
+
+          ctx.font = "500 10px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = isActive ? "#8e8d88" : "#44444e";
+          ctx.textAlign = "center";
+          ctx.fillText(palette[i].toUpperCase(), sx + swW / 2, sy + swH + 4);
+        }
+
+        // 2. Inspeksi Ketajaman Piksel 4x Nearest-Neighbor (Pixel Loupe)
+        const loupeY = y + 194;
+        roundRect(ctx, x, loupeY, w, 152, 8);
+        ctx.fillStyle = "#0b0b0e";
+        ctx.fill();
+        ctx.strokeStyle = "#24242c";
+        ctx.stroke();
+
+        // Gambar Grid Loupe 6x6 Piksel Tajam di Kiri
+        const gridX = x + 16, gridY = loupeY + 16, cellS = 20;
+        for (let gy = 0; gy < 6; gy++) {
+          for (let gx = 0; gx < 6; gx++) {
+            const cIdx = (gx + gy * 2 + (isGemini ? 5 : 6)) % 16;
+            ctx.fillStyle = palette[cIdx];
+            ctx.fillRect(gridX + gx * cellS, gridY + gy * cellS, cellS - 1, cellS - 1);
+          }
+        }
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(gridX - 1, gridY - 1, cellS * 6 + 2, cellS * 6 + 2);
+
+        // Info Loupe di Kanan
+        const infoX = gridX + cellS * 6 + 18;
+        ctx.textAlign = "left";
+        ctx.font = "700 15px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#f4f3ef";
+        ctx.fillText("NEAREST-NEIGHBOR 4×", infoX, loupeY + 20);
+
+        ctx.font = "400 13.5px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#969590";
+        ctx.fillText("Internal : 270 × 480 px", infoX, loupeY + 48);
+        ctx.fillText("Output   : 1080 × 1920 px", infoX, loupeY + 70);
+        ctx.fillText("1 px src = 4×4 px blok tajam", infoX, loupeY + 92);
+
+        ctx.font = "700 14px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#5ce6a0";
+        ctx.fillText("✓ 0% ANTI-ALIAS / BLUR", infoX, loupeY + 118);
+
+        // 3. Rapor 5 Syarat Teknis (ffprobe Verification)
+        const tableY = loupeY + 168;
+        const checks = [
+          { k: "RESOLUSI VIDEO",    v: "1080×1920 (9:16)",  t: 0.15 },
+          { k: "FRAME & DURASI",    v: "360F · 30FPS · 12s", t: 0.30 },
+          { k: "KONSISTENSI WAKTU", v: "drawFrame(t) Murni", t: 0.45 },
+          { k: "BATAS PALET WARNA", v: "16 / 16 Warna Unik", t: 0.60 },
+          { k: "AUDIO PROSEDURAL",  v: "WAV 44.1kHz -> AAC", t: 0.75 }
+        ];
+
+        for (let i = 0; i < checks.length; i++) {
+          const rowY = tableY + i * 68;
+          const passed = auditProg >= checks[i].t;
+
+          roundRect(ctx, x, rowY, w, 56, 7);
+          ctx.fillStyle = passed ? "#131615" : "#111115";
+          ctx.fill();
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = passed ? "rgba(92, 230, 160, 0.35)" : "#22222a";
+          ctx.stroke();
+
+          ctx.font = "600 13.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8e8d88";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(checks[i].k, x + 16, rowY + 28);
+
+          ctx.font = "700 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textAlign = "right";
+          ctx.fillText(checks[i].v, x + w - 52, rowY + 28);
+
+          // Badge Centang Hijau [✓]
+          roundRect(ctx, x + w - 40, rowY + 14, 28, 28, 6);
+          ctx.fillStyle = passed ? "rgba(92, 230, 160, 0.18)" : "#1c1c22";
+          ctx.fill();
+          ctx.font = "800 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = passed ? "#5ce6a0" : "#44444e";
+          ctx.textAlign = "center";
+          ctx.fillText(passed ? "✓" : "·", x + w - 26, rowY + 29);
+        }
+
+        ctx.restore();
+      }
+
+      // Menggambar Badge "LETSGO!!" di Layar Terkunci dengan Presisi Editorial
+      function drawEditorialLetsGoBadge(cx, cy, isGemini, scaleProg) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scaleProg, scaleProg);
+
+        const accent = isGemini ? "#6ea8fe" : "#e07a5f";
+        const w = 356;
+        const h = 118;
+
+        // Bayangan lembut & Bodi Panel
+        ctx.shadowColor = isGemini ? "rgba(110, 168, 254, 0.32)" : "rgba(224, 122, 95, 0.32)";
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 6;
+        roundRect(ctx, -w / 2, -h / 2, w, h, 8);
+        ctx.fillStyle = "#121319";
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+
+        // Double Hairline Border
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = accent;
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, -w / 2 + 4, -h / 2 + 4, w - 8, h - 8, 6);
+        ctx.stroke();
+
+        // 4 Corner Crosshairs di sudut luar
+        const cwSize = 5;
+        drawCrosshair(-w / 2, -h / 2, cwSize, "#ebb343");
+        drawCrosshair(w / 2,  -h / 2, cwSize, "#ebb343");
+        drawCrosshair(-w / 2,  h / 2, cwSize, "#ebb343");
+        drawCrosshair(w / 2,   h / 2, cwSize, "#ebb343");
+
+        // Micro-Kicker Atas
+        ctx.font = "700 12px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        fillTrackedText(isGemini ? "● SEQUENCE READY  ·  4 ARGON" : "● SEQUENCE READY  ·  OPUS 5.5", 0, -h / 2 + 18, 1.6, "center");
+
+        // Typography Utama "LETSGO!!" (Besar, Bold, Tajam, Anti-Slop)
+        ctx.font = "900 48px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#f5f4f0";
+        ctx.textBaseline = "middle";
+        fillTrackedText("LETSGO!!", 0, -2, 3.2, "center");
+
+        // Sub-Tag Bawah: Kapsul Emas Minimalis
+        const tagW = 230;
+        const tagH = 24;
+        roundRect(ctx, -tagW / 2, h / 2 - 32, tagW, tagH, 5);
+        ctx.fillStyle = "rgba(235, 179, 67, 0.14)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(235, 179, 67, 0.65)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = "800 12.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#ebb343";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        fillTrackedText(isGemini ? "▶ LAUNCH GEMINI CODE" : "▶ LAUNCH CLAUDE CODE", 0, h / 2 - 20, 1.2, "center");
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 18.00)
+      // =========================================================================
+      function drawFrame(t) {
+        const time = clamp(Number(t) || 0, 0, DURATION);
+
+        ctx.save();
+        ctx.scale(SSAA, SSAA);
+
+        // 1. Latar Belakang Warm Obsidian (#0f0f11)
+        ctx.fillStyle = "#0f0f11";
+        ctx.fillRect(0, 0, W, H);
+
+        const topWash = ctx.createRadialGradient(340, 260, 20, 340, 260, 680);
+        topWash.addColorStop(0, "rgba(235, 179, 67, 0.048)");
+        topWash.addColorStop(0.6, "rgba(110, 168, 254, 0.02)");
+        topWash.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = topWash;
+        ctx.fillRect(0, 0, W, 950);
+
+        // 2. Grid Editorial Hairline (1px)
+        ctx.strokeStyle = "#1e1e23";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
+
+        ctx.fillStyle = "#1e1e23";
+        ctx.fillRect(24, 122, W - 48, 1);
+        ctx.fillRect(24, 1792, W - 48, 1);
+
+        // Garis vertikal tengah (terputus rapi di area judul & area hook bawah)
+        ctx.fillStyle = "#1d1d22";
+        ctx.fillRect(539.5, 44, 1, 212);
+        ctx.fillRect(539.5, 446, 1, 902);
+        ctx.fillRect(539.5, 1520, 1, 272);
+
+        drawCrosshair(540, 122, 4, "#36363f");
+        drawCrosshair(540, 1792, 4, "#36363f");
+
+        // -----------------------------------------------------------------------
+        // 3. MASTHEAD ATAS & MODEL BADGES
+        // -----------------------------------------------------------------------
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(48, 80, 6, 6);
+
+        ctx.fillStyle = "#7c7b76";
+        fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
+
+        ctx.fillStyle = "#969590";
+        const mastRight = time < 0.8
+          ? "01 — SOAL  ·  1 SHOT"
+          : (time > 16.0 ? "03 — HASIL  ·  1 SHOT" : "02 — PROSES  ·  1 SHOT");
+        fillTrackedText(mastRight, W - 48, 83.5, 1.8, "right");
+
+        drawModelBadge(LEFT_BOX.x,  162, LEFT_BOX.w,  56, "#6ea8fe", "GEMINI", "4 Argon · High");
+        drawModelBadge(RIGHT_BOX.x, 162, RIGHT_BOX.w, 56, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra");
+
+        // -----------------------------------------------------------------------
+        // 4. TRANSISI JUDUL ATAS (Dari Judul Halaman 1 -> Judul Halaman 2 -> Halaman 3)
+        // -----------------------------------------------------------------------
+        const titleMorph = smootherstep(0.35, 1.45, time);
+
+        // Judul Lama Halaman 1 (Memudar keluar di 0.35s - 1.10s)
+        if (titleMorph < 0.85) {
+          ctx.save();
+          ctx.globalAlpha = 1 - smoothstep(0.0, 0.75, titleMorph);
+          ctx.translate(0, -titleMorph * 24);
+
+          roundRect(ctx, LEFT_BOX.x, 266, 11, 11, 2.5);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+          ctx.font = "600 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8f8d87";
+          ctx.textBaseline = "middle";
+          fillTrackedText("SOALNYA", LEFT_BOX.x + 22, 272, 2.0, "left");
+
+          ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "top";
+          ctx.fillStyle = "#f5f4f0";
+          ctx.fillText("Satu prompt,", LEFT_BOX.x, 302);
+          ctx.fillText("sama ", LEFT_BOX.x, 386);
+          const sw = ctx.measureText("sama ").width;
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("persis.", LEFT_BOX.x + sw, 386);
+          ctx.restore();
+        }
+
+        // Judul Halaman 2 ("Satu instruksi, dua cara kerja." -> Mengunci ke "GEMINI VS CLAUDE.")
+        if (titleMorph > 0.15) {
+          const hookMorph = smootherstep(15.20, 16.20, time);
+          ctx.save();
+          ctx.globalAlpha = smoothstep(0.15, 0.95, titleMorph);
+          ctx.translate(0, (1 - easeOutCubic(titleMorph)) * 22);
+
+          roundRect(ctx, LEFT_BOX.x, 266, 11, 11, 2.5);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.font = "600 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8f8d87";
+          ctx.textBaseline = "middle";
+          fillTrackedText(
+            hookMorph > 0.5 ? "HASIL  ·  ONE SHOT" : "PROSES EKSEKUSI  ·  AUDIT OBJEKTIF",
+            LEFT_BOX.x + 22,
+            272,
+            2.0,
+            "left"
+          );
+
+          if (hookMorph < 0.5) {
+            ctx.save();
+            ctx.globalAlpha *= (1 - hookMorph * 2);
+            ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.textBaseline = "top";
+            ctx.fillStyle = "#f5f4f0";
+            ctx.fillText("Satu instruksi, ", LEFT_BOX.x, 312);
+            const w1 = ctx.measureText("Satu instruksi, ").width;
+            ctx.fillStyle = "#ebb343";
+            ctx.fillText("dua cara kerja.", LEFT_BOX.x + w1, 312);
+            ctx.restore();
+          } else {
+            // Mengunci presisi ke posisi & styling judul Halaman 3 ("GEMINI VS CLAUDE.")
+            ctx.save();
+            ctx.globalAlpha *= (hookMorph - 0.5) * 2;
+            ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.textBaseline = "top";
+            ctx.fillStyle = "#f5f4f0";
+            ctx.fillText("GEMINI ", LEFT_BOX.x, 314);
+            const w1 = ctx.measureText("GEMINI ").width;
+            ctx.fillStyle = "#ebb343";
+            ctx.fillText("VS CLAUDE.", LEFT_BOX.x + w1, 314);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+
+        // Elemen Sisa Halaman 1 yang Memudar di Detik 0.0 - 1.2s
+        if (time < 1.25) {
+          const outAlpha = 1 - smootherstep(0.05, 1.10, time);
+          ctx.save();
+          ctx.globalAlpha = outAlpha;
+
+          // Stempel 1x Kirim 0 Revisi
+          ctx.save();
+          ctx.translate(W / 2, 1094 + (1 - outAlpha) * 25);
+          ctx.rotate(-3.2 * (Math.PI / 180));
+          roundRect(ctx, -270, -34, 540, 68, 10);
+          ctx.fillStyle = "#161410";
+          ctx.fill();
+          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = "#ebb343";
+          ctx.stroke();
+          ctx.font = "800 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textBaseline = "middle";
+          fillTrackedText("1× KIRIM  ·  0 REVISI", 0, 1, 2.2, "center");
+          ctx.restore();
+
+          // Bar Input Bawah
+          roundRect(ctx, 48, 1272 + (1 - outAlpha) * 40, 984, 92, 11);
+          ctx.fillStyle = "#141418";
+          ctx.fill();
+          ctx.strokeStyle = "#2f2f38";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // -----------------------------------------------------------------------
+        // 5. MORFOLOGI 2 KARTU HALAMAN 1 -> 2 PANEL PROSES & AUDIT (468 x 832 px)
+        // -----------------------------------------------------------------------
+        const expandProg = smootherstep(0.45, 1.85, time);
+        const curCardY = lerp(820, LEFT_BOX.y, expandProg);
+        const curCardH = lerp(154, LEFT_BOX.h, expandProg);
+
+        const auditSwitch = smootherstep(9.50, 10.30, time);
+        const shutterLock = smootherstep(14.50, 15.35, time);
+        const letsGoProg = smootherstep(15.40, 15.85, time);
+
+        const drawProcessColumn = (box, isGemini) => {
+          const x = box.x;
+          const w = box.w;
+          const y = curCardY;
+          const h = curCardH;
+          const accent = isGemini ? "#6ea8fe" : "#e07a5f";
+          const title = isGemini ? "Gemini Code" : "Claude Code";
+
+          ctx.save();
+
+          // Bayangan & Bodi Utama Panel
+          ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+          ctx.shadowBlur = 24;
+          ctx.shadowOffsetY = 8;
+          roundRect(ctx, x, y, w, h, lerp(10, 2, shutterLock));
+          ctx.fillStyle = shutterLock > 0.8 ? "#050507" : "#131317";
+          ctx.fill();
+          ctx.shadowColor = "transparent";
+
+          ctx.lineWidth = 1.6;
+          ctx.strokeStyle = shutterLock > 0.8
+            ? "#292930"
+            : (isGemini ? "rgba(110, 168, 254, 0.48)" : "rgba(224, 122, 95, 0.48)");
+          ctx.stroke();
+
+          // Crosshair sudut luar seperti pada pict.html saat mengunci ke Halaman 3
+          if (shutterLock > 0.3) {
+            drawCrosshair(x - 1, y - 1, 4, "#4a4a52");
+            drawCrosshair(x + w + 1, y - 1, 4, "#4a4a52");
+            drawCrosshair(x - 1, y + h + 1, 4, "#4a4a52");
+            drawCrosshair(x + w + 1, y + h + 1, 4, "#4a4a52");
+          }
+
+          // Clip isi panel
+          ctx.beginPath();
+          roundRect(ctx, x + 1, y + 1, w - 2, h - 2, lerp(9, 1, shutterLock));
+          ctx.clip();
+
+          // A. TAMPILAN AWAL (Saat kartu baru memanjang dari Halaman 1)
+          if (expandProg < 0.95) {
+            ctx.save();
+            ctx.globalAlpha = 1 - smoothstep(0.25, 0.85, expandProg);
+            ctx.font = "800 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = accent;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(title, x + 32, y + 34);
+
+            ctx.font = "500 22px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#969590";
+            ctx.fillText("1 prompt masuk", x + 32, y + 86);
+            ctx.restore();
+          }
+
+          // Header Bar Panel (Tampil selama Fase 2 & Fase 3)
+          if (expandProg > 0.30 && shutterLock < 0.98) {
+            const innerAlpha = smoothstep(0.30, 0.90, expandProg) * (1 - shutterLock);
+            ctx.save();
+            ctx.globalAlpha = innerAlpha;
+
+            ctx.fillStyle = "#18181f";
+            ctx.fillRect(x, y, w, 54);
+            ctx.fillStyle = "#262630";
+            ctx.fillRect(x, y + 54, w, 1);
+
+            if (isGemini) {
+              drawGeminiSparkle(x + 28, y + 27, 13, time * 1.5, accent);
+            } else {
+              drawClaudeWheel(x + 28, y + 27, 12, time * 2.0, accent);
+            }
+
+            ctx.font = "800 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = accent;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(title, x + 50, y + 28);
+
+            ctx.font = "600 13.5px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = auditSwitch > 0.5 ? "#5ce6a0" : "#ebb343";
+            ctx.textAlign = "right";
+            ctx.fillText(
+              auditSwitch > 0.5 ? "AUDIT SPEK :: ffprobe ✓" : "LIVE BUILD & X-RAY",
+              x + w - 20,
+              y + 28
+            );
+
+            // B. FASE 2 (2.0s - 9.8s): LOG TERMINAL + DIAGRAM X-RAY + 4 COUNTER METRIK
+            if (auditSwitch < 0.95) {
+              ctx.save();
+              ctx.globalAlpha = innerAlpha * (1 - auditSwitch);
+
+              // 1. Kotak Log Eksekusi Singkat
+              const logBoxX = x + 20, logBoxY = y + 72, logBoxW = w - 40, logBoxH = 248;
+              roundRect(ctx, logBoxX, logBoxY, logBoxW, logBoxH, 8);
+              ctx.fillStyle = "#0b0b0e";
+              ctx.fill();
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = "#22222a";
+              ctx.stroke();
+
+              const logs = isGemini ? GEMINI_LOGS : CLAUDE_LOGS;
+              ctx.font = "500 14.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.textAlign = "left";
+              ctx.textBaseline = "top";
+
+              for (let i = 0; i < logs.length; i++) {
+                if (time >= logs[i].t) {
+                  const lAlpha = smoothstep(logs[i].t, logs[i].t + 0.20, time);
+                  ctx.save();
+                  ctx.globalAlpha *= lAlpha;
+                  ctx.fillStyle = logs[i].col;
+                  ctx.fillText(logs[i].txt, logBoxX + 14, logBoxY + 14 + i * 28);
+                  ctx.restore();
+                }
+              }
+
+              // 2. Visual X-Ray Architecture Blueprint
+              drawXRayBlueprint(x + 20, y + 336, w - 40, 192, isGemini, time);
+
+              // 3. Empat Counter Metrik Objektif (2x2 Grid Kartu Fakta)
+              const metricsY = y + 544;
+              const mW = (w - 40 - 14) / 2;
+              const mH = 122;
+              const frameProg = clamp((time - 4.2) / 3.2, 0, 1);
+              const curFrames = Math.floor(frameProg * 360);
+              const curLines = Math.floor(clamp((time - 2.3) / 2.2, 0, 1) * (isGemini ? 584 : 412));
+
+              const cards = isGemini
+                ? [
+                    { label: "ARSITEKTUR FILE", val: "2 File",   sub: "Monolitik Terpadu", col: accent },
+                    { label: "VOLUME KODE",     val: `${curLines} Baris`, sub: "HTML + Node Script", col: "#f4f3ef" },
+                    { label: "MODE KANVAS",     val: "Canvas2D", sub: "Offscreen 270×480", col: "#ebb343" },
+                    { label: "RENDER FRAME",    val: `${curFrames}/360`,  sub: frameProg >= 1 ? "Selesai 100% ✓" : "Playwright 30fps", col: "#5ce6a0" }
+                  ]
+                : [
+                    { label: "ARSITEKTUR FILE", val: "6 Modul",  sub: "ES6 Terpisah Rapi", col: accent },
+                    { label: "VOLUME KODE",     val: `${curLines} Baris`, sub: "src/*.js + tools",  col: "#f4f3ef" },
+                    { label: "MODE KANVAS",     val: "Uint8 FB", sub: "Indexed 16-Color",  col: "#ebb343" },
+                    { label: "RENDER FRAME",    val: `${curFrames}/360`,  sub: frameProg >= 1 ? "Selesai 100% ✓" : "Playwright 30fps", col: "#5ce6a0" }
+                  ];
+
+              for (let c = 0; c < 4; c++) {
+                const colIdx = c % 2;
+                const rowIdx = Math.floor(c / 2);
+                const cx = x + 20 + colIdx * (mW + 14);
+                const cy = metricsY + rowIdx * (mH + 14);
+
+                roundRect(ctx, cx, cy, mW, mH, 8);
+                ctx.fillStyle = "#0e0e13";
+                ctx.fill();
+                ctx.lineWidth = 1.2;
+                ctx.strokeStyle = "#25252e";
+                ctx.stroke();
+
+                ctx.font = "600 12.5px ui-monospace, Consolas, monospace";
+                ctx.fillStyle = "#7c7b76";
+                ctx.textAlign = "left";
+                ctx.textBaseline = "top";
+                ctx.fillText(cards[c].label, cx + 14, cy + 14);
+
+                ctx.font = "800 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+                ctx.fillStyle = cards[c].col;
+                ctx.fillText(cards[c].val, cx + 14, cy + 40);
+
+                ctx.font = "400 13px ui-monospace, Consolas, monospace";
+                ctx.fillStyle = "#969590";
+                ctx.fillText(cards[c].sub, cx + 14, cy + 86);
+              }
+
+              ctx.restore();
+            }
+
+            // C. FASE 3 (9.5s - 14.5s): AUDIT LABORATORIUM (16 WARNA + PIXEL LOUPE + FFPROBE)
+            if (auditSwitch > 0.05) {
+              ctx.save();
+              ctx.globalAlpha = innerAlpha * auditSwitch;
+              const auditLocalProg = clamp((time - 9.80) / 3.80, 0, 1);
+              drawSpecAuditInsidePanel(box, isGemini, auditLocalProg, time);
+              ctx.restore();
+            }
+
+            ctx.restore();
+          }
+
+          // D. FASE 4 (14.5s - 18.0s): LOCKED VIEWPORT SHUTTER (SIAP MASUK HALAMAN 3)
+          if (shutterLock > 0.05) {
+            ctx.save();
+            ctx.globalAlpha = shutterLock;
+
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
+
+            // Reticle bidik tipis di tengah layar hitam
+            ctx.strokeStyle = "#1f2026";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 88, 0, Math.PI * 2);
+            ctx.stroke();
+            drawCrosshair(centerX, centerY, 14, "#32323c");
+
+            // KONDISI 1: Detik 14.5s - 15.35s -> Tampilkan Status LOCKED & READY
+            if (letsGoProg < 0.10) {
+              const pillW = 280, pillH = 54;
+              roundRect(ctx, centerX - pillW / 2, centerY - pillH / 2, pillW, pillH, 10);
+              ctx.fillStyle = "#121318";
+              ctx.fill();
+              ctx.lineWidth = 1.5;
+              ctx.strokeStyle = accent;
+              ctx.stroke();
+
+              ctx.font = "800 18px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#f4f3ef";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText(isGemini ? "GEMINI  ·  READY ✓" : "CLAUDE  ·  READY ✓", centerX, centerY - 6);
+
+              ctx.font = "500 13px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#5ce6a0";
+              ctx.fillText("1080×1920 · 360F · LOCKED", centerX, centerY + 15);
+            } else {
+              // KONDISI 2: Detik 15.35s - 17.50s -> TAMPILKAN "LETSGO!!" DENGAN DESAIN EDITORIAL PRESTISIUS
+              // Memudar lembut di 17.15s - 17.80s agar frame 18.0s bersih murni identik dengan frame 0 pict.html!
+              const letsGoFadeOut = 1 - smootherstep(17.15, 17.75, time);
+              if (letsGoFadeOut > 0.01) {
+                const scaleK = softBounceOut(clamp(letsGoProg, 0, 1), 1.15);
+                ctx.save();
+                ctx.globalAlpha = letsGoFadeOut;
+                drawEditorialLetsGoBadge(centerX, centerY, isGemini, scaleK);
+                ctx.restore();
+              }
+            }
+
+            ctx.restore();
+          }
+
+          ctx.restore();
+
+          // Caption di Bawah Masing-Masing Kotak (Muncul saat mengunci ke posisi Halaman 3)
+          if (expandProg > 0.8) {
+            const capAlpha = smoothstep(0.8, 1.0, expandProg);
+            ctx.save();
+            ctx.globalAlpha = capAlpha;
+            ctx.font = "500 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#969590";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(isGemini ? "Gemini Code  ·  12.0 s" : "Claude Code  ·  12.0 s", x, y + h + 18);
+
+            ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#525259";
+            ctx.textAlign = "right";
+            ctx.fillText("270×480 · 4X NN", x + w, y + h + 21);
+            ctx.restore();
+          }
+        };
+
+        drawProcessColumn(LEFT_BOX, true);
+        drawProcessColumn(RIGHT_BOX, false);
+
+        // -----------------------------------------------------------------------
+        // 6. KOTAK IRIS KUNING PEMINDAI FAKTA (3.10s - 9.35s)
+        //    Menyorot secara sinkron perbedaan objektif di kedua kolom!
+        // -----------------------------------------------------------------------
+        if (time >= 3.10 && time <= 9.35) {
+          const irisAlpha = smootherstep(3.10, 3.40, time) * (1 - smootherstep(8.95, 9.35, time));
+
+          const k1 = smootherstep(4.90, 5.35, time);
+          const k2 = smootherstep(6.75, 7.20, time);
+
+          const mW = (LEFT_BOX.w - 40 - 14) / 2;
+
+          // Posisi di Kolom Kiri (Gemini)
+          const gRect0 = { x: LEFT_BOX.x + 16, y: LEFT_BOX.y + 332, w: LEFT_BOX.w - 32, h: 200, tag: "2 FILE MONOLITIK" };
+          const gRect1 = { x: LEFT_BOX.x + 16, y: LEFT_BOX.y + 676, w: mW + 8,          h: 130, tag: "OFFSCREEN 2D" };
+          const gRect2 = { x: LEFT_BOX.x + 16 + mW + 14, y: LEFT_BOX.y + 676, w: mW + 8, h: 130, tag: "360 FRAME LULUS" };
+
+          // Posisi di Kolom Kanan (Claude)
+          const cRect0 = { x: RIGHT_BOX.x + 16, y: RIGHT_BOX.y + 332, w: RIGHT_BOX.w - 32, h: 200, tag: "6 MODUL ES6" };
+          const cRect1 = { x: RIGHT_BOX.x + 16, y: RIGHT_BOX.y + 676, w: mW + 8,           h: 130, tag: "UINT8 INDEXED FB" };
+          const cRect2 = { x: RIGHT_BOX.x + 16 + mW + 14, y: RIGHT_BOX.y + 676, w: mW + 8, h: 130, tag: "360 FRAME LULUS" };
+
+          const interpRect = (r0, r1, r2) => {
+            const xa = lerp(r0.x, r1.x, k1), xb = lerp(xa, r2.x, k2);
+            const ya = lerp(r0.y, r1.y, k1), yb = lerp(ya, r2.y, k2);
+            const wa = lerp(r0.w, r1.w, k1), wb = lerp(wa, r2.w, k2);
+            const ha = lerp(r0.h, r1.h, k1), hb = lerp(ha, r2.h, k2);
+            const tag = k2 > 0.5 ? r2.tag : (k1 > 0.5 ? r1.tag : r0.tag);
+            return { x: xb, y: yb, w: wb, h: hb, tag };
+          };
+
+          const gCur = interpRect(gRect0, gRect1, gRect2);
+          const cCur = interpRect(cRect0, cRect1, cRect2);
+
+          drawIrisScannerBox(gCur.x, gCur.y, gCur.w, gCur.h, gCur.tag, irisAlpha);
+          drawIrisScannerBox(cCur.x, cCur.y, cCur.w, cCur.h, cCur.tag, irisAlpha);
+        }
+
+        // -----------------------------------------------------------------------
+        // 7. AREA BAWAH: TIMELINE HALAMAN 3 & HOOK "MANA HASIL YANG LEBIH BAIK?"
+        // -----------------------------------------------------------------------
+        if (time >= 13.80) {
+          const botAppear = smootherstep(13.80, 14.80, time);
+          ctx.save();
+          ctx.globalAlpha = botAppear;
+
+          const tlX = LEFT_BOX.x;
+          const tlW = (RIGHT_BOX.x + RIGHT_BOX.w) - tlX; // 984 px
+          const segW = tlW / 3;
+          const tlY = 1382;
+
+          ctx.fillStyle = "#25252b";
+          ctx.fillRect(tlX, tlY, tlW, 2);
+
+          for (let i = 0; i <= 3; i++) {
+            const tx = Math.round(tlX + i * segW);
+            ctx.fillStyle = i === 0 ? "#8f8d87" : "#36363e";
+            ctx.fillRect(tx, tlY - 5, 1.5, 12);
+          }
+
+          ctx.fillStyle = "#ebb343";
+          ctx.fillRect(tlX - 1.5, tlY - 9, 3, 20);
+
+          ctx.font = "700 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.textBaseline = "top";
+          ctx.fillStyle = "#ebb343";
+          fillTrackedText("1  ·  SENJA", tlX, tlY + 20, 0.8, "left");
+          ctx.fillStyle = "#4d4d55";
+          fillTrackedText("2  ·  LEPAS LANDAS", tlX + segW, tlY + 20, 0.8, "left");
+          fillTrackedText("3  ·  ORBIT", tlX + segW * 2, tlY + 20, 0.8, "left");
+
+          // Counter 00.00 / 12.00 s yang menyambung persis ke Halaman 3
+          const timeY = tlY + 62;
+          ctx.font = "600 24px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.textAlign = "left";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.fillText("00.00", tlX, timeY);
+          const w0 = ctx.measureText("00.00").width;
+          ctx.fillStyle = "#6e6d68";
+          ctx.fillText(" / 12.00 s", tlX + w0, timeY);
+
+          ctx.font = "500 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#5c5b57";
+          ctx.fillText("FRAME 001 / 360", tlX + tlW, timeY + 4);
+
+          ctx.restore();
+
+          // ---------------------------------------------------------------------
+          // BANNER HOOK EDITORIAL PRESTISIUS: "MANA HASIL YANG LEBIH BAIK?"
+          // (Muncul pada 14.50s, memudar lembut di 17.15s - 17.85s sehingga frame 18.0s identik 100% dengan pict.html)
+          // ---------------------------------------------------------------------
+          const bannerFade = smoothstep(14.40, 15.00, time) * (1 - smootherstep(17.15, 17.80, time));
+          if (bannerFade > 0.01) {
+            const easeY = softBounceOut(clamp((time - 14.40) / 0.65, 0, 1), 1.12);
+            ctx.save();
+            ctx.globalAlpha = bannerFade;
+
+            const bW = 884;
+            const bH = 80;
+            const bX = (W - bW) / 2;
+            const bY = lerp(1575, 1550, easeY);
+
+            // Bayangan obsidian matte berkelas
+            ctx.shadowColor = "rgba(235, 179, 67, 0.22)";
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetY = 8;
+            roundRect(ctx, bX, bY, bW, bH, 10);
+            ctx.fillStyle = "#131318";
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+
+            // Double Hairline Border Elegan
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = "#2d2d38";
+            ctx.stroke();
+
+            roundRect(ctx, bX + 3, bY + 3, bW - 6, bH - 6, 8);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(235, 179, 67, 0.42)";
+            ctx.stroke();
+
+            // 4 Corner Markers Kuning Emas (Gaya Iris & Swiss Technical HUD)
+            const nodeS = 6;
+            const bCorners = [
+              { x: bX - nodeS / 2,      y: bY - nodeS / 2 },
+              { x: bX + bW - nodeS / 2, y: bY - nodeS / 2 },
+              { x: bX - nodeS / 2,      y: bY + bH - nodeS / 2 },
+              { x: bX + bW - nodeS / 2, y: bY + bH - nodeS / 2 }
+            ];
+            for (let i = 0; i < bCorners.length; i++) {
+              ctx.fillStyle = "#ebb343";
+              ctx.fillRect(bCorners[i].x, bCorners[i].y, nodeS, nodeS);
+            }
+
+            // Left Flag / Pill: "[ VOTE / SHOWDOWN ]"
+            const pillX = bX + 22;
+            const pillY = bY + (bH - 32) / 2;
+            const pillW = 108;
+            const pillH = 32;
+            roundRect(ctx, pillX, pillY, pillW, pillH, 6);
+            ctx.fillStyle = "#ebb343";
+            ctx.fill();
+
+            ctx.font = "800 13px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#0e0e10";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("ONE SHOT", pillX + pillW / 2, pillY + pillH / 2 + 0.5);
+
+            // Garis Pembatas Vertikal Tipis
+            ctx.fillStyle = "#2c2c36";
+            ctx.fillRect(pillX + pillW + 16, bY + 16, 1.5, bH - 32);
+
+            // Typography Utama: "MANA HASIL YANG LEBIH BAIK?" (Dua Warna: Putih Diamond + Emas Hangat)
+            const textStartX = pillX + pillW + 32;
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "left";
+
+            // Kicker Kecil di Atas
+            ctx.font = "700 12px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#8a8984";
+            fillTrackedText("DUAL AGENT BENCHMARK  ·  SIAP DITAMPILKAN", textStartX, bY + 24, 1.6, "left");
+
+            // Kalimat Tanya Besar, Tegas & Mewah
+            ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            const part1 = "MANA HASIL ";
+            ctx.fillStyle = "#f5f4f0";
+            ctx.fillText(part1, textStartX, bY + 52);
+
+            const p1W = ctx.measureText(part1).width;
+            ctx.fillStyle = "#ebb343";
+            ctx.fillText("YANG LEBIH BAIK?", textStartX + p1W, bY + 52);
+
+            ctx.restore();
+          }
+        }
+
+        // -----------------------------------------------------------------------
+        // 8. FOOTER BAWAH
+        // -----------------------------------------------------------------------
+        const footY = 1834;
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#6e6d68";
+
+        const mm = String(Math.floor(time)).padStart(2, "0");
+        const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
+        fillTrackedText(`00:${mm}:${ff}`, LEFT_BOX.x, footY, 1.2, "left");
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(LEFT_BOX.x + 104, footY - 4, 7, 7);
+
+        ctx.fillStyle = "#6e6d68";
+        fillTrackedText("120 BPM", LEFT_BOX.x + 124, footY, 1.2, "left");
+        fillTrackedText("1080×1920  ·  30FPS", RIGHT_BOX.x + RIGHT_BOX.w, footY, 1.2, "right");
+
+        ctx.restore();
+      }
+
+      window.drawFrame = drawFrame;
+      window.DURATION = DURATION;
+      window.TOTAL_FRAMES = TOTAL_FRAMES;
+
+      let currentTime = Number(params.get("t") ?? 0);
+      let isPlaying = !isHeadless;
+      let startStamp = performance.now();
+
+      const slider = document.getElementById("slider");
+      const timeLabel = document.getElementById("timeLabel");
+      const btnPlay = document.getElementById("btnPlay");
+
+      function updateView(sec) {
+        currentTime = clamp(sec, 0, DURATION);
+        drawFrame(currentTime);
+        if (slider) slider.value = Math.min(TOTAL_FRAMES - 1, Math.floor(currentTime * FPS));
+        if (timeLabel) timeLabel.textContent = `${currentTime.toFixed(2).padStart(5, "0")} / ${DURATION.toFixed(2)} s`;
+      }
+
+      if (!isHeadless) {
+        const jump = (s) => { isPlaying = false; updateView(s); };
+        document.getElementById("btnS1").onclick = () => jump(1.0);
+        document.getElementById("btnS2").onclick = () => jump(4.2);
+        document.getElementById("btnS3").onclick = () => jump(7.5);
+        document.getElementById("btnS4").onclick = () => jump(11.8);
+        document.getElementById("btnS5").onclick = () => jump(15.8);
+        document.getElementById("btnS6").onclick = () => jump(17.2);
+
+        slider.oninput = () => {
+          isPlaying = false;
+          updateView(Number(slider.value) / FPS);
+        };
+
+        btnPlay.onclick = () => {
+          isPlaying = !isPlaying;
+          if (isPlaying) {
+            if (currentTime >= DURATION - 0.1) currentTime = 0;
+            startStamp = performance.now() - currentTime * 1000;
+            requestAnimationFrame(tick);
+          }
+        };
+
+        function tick(now) {
+          if (!isPlaying) return;
+          const elapsed = (now - startStamp) / 1000;
+          if (elapsed >= DURATION) {
+            updateView(DURATION - 0.03);
+            isPlaying = false;
+            return;
+          }
+          updateView(Math.floor(elapsed * FPS) / FPS);
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      } else {
+        updateView(0);
+      }
+    })();
+  </script>
+</body>
+</html>

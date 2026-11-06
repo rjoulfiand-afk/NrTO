@@ -178,57 +178,39 @@
         ctx.lineWidth = 1.25;
         ctx.strokeStyle = "#26262c";
         ctx.stroke();
-
-        // Garis kilau tipis di tepi atas kapsul
         ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
         ctx.fillRect(x + 12, y + 1, w - 24, 1);
-
-        // Indikator kotak beraksen lembut
         const dotSize = 13;
         const dotX = x + 22;
         const dotY = y + (h - dotSize) / 2;
         roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
         ctx.fillStyle = accentHex;
         ctx.fill();
-
-        // Nama Model Utama (GEMINI / CLAUDE)
         ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
         ctx.fillStyle = accentHex;
         ctx.textBaseline = "middle";
         const brandX = dotX + dotSize + 13;
         const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
-
-        // Sub-versi Model (4 Argon · High / Opus 5.5 · Extra)
         ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.fillStyle = "#8e8d88";
         ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
         ctx.restore();
       }
-
-      // Menggambar Bingkai Slot Video (Bersih, Tajam, Tanpa Ornamen Berlebihan)
       function drawViewportSlot(box, captionLeft, captionRight) {
         ctx.save();
-
-        // Bayangan lembut di bawah kartu video
         ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
         ctx.shadowBlur = 24;
         ctx.shadowOffsetY = 8;
         ctx.fillStyle = screenFillMode === "green" ? "#00ff00" : "#050507";
         ctx.fillRect(box.x, box.y, box.w, box.h);
         ctx.shadowColor = "transparent";
-
-        // Bezel luar 1.5px yang tenang & elegan
         ctx.lineWidth = 1.5;
         ctx.strokeStyle = "#292930";
         ctx.strokeRect(box.x - 0.75, box.y - 0.75, box.w + 1.5, box.h + 1.5);
-
-        // Crosshair halus di 4 sudut luar bingkai
         drawCrosshair(box.x - 1, box.y - 1, 4, "#4a4a52");
         drawCrosshair(box.x + box.w + 1, box.y - 1, 4, "#4a4a52");
         drawCrosshair(box.x - 1, box.y + box.h + 1, 4, "#4a4a52");
         drawCrosshair(box.x + box.w + 1, box.y + box.h + 1, 4, "#4a4a52");
-
-        // Caption bawah kiri (Nama & Durasi)
         ctx.font = "500 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.fillStyle = "#969590";
         ctx.textAlign = "left";

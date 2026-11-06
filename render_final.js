@@ -1,11 +1,36 @@
+// Helper untuk membaca file WAV 16-bit PCM mono menjadi Float32Array
+function readWavToFloat32(filePath) {
+  const buf = fs.readFileSync(filePath);
+  let pos = 12;
+  let dataPos = -1;
+  let dataSize = 0;
+  while (pos < buf.length - 8) {
+    const chunkId = buf.toString("ascii", pos, pos + 4);
+    const chunkSize = buf.readUInt32LE(pos + 4);
+    if (chunkId === "data") {
+      dataPos = pos + 8;
+      dataSize = chunkSize;
+      break;
+    }
+    pos += 8 + chunkSize;
+  }
+  if (dataPos === -1) throw new Error("Data chunk tidak ditemukan di " + filePath);
+  const numSamples = Math.floor(dataSize / 2);
+  const arr = new Float32Array(numSamples);
+  for (let i = 0; i < numSamples; i++) {
+    arr[i] = buf.readInt16LE(dataPos + i * 2) / 32768.0;
+  }
+  return arr;
+}
+
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { chromium } = require("playwright");
 
 const FPS = 30;
-const DURATION = 70.00; // 70 Detik Santai & Terkalibrasi Naskah
-const TOTAL_FRAMES = Math.round(FPS * DURATION); // 2100 frame
+const DURATION = 100.00; // 100 Detik Penuh: Part 1 (70s) + Part 2 (18s) + Part 3 (12s)
+const TOTAL_FRAMES = Math.round(FPS * DURATION); // 3000 frame
 const WIDTH = 1080;
 const HEIGHT = 1920;
 
@@ -14,8 +39,10 @@ const AUDIO_PATH = path.join(__dirname, "audio_final.wav");
 const OUTPUT_MP4 = path.join(__dirname, "final_joulfiand.mp4");
 const HTML_PATH = "file://" + path.join(__dirname, "final.html") + "?headless=1";
 
+
+
 function generateFinalAudio(wavPath) {
-  console.log("[1/3] Mensintesis audio sinematik 70.00 detik sinkron naskah...");
+  console.log(`[1/3] Mensintesis audio sinematik ${DURATION.toFixed(2)} detik lengkap (Part 1 + Part 2 + Part 3)...`);
   const sampleRate = 44100;
   const numSamples = Math.floor(sampleRate * DURATION);
   const samples = new Float32Array(numSamples);
@@ -57,7 +84,20 @@ function generateFinalAudio(wavPath) {
     });
   };
 
-  // 1. Pembuka (0.10s)
+  const addFocusTick = (startSec, freq = 620, gain = 0.60) => {
+    let lp = 0, hp = 0;
+    addSound(startSec, 0.045, (lt) => {
+      const w = nextRand();
+      lp += 0.28 * (w - lp);
+      hp += 0.10 * (lp - hp);
+      const tickNoise = (lp - hp) * Math.exp(-lt * 320) * 0.45;
+      const focusPulse = Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 140) * 0.18;
+      return (tickNoise + focusPulse) * gain;
+    });
+  };
+
+
+
   addAirSwoosh(0.10, 0.75, 0.85, 0.50);
   addSound(0.15, 1.80, (lt) => {
     const env = Math.min(1, lt / 0.15) * Math.exp(-lt * 1.8);
@@ -92,7 +132,7 @@ function generateFinalAudio(wavPath) {
   addMouseClick(17.40);
   addAirSwoosh(17.65, 0.60, 1.35, 0.48);
 
-  // 5. Loading Ring (18.10s) & Shimmer Gemini (19.40s)
+
   addSound(18.10, 0.95, (lt) => {
     const sweep = 320 + lt * 520;
     return Math.sin(2 * Math.PI * sweep * lt) * Math.sin((lt / 0.95) * Math.PI) * 0.16;
@@ -107,7 +147,7 @@ function generateFinalAudio(wavPath) {
   });
   addAirSwoosh(19.45, 0.80, 1.25, 0.42);
 
-  // 6. Gemini Code Scroll (20.30s, 21.80s) & Pilih Argon 4 High (23.75s, 24.90s, 26.05s)
+
   addAirSwoosh(20.30, 1.10, 0.80, 0.32);
   addAirSwoosh(21.80, 1.00, 1.15, 0.35);
   addMouseClick(23.75);
@@ -126,7 +166,7 @@ function generateFinalAudio(wavPath) {
     });
   }
 
-  // 8. Outro Impact Tanpa Petir Alay (33.00s)
+
   addAirSwoosh(32.95, 0.50, 0.90, 0.52);
   addSound(33.05, 1.80, (lt) => {
     const subEnv = Math.exp(-lt * 3.5);
@@ -140,12 +180,10 @@ function generateFinalAudio(wavPath) {
     return subDrop + brassChord;
   });
 
-  // 9. Transisi ke Halaman 1 (37.80s)
   addAirSwoosh(37.80, 0.55, 1.15, 0.45);
   addSound(37.85, 0.20, (lt) => Math.sin(2 * Math.PI * 440 * lt) * Math.exp(-lt * 24) * 0.15);
   addAirSwoosh(38.20, 0.45, 0.85, 0.42);
 
-  // 10. Suara Ketikan Keyboard Mekanik Jernih (38.60s - 49.50s)
   let tKey = 38.60;
   let keyIdx = 0;
   while (tKey < 49.45) {
@@ -181,7 +219,6 @@ function generateFinalAudio(wavPath) {
     keyIdx++;
   }
 
-  // 11. 5 Tick Fokus Iris Kuning Pas di 5 Poin Bintang Naskah
   const scanLockTimes = [52.80, 54.40, 56.00, 57.60, 59.40];
   scanLockTimes.forEach((st, idx) => {
     let lp = 0, hp = 0;
@@ -196,7 +233,6 @@ function generateFinalAudio(wavPath) {
     });
   });
 
-  // 12. Lipat Bar & Klik Kirim (61.40s, 64.00s)
   addAirSwoosh(61.40, 0.80, 0.85, 0.38);
   addSound(64.00, 0.040, (lt) => {
     const w = nextRand();
@@ -223,12 +259,38 @@ function generateFinalAudio(wavPath) {
   addSoftCardSettle(66.50, 150);
   addAirSwoosh(66.48, 0.25, 0.90, 0.32);
 
-  // Master Limiter
+
+  const page2WavPath = path.join(__dirname, "audio_page2.wav");
+  if (!fs.existsSync(page2WavPath)) {
+    throw new Error("File audio_page2.wav tidak ditemukan di " + page2WavPath);
+  }
+  const page2Samples = readWavToFloat32(page2WavPath);
+  const p2Start = Math.floor(70.00 * sampleRate);
+  for (let i = 0; i < page2Samples.length && p2Start + i < numSamples; i++) {
+    samples[p2Start + i] = page2Samples[i];
+  }
+  console.log(`      ✓ Track Part 2 (audio_page2.wav) berhasil dimuat: ${page2Samples.length} sampel (${(page2Samples.length / sampleRate).toFixed(2)}s)`);
+
+
+  const pictWavPath = path.join(__dirname, "audio.wav");
+  if (!fs.existsSync(pictWavPath)) {
+    throw new Error("File audio.wav tidak ditemukan di " + pictWavPath);
+  }
+  const pictSamples = readWavToFloat32(pictWavPath);
+  const p3Start = Math.floor(88.00 * sampleRate);
+  for (let i = 0; i < pictSamples.length && p3Start + i < numSamples; i++) {
+    samples[p3Start + i] = pictSamples[i];
+  }
+  console.log(`      ✓ Track Part 3 (audio.wav) berhasil dimuat: ${pictSamples.length} sampel (${(pictSamples.length / sampleRate).toFixed(2)}s)`);
+
+  // --------------------------------------------------------------------------
+  // MASTER LIMITER & FINAL WAV ENCODING
+  // --------------------------------------------------------------------------
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate;
     let out = samples[i];
     if (t < 0.10) out *= t / 0.10;
-    if (t > DURATION - 0.35) out *= (DURATION - t) / 0.35;
+    if (t > DURATION - 0.40) out *= (DURATION - t) / 0.40;
     samples[i] = Math.max(-0.98, Math.min(0.98, out));
   }
 
@@ -254,11 +316,23 @@ function generateFinalAudio(wavPath) {
   }
 
   fs.writeFileSync(wavPath, buffer);
-  console.log(`      Audio Final tersinkron naskah siap di: ${wavPath}`);
+  console.log(`      Audio Final 100 Detik berhasil dibuat di: ${wavPath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
 }
 
+
 async function renderFinalFrames() {
-  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame dari final.html...`);
+  const forceRender = process.argv.includes("--force-frames");
+  const lastFramePath = path.join(FRAMES_DIR, `frame_${String(TOTAL_FRAMES - 1).padStart(4, "0")}.png`);
+
+  if (!forceRender && fs.existsSync(lastFramePath)) {
+    const files = fs.readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png"));
+    if (files.length >= TOTAL_FRAMES) {
+      console.log(`[2/3] Seluruh ${TOTAL_FRAMES} frame di frames_final/ sudah lengkap! Langsung lanjut ke penggabungan FFmpeg.`);
+      return;
+    }
+  }
+
+  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame dari final.html (Durasi: ${DURATION}s @ ${FPS} FPS)...`);
   if (!fs.existsSync(FRAMES_DIR)) {
     fs.mkdirSync(FRAMES_DIR, { recursive: true });
   } else {
@@ -290,8 +364,11 @@ async function renderFinalFrames() {
   await browser.close();
 }
 
+// ============================================================================
+// 3. ENCODE FRAME + AUDIO MENJADI final_joulfiand.mp4 DENGAN FFMPEG
+// ============================================================================
 function encodeFinalVideo() {
-  console.log("[3/3] Menggabungkan frame & audio menjadi final_joulfiand.mp4 dengan FFmpeg...");
+  console.log("[3/3] Menggabungkan 3000 frame & audio menjadi final_joulfiand.mp4 dengan FFmpeg...");
   const ffmpegArgs = [
     "-y",
     "-framerate", String(FPS),
@@ -313,14 +390,16 @@ function encodeFinalVideo() {
   ];
 
   execFileSync("ffmpeg", ffmpegArgs, { stdio: "inherit" });
-  console.log(`\nSelesai! Video Final siap diposting di: ${OUTPUT_MP4}`);
+  console.log(`\nSelesai! Video Final Lengkap siap diposting di: ${OUTPUT_MP4}`);
 }
 
 (async () => {
   try {
     generateFinalAudio(AUDIO_PATH);
-    await renderFinalFrames();
-    encodeFinalVideo();
+    if (!process.argv.includes("--audio-only")) {
+      await renderFinalFrames();
+      encodeFinalVideo();
+    }
   } catch (err) {
     console.error("Terjadi kesalahan:", err);
     process.exit(1);
