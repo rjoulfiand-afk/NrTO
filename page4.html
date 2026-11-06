@@ -122,7 +122,7 @@
       const H = 1920;
       const SSAA = 2; // Supersampling 2x untuk teks dan hairline border sangat tajam
       const FPS = 30;
-      const DURATION = 16.00; // 16.00 Detik Sempurna
+      const DURATION = 62.00; // 16.00 Detik Sempurna
       const TOTAL_FRAMES = Math.round(FPS * DURATION); // 480 frame
 
       const LEFT_BOX  = { x: 48,  y: 390, w: 468, h: 720 };
@@ -2206,1009 +2206,1247 @@ const W = 270;
   })();
 
       // =======================================================================
-      // MODUL ANIMASI MOTION GRAPHICS HALAMAN 4 (VERDICT & VIRAL OUTRO)
+      // MODUL ANIMASI MOTION GRAPHICS HALAMAN 4 (10 BAB SESUAI REFRENSI LENGKAP)
+      // TOTAL DURASI: 62.00 DETIK · 1860 FRAME @ 30 FPS · SUPERSAMPLED 2X
       // =======================================================================
 
-      // 1. Partikel Emisi Reaksi Melayang (Floating Reactions: Hearts, Fire, Rockets, Stars)
-      const REACTION_PARTICLES = [];
-      const REACTION_ICONS = ["❤️", "🔥", "🚀", "✨", "💬", "⭐", "⚡"];
-      for (let i = 0; i < 30; i++) {
-        REACTION_PARTICLES.push({
-          x: 180 + (i * 28) % 720,
-          baseX: 180 + (i * 28) % 720,
-          speedY: 130 + (i * 35) % 170,
-          wobbleFreq: 2.4 + (i * 0.4) % 3.0,
-          wobbleAmp: 18 + (i * 3) % 24,
-          phase: (i * 0.73) % (Math.PI * 2),
-          icon: REACTION_ICONS[i % REACTION_ICONS.length],
-          size: 24 + (i * 5) % 18,
-          alphaOffset: (i * 0.17) % 1.0
-        });
-      }
+      // Palet Warna Claude (16 Warna Resmi)
+      const CLAUDE_PALETTE = [
+        "#000000", "#1f1f2e", "#2c324f", "#3a3f60", "#4f5170", "#5f5f80",
+        "#808298", "#a0a3b8", "#f1763a", "#ffc94a", "#d63c2f", "#683a6e",
+        "#e8907a", "#242e5a", "#3e8f6a", "#1f5c60"
+      ];
 
-      // 2. Fungsi Background Cybernetic & Grid Halus
-      function drawTechBackground(t, fadeAlpha = 1.0) {
+      // Palet Warna Gemini (16 Warna Dasar)
+      const GEMINI_PALETTE = [
+        "#0b0c10", "#141b33", "#24345c", "#3b2d54", "#7a305c", "#c94a38",
+        "#eb7b34", "#f7b545", "#ffee83", "#f4f6f8", "#b8c4d4", "#6f7f94",
+        "#3c4657", "#1f242d", "#2e8965", "#5c26a0"
+      ];
+
+      // 48 Contoh Warna Leaked Antialiasing Gemini akibat ctx.arc
+      const GEMINI_LEAK_SAMPLES = [
+        "#141a2e", "#1b2542", "#223157", "#293e6e", "#314b85", "#3a599d",
+        "#1a1829", "#28213f", "#372b55", "#4a3672", "#5f4391", "#7651b1",
+        "#321a28", "#51243e", "#722e54", "#97396c", "#bc4485", "#e1519f",
+        "#4b231d", "#753227", "#a04132", "#cc513e", "#f0634c", "#ff7963",
+        "#53321d", "#834b27", "#b56633", "#e6823f", "#ffa154", "#ffbc73",
+        "#57451d", "#8c6e27", "#c29834", "#f6c343", "#ffdc66", "#ffee8a",
+        "#363a45", "#515869", "#707a90", "#929fb8", "#b8c7e2", "#d8e4fa",
+        "#1c3429", "#28513e", "#367256", "#459470", "#56b78a", "#69dba6"
+      ];
+
+      // Helper Menggambar Kotak Odometer Digital / Mekanikal
+      function drawOdometerBox(x, y, w, h, char, isAccented = false, accentCol = "#ebb343") {
         ctx.save();
-        ctx.globalAlpha = fadeAlpha;
-
-        // Radial dark aura di tengah
-        const radGrad = ctx.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, 1000);
-        radGrad.addColorStop(0, "#111219");
-        radGrad.addColorStop(0.6, "#0a0a0e");
-        radGrad.addColorStop(1, "#060608");
-        ctx.fillStyle = radGrad;
-        ctx.fillRect(0, 0, W, H);
-
-        // Cyber Grid melayang perlahan ke bawah
-        const gridH = 64;
-        const gridW = 64;
-        const offsetY = (t * 22) % gridH;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.022)";
-        ctx.lineWidth = 1;
-
-        ctx.beginPath();
-        for (let y = -gridH; y <= H + gridH; y += gridH) {
-          ctx.moveTo(0, y + offsetY);
-          ctx.lineTo(W, y + offsetY);
-        }
-        for (let x = 0; x <= W; x += gridW) {
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, H);
-        }
-        ctx.stroke();
-
-        // Titik-titik crosshair halus di persimpangan grid
-        ctx.fillStyle = "rgba(235, 179, 67, 0.08)";
-        for (let x = 96; x < W; x += 192) {
-          for (let y = 128; y < H; y += 256) {
-            ctx.fillRect(x - 2, y, 5, 1);
-            ctx.fillRect(x, y - 2, 1, 5);
-          }
-        }
-
-        ctx.restore();
-      }
-
-      // 3. Menggambar Balon Komentar Lucu dengan Animasi Fisika Squash & Stretch
-      function drawCuteCommentBubble(cx, cy, scale, t) {
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.scale(scale, scale);
-
-        // Gerakan mengambang santai (Organic Hovering)
-        const hoverY = Math.sin(t * 4.2) * 8;
-        const tilt = Math.sin(t * 2.8) * 0.032;
-        ctx.translate(0, hoverY);
-        ctx.rotate(tilt);
-
-        const bW = 380;
-        const bH = 210;
-
-        // Bayangan lembut bersinar (Glow Ambient)
-        ctx.shadowColor = "rgba(235, 179, 67, 0.35)";
-        ctx.shadowBlur = 32;
-        ctx.shadowOffsetY = 12;
-
-        // Badan Balon Komentar
-        roundRect(ctx, -bW / 2, -bH / 2, bW, bH, 30);
-        const bubbleGrad = ctx.createLinearGradient(0, -bH / 2, 0, bH / 2);
-        bubbleGrad.addColorStop(0, "#1c1d27");
-        bubbleGrad.addColorStop(1, "#12131b");
-        ctx.fillStyle = bubbleGrad;
+        roundRect(ctx, x, y, w, h, 6);
+        ctx.fillStyle = "#121319";
         ctx.fill();
-
-        ctx.shadowColor = "transparent";
-
-        // Border ganda emas premium
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = isAccented ? accentCol : "#2b2c38";
         ctx.stroke();
 
+        // Garis tengah bevel odometer
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-        roundRect(ctx, -bW / 2 + 5, -bH / 2 + 5, bW - 10, bH - 10, 26);
-        ctx.stroke();
-
-        // Ekor Balon Komentar Mengarah ke Bawah
         ctx.beginPath();
-        ctx.moveTo(-26, bH / 2 - 2);
-        ctx.lineTo(-6, bH / 2 + 30);
-        ctx.lineTo(16, bH / 2 - 2);
-        ctx.closePath();
-        ctx.fillStyle = "#14151e";
-        ctx.fill();
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "#ebb343";
+        ctx.moveTo(x, y + h / 2);
+        ctx.lineTo(x + w, y + h / 2);
         ctx.stroke();
 
-        // Tutup garis sambungan ekor di dalam
-        ctx.fillStyle = "#14151e";
-        ctx.fillRect(-24, bH / 2 - 4, 38, 5);
-
-        // 3 Titik Mengetik Beranimasi (Squash & Stretch Wave)
-        const dotSpacing = 58;
-        for (let i = -1; i <= 1; i++) {
-          const dotIdx = i + 1; // 0, 1, 2
-          const wavePhase = t * 6.5 - dotIdx * 0.75;
-          const bounce = Math.max(0, Math.sin(wavePhase));
-          const dotScaleY = 1.0 + bounce * 0.45;
-          const dotScaleX = 1.0 - bounce * 0.20;
-          const dotLift = bounce * 24;
-
-          const dotX = i * dotSpacing;
-          const dotY = 3 - dotLift;
-
-          ctx.save();
-          ctx.translate(dotX, dotY);
-          ctx.scale(dotScaleX, dotScaleY);
-
-          // Aura pendar titik
-          ctx.beginPath();
-          ctx.arc(0, 0, 16, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(235, 179, 67, 0.28)";
-          ctx.fill();
-
-          // Inti titik neon emas
-          ctx.beginPath();
-          ctx.arc(0, 0, 11, 0, Math.PI * 2);
-          ctx.fillStyle = (bounce > 0.3) ? "#fff5db" : "#ebb343";
-          ctx.fill();
-
-          ctx.restore();
-        }
-
-        // Ikon Hati Merah/Pink yang Berdenyut di Pojok Atas Balon
-        const heartPulse = 1.0 + Math.sin(t * 7.5) * 0.18;
-        ctx.save();
-        ctx.translate(bW / 2 - 20, -bH / 2 - 14);
-        ctx.scale(heartPulse, heartPulse);
-
-        ctx.font = "32px sans-serif";
+        ctx.font = "800 32px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = isAccented ? accentCol : "#f4f3ef";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "rgba(244, 63, 94, 0.65)";
-        ctx.shadowBlur = 18;
-        ctx.fillText("❤️", 0, 0);
-        ctx.restore();
-
-        // Kilauan Bintang Berputar (Twinkling Sparkles)
-        const drawSparkleStar = (sx, sy, starSize, starAngle) => {
-          ctx.save();
-          ctx.translate(sx, sy);
-          ctx.rotate(starAngle);
-          ctx.fillStyle = "#ffe484";
-          ctx.shadowColor = "rgba(255, 228, 132, 0.8)";
-          ctx.shadowBlur = 12;
-
-          ctx.beginPath();
-          ctx.moveTo(0, -starSize);
-          ctx.quadraticCurveTo(0, 0, starSize, 0);
-          ctx.quadraticCurveTo(0, 0, 0, starSize);
-          ctx.quadraticCurveTo(0, 0, -starSize, 0);
-          ctx.quadraticCurveTo(0, 0, 0, -starSize);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        };
-
-        drawSparkleStar(-bW / 2 - 12, -bH / 2 + 20, 16, t * 2.5);
-        drawSparkleStar(bW / 2 + 18, bH / 2 - 40, 12, -t * 3.2);
-
+        ctx.fillText(char, x + w / 2, y + h / 2 + 1);
         ctx.restore();
       }
 
-      // 4. Air Mancur Partikel Reaksi Interaktif (Floating Reactions Fountain)
-      function drawReactionFountain(t, startT = 13.50, alphaMult = 1.0) {
-        if (t < startT) return;
-        const elapsed = t - startT;
+      function drawOdometerText(text, cx, y, charW = 34, charH = 48, gap = 4, isAccented = false, accentCol = "#ebb343") {
+        const chars = String(text).split("");
+        const totalW = chars.length * charW + (chars.length - 1) * gap;
+        const startX = cx - totalW / 2;
+        for (let i = 0; i < chars.length; i++) {
+          drawOdometerBox(startX + i * (charW + gap), y, charW, charH, chars[i], isAccented, accentCol);
+        }
+      }
 
+      // Helper Callout Circle dengan Connector Line ke Pill Label
+      function drawCalloutCircle(cx, cy, r, targetX, targetY, labelText, pulseScale = 1.0) {
         ctx.save();
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 2.2;
+
+        // Lingkaran Target Berdenyut
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * pulseScale, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Titik Tengah
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#ebb343";
+        ctx.fill();
+
+        // Garis Penghubung
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(targetX, targetY);
+        ctx.stroke();
+
+        // Pill Label
+        ctx.font = "700 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        const txtW = ctx.measureText(labelText).width;
+        const pillW = txtW + 28;
+        const pillH = 34;
+        const pillX = targetX - pillW / 2;
+        const pillY = targetY - pillH / 2;
+
+        roundRect(ctx, pillX, pillY, pillW, pillH, 8);
+        ctx.fillStyle = "#121319";
+        ctx.fill();
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = "#f4f3ef";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
-        for (let i = 0; i < REACTION_PARTICLES.length; i++) {
-          const p = REACTION_PARTICLES[i];
-          const cycleT = (elapsed * 0.42 + p.alphaOffset) % 1.0;
-          const curY = 1600 - cycleT * 750;
-          const curX = p.baseX + Math.sin(t * p.wobbleFreq + p.phase) * p.wobbleAmp;
-
-          // Fade in di bawah, pudar di atas
-          let alpha = Math.sin(cycleT * Math.PI) * 0.85 * alphaMult;
-          if (alpha <= 0.01) continue;
-
-          ctx.globalAlpha = alpha;
-          ctx.font = `${p.size}px sans-serif`;
-          ctx.fillText(p.icon, curX, curY);
-        }
-
+        ctx.fillText(labelText, targetX, targetY + 1);
         ctx.restore();
       }
 
-      // 5. Laser Scanner & Telemetry Overlay di Atas Viewport Cuplikan Roket
-      function drawViewportTechOverlay(box, t, isGemini) {
-        ctx.save();
-        const accent = isGemini ? "#6ea8fe" : "#e07a5f";
+      // Helper Header Global
+      function drawGlobalHeader(time, chapterStr, categoryStr, titleWhite, titleAmber) {
+        const headY = 72;
 
-        // Laser scanline beam bergerak vertikal naik-turun
-        const scanY = box.y + (Math.sin(t * 3.2) * 0.5 + 0.5) * box.h;
-        const beamGrad = ctx.createLinearGradient(0, scanY - 24, 0, scanY + 24);
-        beamGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-        beamGrad.addColorStop(0.5, isGemini ? "rgba(110, 168, 254, 0.28)" : "rgba(224, 122, 95, 0.28)");
-        beamGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.fillStyle = beamGrad;
-        ctx.fillRect(box.x, scanY - 24, box.w, 48);
+        // Header Atas
+        ctx.font = "700 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8a8984";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        fillTrackedText("JOULFIAND STUDIO · ADU MODEL", 56, headY, 1.4, "left");
 
-        // Garis sinar laser utama
-        ctx.strokeStyle = accent;
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.moveTo(box.x, scanY);
-        ctx.lineTo(box.x + box.w, scanY);
-        ctx.stroke();
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#8a8984";
+        fillTrackedText(chapterStr, 1024, headY, 1.4, "right");
 
-        // Sudut L-Bracket Cybernetic
-        const arm = 18;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = accent;
-        // Top-Left
-        ctx.beginPath(); ctx.moveTo(box.x, box.y + arm); ctx.lineTo(box.x, box.y); ctx.lineTo(box.x + arm, box.y); ctx.stroke();
-        // Top-Right
-        ctx.beginPath(); ctx.moveTo(box.x + box.w - arm, box.y); ctx.lineTo(box.x + box.w, box.y); ctx.lineTo(box.x + box.w, box.y + arm); ctx.stroke();
-        // Bottom-Left
-        ctx.beginPath(); ctx.moveTo(box.x, box.y + box.h - arm); ctx.lineTo(box.x, box.y + box.h); ctx.lineTo(box.x + arm, box.y + box.h); ctx.stroke();
-        // Bottom-Right
-        ctx.beginPath(); ctx.moveTo(box.x + box.w - arm, box.y + box.h); ctx.lineTo(box.x + box.w, box.y + box.h); ctx.lineTo(box.x + box.w, box.y + box.h - arm); ctx.stroke();
+        // Model Badges
+        drawModelBadge(56, 126, 450, 62, "#e07a5f", "CLAUDE", "Opus 5.5 · medium");
+        drawModelBadge(574, 126, 450, 62, "#6ea8fe", "GEMINI", "3.8 Flash · high");
 
-        // Top Telemetry Bar di dalam viewport
-        roundRect(ctx, box.x + 10, box.y + 10, box.w - 20, 32, 6);
-        ctx.fillStyle = "rgba(10, 10, 14, 0.85)";
-        ctx.fill();
+        // Garis Pembagi Tengah
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.beginPath();
+        ctx.moveTo(540, 110);
+        ctx.lineTo(540, 1800);
         ctx.stroke();
 
-        // Titik REC berkedip
-        const recBlink = Math.sin(t * 8) > 0;
-        ctx.beginPath();
-        ctx.arc(box.x + 24, box.y + 26, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = recBlink ? "#ef4444" : "#7f1d1d";
+        // Kicker Kategori
+        const kickY = 224;
+        roundRect(ctx, 56, kickY - 6, 10, 10, 2.5);
+        ctx.fillStyle = "#ebb343";
         ctx.fill();
 
-        ctx.font = "700 13px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#e6e5e0";
+        ctx.font = "700 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#ebb343";
+        fillTrackedText(categoryStr, 76, kickY, 1.4, "left");
+
+        // Judul Utama Besar
+        const titleY = 280;
+        ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.textBaseline = "alphabetic";
         ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        ctx.fillText("REC · 60 FPS", box.x + 36, box.y + 26.5);
 
-        ctx.textAlign = "right";
-        ctx.fillStyle = accent;
-        ctx.fillText(isGemini ? "NN 4X CANVAS2D" : "NN 4X UINT8 FB", box.x + box.w - 20, box.y + 26.5);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(titleWhite, 56, titleY);
+        const w1 = ctx.measureText(titleWhite).width;
 
-        ctx.restore();
+        ctx.fillStyle = "#ebb343";
+        ctx.fillText(titleAmber, 56 + w1, titleY);
       }
 
-      // 6. Bar Meter Metrik Penilaian Beranimasi (Animated Progress Bar with Rolling Value)
-      function drawAnimatedMetricBar(x, y, w, h, label, scoreVal, maxVal, unit, fillPct, accentHex, subDesc) {
-        ctx.save();
-
-        // Label judul metrik
-        ctx.font = "700 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-        ctx.fillStyle = "#e8e7e1";
-        ctx.textAlign = "left";
+      // Helper Footer Persisten
+      function drawGlobalFooter(time) {
+        const footY = 1860;
+        ctx.font = "600 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
-        ctx.fillText(label, x, y);
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#666560";
 
-        // Angka skor di kanan
-        ctx.font = "800 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
-        ctx.fillStyle = accentHex;
+        const mm = String(Math.floor(time)).padStart(2, "0");
+        const ss = String(Math.floor((time % 1) * 30)).padStart(2, "0");
+        fillTrackedText(`00:${mm}:${ss} ■ 128 BPM`, 56, footY, 1.2, "left");
+
         ctx.textAlign = "right";
-        ctx.fillText(`${scoreVal.toFixed(1)} / ${maxVal} ${unit}`, x + w, y);
-
-        // Track bar belakang
-        const barY = y + 14;
-        const barH = 10;
-        roundRect(ctx, x, barY, w, barH, 5);
-        ctx.fillStyle = "#1b1b24";
-        ctx.fill();
-
-        // Bar isian gradien beranimasi
-        const clampedFill = clamp(fillPct, 0, 1);
-        if (clampedFill > 0.01) {
-          const fillW = Math.max(12, w * clampedFill);
-          roundRect(ctx, x, barY, fillW, barH, 5);
-          const barGrad = ctx.createLinearGradient(x, 0, x + fillW, 0);
-          barGrad.addColorStop(0, accentHex);
-          barGrad.addColorStop(1, "#5ce6a0");
-          ctx.fillStyle = barGrad;
-          ctx.shadowColor = accentHex;
-          ctx.shadowBlur = 8;
-          ctx.fill();
-          ctx.shadowColor = "transparent";
-        }
-
-        // Sub-deskripsi teknis di bawah bar
-        if (subDesc) {
-          ctx.font = "500 13px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#8a8984";
-          ctx.textAlign = "left";
-          ctx.fillText(subDesc, x, barY + barH + 13);
-        }
-
-        ctx.restore();
+        fillTrackedText("1080×1920 · 60FPS", 1024, footY, 1.2, "right");
       }
 
       // =======================================================================
-      // FUNGSI UTAMA: drawPage4Frame(time) (0.00s s/d 16.00s)
+      // FUNGSI UTAMA DRAWFRAME(TIME)
       // =======================================================================
       function drawPage4Frame(t) {
         const time = clamp(t, 0, DURATION);
 
-        // Terapkan Supersampling 2x (Desain di ruang 1080x1920, kanvas 2160x3840)
         ctx.save();
         ctx.scale(SSAA, SSAA);
 
-        // Background Cyber & Grid Dinamis
-        drawTechBackground(time, 1.0);
+        // Background Cyber Gelap
+        ctx.fillStyle = "#0c0d12";
+        ctx.fillRect(0, 0, W, H);
 
-        // Top Navigation Cyber Header
-        const headY = 82;
-        ctx.save();
-        ctx.font = "700 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
-        ctx.fillStyle = "#ebb343";
-        ctx.textBaseline = "middle";
-        fillTrackedText("■ JOULFIAND STUDIO", LEFT_BOX.x, headY, 1.6, "left");
-
-        ctx.fillStyle = "#666560";
-        fillTrackedText("DUAL AGENT BENCHMARK", LEFT_BOX.x + 225, headY, 1.6, "left");
-
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#ebb343";
-        fillTrackedText("04 — VERDICT & AUDIT", RIGHT_BOX.x + RIGHT_BOX.w - 110, headY, 1.6, "right");
-
-        ctx.fillStyle = "#666560";
-        fillTrackedText("1 SHOT", RIGHT_BOX.x + RIGHT_BOX.w, headY, 1.6, "right");
-
-        // Header Model Badges
-        drawModelBadge(LEFT_BOX.x, 140, LEFT_BOX.w, 68, "#6ea8fe", "GEMINI", "4 Argon · High");
-        drawModelBadge(RIGHT_BOX.x, 140, RIGHT_BOX.w, 68, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra");
-        ctx.restore();
-
-        // =====================================================================
-        // BAGIAN 1: AUDIT SAMPEL & METRIK PENILAIAN TEKNIS (0.00s - 10.80s)
-        // =====================================================================
-        if (time < 10.80) {
-          const sampleT = time;
-          let sampleRocketT = 0;
-          let headerText = "";
-          let subText = "";
-          let fadeAlpha = 1.0;
-
-          // 3 Fase Sampel Berurutan yang Mulus
-          let pIndex = 0;
-          if (sampleT < 3.60) {
-            // Fase 1: Pad & Hitung Mundur (0.00s - 3.60s)
-            pIndex = 1;
-            const localProg = sampleT / 3.60;
-            sampleRocketT = lerp(0.0, 2.8, localProg);
-            headerText = "AUDIT 01/03 · LANDASAN & MEKANIK HITUNG MUNDUR";
-            subText = "Inspeksi Detail Pad, Menara Servis & Pelepasan Umbilical";
-            fadeAlpha = smoothstep(0.0, 0.40, sampleT) * (1 - smoothstep(3.25, 3.60, sampleT));
-          } else if (sampleT < 7.20) {
-            // Fase 2: Lepas Landas & Fisika Staging (3.60s - 7.20s)
-            pIndex = 2;
-            const localProg = (sampleT - 3.60) / 3.60;
-            sampleRocketT = lerp(3.2, 6.8, localProg);
-            headerText = "AUDIT 02/03 · AERODINAMIKA & SIMULASI PARTIKEL";
-            subText = "Turbulensi Asap, Pemisahan Stage 1 & Guncangan Supersonik";
-            fadeAlpha = smoothstep(3.60, 4.00, sampleT) * (1 - smoothstep(6.85, 7.20, sampleT));
-          } else {
-            // Fase 3: Orbit & Planet 3D (7.20s - 10.80s)
-            pIndex = 3;
-            const localProg = (sampleT - 7.20) / 3.60;
-            sampleRocketT = lerp(8.0, 11.9, localProg);
-            headerText = "AUDIT 03/03 · KEDALAMAN RUANG & PROYEKSI 3D";
-            subText = "Matematika Bola Bumi 3D, Cincin Planet & Belokan Gravitasi";
-            fadeAlpha = smoothstep(7.20, 7.60, sampleT) * (1 - smoothstep(10.40, 10.80, sampleT));
-          }
-
-          ctx.save();
-          ctx.globalAlpha *= fadeAlpha;
-
-          // Screen Rumble / Shake effect halus saat fase peluncuran (Fase 2)
-          if (pIndex === 2) {
-            const shake = Math.sin(time * 42) * 2.2;
-            ctx.translate(shake * 0.5, shake);
-          }
-
-          // Header Sampel Kicker
-          roundRect(ctx, LEFT_BOX.x, 234, 11, 11, 2.5);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
-
-          ctx.font = "700 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#ebb343";
-          ctx.textBaseline = "middle";
-          fillTrackedText(headerText, LEFT_BOX.x + 22, 240, 1.4, "left");
-
-          ctx.font = "700 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f5f4f0";
-          ctx.textBaseline = "top";
-          ctx.fillText(subText, LEFT_BOX.x, 264);
-
-          // 2 Viewport Cuplikan Video Live
-          const gCanvas = GeminiRocket.render(sampleRocketT);
-          const cCanvas = ClaudeRocket.render(sampleRocketT);
-
-          // Render Cuplikan Viewport Gemini (Kiri)
-          ctx.save();
-          ctx.fillStyle = "#050507";
-          ctx.fillRect(LEFT_BOX.x, LEFT_BOX.y, LEFT_BOX.w, LEFT_BOX.h);
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(gCanvas, 0, 0, 270, 480, LEFT_BOX.x, LEFT_BOX.y, LEFT_BOX.w, LEFT_BOX.h);
-          drawViewportTechOverlay(LEFT_BOX, time, true);
-          ctx.restore();
-
-          // Render Cuplikan Viewport Claude (Kanan)
-          ctx.save();
-          ctx.fillStyle = "#050507";
-          ctx.fillRect(RIGHT_BOX.x, RIGHT_BOX.y, RIGHT_BOX.w, RIGHT_BOX.h);
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(cCanvas, 0, 0, 270, 480, RIGHT_BOX.x, RIGHT_BOX.y, RIGHT_BOX.w, RIGHT_BOX.h);
-          drawViewportTechOverlay(RIGHT_BOX, time, false);
-          ctx.restore();
-
-          // DASHBOARD METRIK PENILAIAN DI BAWAH VIEWPORT (Y: 1130 s/d 1780)
-          const dashY = LEFT_BOX.y + LEFT_BOX.h + 20;
-          const dashH = 580;
-
-          const renderMetricDashboard = (box, isGemini) => {
-            const accent = isGemini ? "#6ea8fe" : "#e07a5f";
-            ctx.save();
-
-            // Background Card Kaca Gelap
-            roundRect(ctx, box.x, dashY, box.w, dashH, 12);
-            ctx.fillStyle = "#101117";
-            ctx.fill();
-            ctx.lineWidth = 1.4;
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-            ctx.stroke();
-
-            // Header Panel Metrik
-            roundRect(ctx, box.x + 16, dashY + 16, box.w - 32, 42, 6);
-            ctx.fillStyle = isGemini ? "rgba(110, 168, 254, 0.12)" : "rgba(224, 122, 95, 0.12)";
-            ctx.fill();
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = accent;
-            ctx.stroke();
-
-            ctx.font = "800 15px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = accent;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(isGemini ? "ANALISIS TEKNIS: GEMINI CODE" : "ANALISIS TEKNIS: CLAUDE CODE", box.x + box.w / 2, dashY + 37);
-
-            // 4 Poin Metrik Penting Beranimasi (Sesuai Fase Aktif)
-            const rowW = box.w - 40;
-            const startY = dashY + 84;
-            const gapY = 82;
-
-            const animProgress = clamp((time % 3.60) / 1.5, 0, 1);
-
-            if (pIndex === 1) {
-              // Fase 1: Pad & Hitung Mundur
-              drawAnimatedMetricBar(box.x + 20, startY + 0 * gapY, rowW, 10, "Kepatuhan Palet 16 Warna", isGemini ? 16 : 16, 16, "Warna", animProgress * 1.0, accent, isGemini ? "✓ Bayer 4x4 matrix, no color bleed" : "✓ High-contrast cosmic LUT");
-              drawAnimatedMetricBar(box.x + 20, startY + 1 * gapY, rowW, 10, "Mekanik Servis Pad & Tower", isGemini ? 9.6 : 9.8, 10, "Poin", animProgress * (isGemini ? 0.96 : 0.98), accent, isGemini ? "✓ Lampu menara & partikel tanah" : "✓ Kabel umbilical lepas presisi");
-              drawAnimatedMetricBar(box.x + 20, startY + 2 * gapY, rowW, 10, "Hitung Mundur HUD Telemetri", isGemini ? 9.7 : 9.7, 10, "Poin", animProgress * 0.97, accent, isGemini ? "✓ Font monospace pixel tajam" : "✓ T-Minus counter synchronizer");
-              drawAnimatedMetricBar(box.x + 20, startY + 3 * gapY, rowW, 10, "Inisialisasi Arsitektur", isGemini ? 9.8 : 9.8, 10, "Poin", animProgress * 0.98, accent, isGemini ? "• Monolitik 1-File (Zero delay)" : "• Modular 6-File (OOP Class)");
-            } else if (pIndex === 2) {
-              // Fase 2: Liftoff & Partikel Fisika
-              drawAnimatedMetricBar(box.x + 20, startY + 0 * gapY, rowW, 10, "Simulasi Asap & Emitter", isGemini ? 9.8 : 9.6, 10, "Poin", animProgress * (isGemini ? 0.98 : 0.96), accent, isGemini ? "★ Partikel gravitasi & dither asap" : "✓ High-density modular puff");
-              drawAnimatedMetricBar(box.x + 20, startY + 1 * gapY, rowW, 10, "Dinamika Staging (Pemisahan)", isGemini ? 9.8 : 9.6, 10, "Poin", animProgress * (isGemini ? 0.98 : 0.96), accent, isGemini ? "★ Screen rumble saat booster lepas" : "✓ Pemisahan stage 1 stabil");
-              drawAnimatedMetricBar(box.x + 20, startY + 2 * gapY, rowW, 10, "Konsistensi Render Waktu", isGemini ? 10.0 : 10.0, 10, "Poin", animProgress * 1.0, accent, isGemini ? "✓ drawFrame(t) deterministik murni" : "✓ Fixed timestep simulation");
-              drawAnimatedMetricBar(box.x + 20, startY + 3 * gapY, rowW, 10, "Akurasi Rasio Vertikal 9:16", isGemini ? 10.0 : 10.0, 10, "Poin", animProgress * 1.0, accent, isGemini ? "✓ 270x480 -> 1080x1920 4X NN" : "✓ 270x480 -> 1080x1920 4X NN");
-            } else {
-              // Fase 3: Orbit & Planet 3D
-              drawAnimatedMetricBar(box.x + 20, startY + 0 * gapY, rowW, 10, "Proyeksi Bola Planet 3D", isGemini ? 9.6 : 9.9, 10, "Poin", animProgress * (isGemini ? 0.96 : 0.99), accent, isGemini ? "✓ Cincin Saturnus bercahaya" : "★ Bola Bumi 3D + lampu kota malam");
-              drawAnimatedMetricBar(box.x + 20, startY + 1 * gapY, rowW, 10, "Trajektori Belokan Gravitasi", isGemini ? 9.7 : 9.8, 10, "Poin", animProgress * (isGemini ? 0.97 : 0.98), accent, isGemini ? "✓ Horizon toska atmosferik" : "✓ Manuver 90 derajat orbit");
-              drawAnimatedMetricBar(box.x + 20, startY + 2 * gapY, rowW, 10, "Estetika Gradien Palet Senja", isGemini ? 9.8 : 9.5, 10, "Poin", animProgress * (isGemini ? 0.98 : 0.95), accent, isGemini ? "★ Master warna hangat retro" : "✓ Kontras kosmik dalam");
-              drawAnimatedMetricBar(box.x + 20, startY + 3 * gapY, rowW, 10, "Kerapian Struktur Kode", isGemini ? 9.6 : 9.9, 10, "Poin", animProgress * (isGemini ? 0.96 : 0.99), accent, isGemini ? "✓ 1 script ringkas & to the point" : "★ 6 modul ES6 standar industri");
-            }
-
-            // Tag status eksekusi bawah
-            roundRect(ctx, box.x + 20, dashY + dashH - 58, box.w - 40, 42, 8);
-            ctx.fillStyle = "#15161f";
-            ctx.fill();
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-            ctx.stroke();
-
-            ctx.font = "600 13px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#9a9994";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(isGemini ? "ENGINE: CANVAS2D MONOLITH (FAST)" : "ENGINE: MODULAR UINT8 (STRUCTURED)", box.x + box.w / 2, dashY + dashH - 37);
-
-            ctx.restore();
-          };
-
-          renderMetricDashboard(LEFT_BOX, true);
-          renderMetricDashboard(RIGHT_BOX, false);
-
-          ctx.restore();
+        // Grid Cyber Halus
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.018)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= W; x += 64) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+        for (let y = 0; y <= H; y += 64) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
         }
 
         // =====================================================================
-        // BAGIAN 2: TOTAL SCORECARD / HASIL AKHIR HEAD-TO-HEAD (10.80s - 13.50s)
+        // BAB 04 - DETAIL: "Lebih ramai." (0.00s - 6.00s) [Ref: Gambar 1]
         // =====================================================================
-        if (time >= 10.80 && time < 13.50) {
-          const cardProg = smoothstep(10.80, 11.20, time) * (1 - smootherstep(13.15, 13.50, time));
+        if (time < 6.00) {
+          drawGlobalHeader(time, "04 — DETAIL · 1 SHOT", "■ DETAIL", "Lebih ", "ramai.");
+
+          const cCanvas = ClaudeRocket.render(2.0); // Scene dusk senja
+          const gCanvas = GeminiRocket.render(10.5); // Scene orbit
+
+          // Viewport Kiri: Claude
+          const vLeft = { x: 70, y: 340, w: 435, h: 740 };
+          roundRect(ctx, vLeft.x, vLeft.y, vLeft.w, vLeft.h, 8);
           ctx.save();
-          ctx.globalAlpha *= cardProg;
-
-          // Header Kicker
-          roundRect(ctx, LEFT_BOX.x, 234, 11, 11, 2.5);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
-
-          ctx.font = "700 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#ebb343";
-          ctx.textBaseline = "middle";
-          fillTrackedText("TOTAL SCORECARD  ·  HASIL AKHIR BENCHMARK 1-SHOT", LEFT_BOX.x + 22, 240, 1.4, "left");
-
-          ctx.font = "900 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f5f4f0";
-          ctx.textBaseline = "top";
-          ctx.fillText("Matriks Penilaian Dua Karakter AI.", LEFT_BOX.x, 266);
-
-          // 2 Kartu Rapor Head-to-Head
-          const drawScorecard = (box, isGemini, totalScore, julukan, s1, s2, s3, verdictLines) => {
-            const accent = isGemini ? "#6ea8fe" : "#e07a5f";
-            const cardY = 360;
-            const cardH = 960;
-
-            ctx.save();
-            ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
-            ctx.shadowBlur = 36;
-            ctx.shadowOffsetY = 12;
-            roundRect(ctx, box.x, cardY, box.w, cardH, 16);
-            ctx.fillStyle = "#12131b";
-            ctx.fill();
-            ctx.shadowColor = "transparent";
-
-            ctx.lineWidth = 2.0;
-            ctx.strokeStyle = accent;
-            ctx.stroke();
-
-            // Header Kartu Model
-            roundRect(ctx, box.x + 20, cardY + 24, box.w - 40, 68, 10);
-            ctx.fillStyle = isGemini ? "rgba(110, 168, 254, 0.12)" : "rgba(224, 122, 95, 0.12)";
-            ctx.fill();
-            ctx.strokeStyle = accent;
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            ctx.font = "900 24px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = accent;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(isGemini ? "GEMINI CODE" : "CLAUDE CODE", box.x + box.w / 2, cardY + 58);
-
-            // Nilai Angka Besar
-            const scoreY = cardY + 128;
-            ctx.font = "900 96px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.fillStyle = "#f5f4f0";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "top";
-            ctx.fillText(totalScore, box.x + box.w / 2 - 45, scoreY);
-
-            ctx.font = "700 34px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#6e6d68";
-            ctx.fillText("/ 30", box.x + box.w / 2 + 82, scoreY + 48);
-
-            // Julukan Karakter Model
-            roundRect(ctx, box.x + 30, cardY + 260, box.w - 60, 42, 8);
-            ctx.fillStyle = "rgba(235, 179, 67, 0.14)";
-            ctx.fill();
-            ctx.strokeStyle = "rgba(235, 179, 67, 0.55)";
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            ctx.font = "800 15px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#ebb343";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(julukan, box.x + box.w / 2, cardY + 281);
-
-            // Tabel 3 Nilai Detail dengan Bar Ringkas
-            const subItems = [s1, s2, s3];
-            const tableY = cardY + 330;
-            for (let i = 0; i < 3; i++) {
-              const rowY = tableY + i * 94;
-              roundRect(ctx, box.x + 20, rowY, box.w - 40, 78, 10);
-              ctx.fillStyle = "#0a0a0f";
-              ctx.fill();
-              ctx.strokeStyle = "#242432";
-              ctx.lineWidth = 1;
-              ctx.stroke();
-
-              ctx.font = "700 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-              ctx.fillStyle = "#d4d3cc";
-              ctx.textAlign = "left";
-              ctx.textBaseline = "middle";
-              ctx.fillText(subItems[i].label, box.x + 38, rowY + 28);
-
-              ctx.font = "900 22px ui-monospace, Consolas, monospace";
-              ctx.fillStyle = "#5ce6a0";
-              ctx.textAlign = "right";
-              ctx.fillText(subItems[i].score, box.x + box.w - 38, rowY + 28);
-
-              // Bar meter kecil
-              const miniBarY = rowY + 52;
-              roundRect(ctx, box.x + 38, miniBarY, box.w - 76, 7, 3.5);
-              ctx.fillStyle = "#1c1c28";
-              ctx.fill();
-
-              const fillVal = (parseFloat(subItems[i].score) / 10.0) * (box.w - 76);
-              roundRect(ctx, box.x + 38, miniBarY, fillVal, 7, 3.5);
-              ctx.fillStyle = accent;
-              ctx.fill();
-            }
-
-            // Box Kesimpulan Karakter
-            const botBoxY = cardY + 640;
-            roundRect(ctx, box.x + 20, botBoxY, box.w - 40, 290, 10);
-            ctx.fillStyle = "#151620";
-            ctx.fill();
-            ctx.strokeStyle = "#252636";
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            ctx.font = "800 14px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#ebb343";
-            ctx.textAlign = "left";
-            ctx.textBaseline = "top";
-            fillTrackedText("VERDICT & IDENTITAS KARAKTER", box.x + 36, botBoxY + 22, 1.2, "left");
-
-            ctx.font = "500 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.fillStyle = "#d8d7d0";
-            for (let l = 0; l < verdictLines.length; l++) {
-              ctx.fillText(verdictLines[l], box.x + 36, botBoxY + 62 + l * 34);
-            }
-
-            ctx.restore();
-          };
-
-          drawScorecard(
-            LEFT_BOX,
-            true,
-            "29.1",
-            "THE CREATIVE ARTIST",
-            { label: "1. Nuansa & Atmosfer Retro", score: "9.6" },
-            { label: "2. Simulasi Asap & Screen-Shake", score: "9.8" },
-            { label: "3. Saturnus HUD & Horizon Toska", score: "9.7" },
-            [
-              "• Master visual estetika retro hangat.",
-              "• Partikel asap dinamis berbasis Bayer dither.",
-              "• Kode monolitik super cepat & mandiri."
-            ]
-          );
-
-          drawScorecard(
-            RIGHT_BOX,
-            false,
-            "29.3",
-            "THE SYSTEMS ARCHITECT",
-            { label: "1. Mekanik Servis Pad Umbilical", score: "9.8" },
-            { label: "2. Kecepatan Supersonik Max-Q", score: "9.6" },
-            { label: "3. Shading Bola Bumi 3D Presisi", score: "9.9" },
-            [
-              "• Arsitektur modular 6 file ES6 standar.",
-              "• Matematika bola Bumi 3D & lampu malam.",
-              "• Efisiensi kontrol memori Uint8Array."
-            ]
-          );
-
-          // Banner Emas Status Tengah di Bawah (Y: 1360)
-          const bW = 984;
-          const bH = 88;
-          const bX = (W - bW) / 2;
-          const bY = 1360;
-          roundRect(ctx, bX, bY, bW, bH, 12);
-          ctx.fillStyle = "#15130f";
-          ctx.fill();
-          ctx.lineWidth = 2.0;
-          ctx.strokeStyle = "#ebb343";
-          ctx.stroke();
-
-          // Dual Ring Pulse di Banner
-          const pulseRing = (time * 2.5) % 1.0;
-          ctx.strokeStyle = `rgba(235, 179, 67, ${1 - pulseRing})`;
-          ctx.lineWidth = 1.5;
-          roundRect(ctx, bX - pulseRing * 8, bY - pulseRing * 8, bW + pulseRing * 16, bH + pulseRing * 16, 14);
-          ctx.stroke();
-
-          ctx.font = "900 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ebb343";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          fillTrackedText("STATUS: HAMPIR IMBANG SEMPURNA!  ·  SELISIH HANYA 0.2 POIN", W / 2, bY + bH / 2 + 1, 1.4, "center");
-
+          ctx.clip();
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(cCanvas, 0, 0, 270, 480, vLeft.x, vLeft.y, vLeft.w, vLeft.h);
           ctx.restore();
-        }
+          ctx.strokeStyle = "#252632";
+          ctx.lineWidth = 2;
+          roundRect(ctx, vLeft.x, vLeft.y, vLeft.w, vLeft.h, 8);
+          ctx.stroke();
 
-        // =====================================================================
-        // BAGIAN 3: OUTRO VIRAL & INTERAKTIF SOSMED (13.50s - 16.00s)
-        // =====================================================================
-        if (time >= 13.50) {
-          const outroProg = smoothstep(13.50, 14.10, time);
+          // Viewport Kanan: Gemini
+          const vRight = { x: 575, y: 340, w: 435, h: 740 };
+          roundRect(ctx, vRight.x, vRight.y, vRight.w, vRight.h, 8);
           ctx.save();
-          ctx.globalAlpha *= outroProg;
-
-          const cx = W / 2;
-
-          // Air Mancur Partikel Reaksi Melayang (Hearts, Rockets, Fire, Sparkles)
-          drawReactionFountain(time, 13.50, outroProg);
-
-          // 1. Kinetic Typography Judul Pertanyaan Menusuk Pikiran
-          ctx.font = "800 24px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#9e9d96";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          fillTrackedText("● HASIL AKHIR ADA DI TANGAN KAMU", cx, 340, 2.0, "center");
-
-          // Text Utama "KALAU MENURUT KAMU," Centered Presisi
-          ctx.font = "900 62px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f5f4f0";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("KALAU MENURUT KAMU,", cx, 420);
-
-          // "GIMANA?" Masuk dengan Skala Punchy dan Cahaya Emas
-          const gimanaScale = softBounceOut(clamp((time - 13.70) / 0.45, 0, 1), 1.15);
-          ctx.save();
-          ctx.translate(cx, 515);
-          ctx.scale(gimanaScale, gimanaScale);
-
-          ctx.font = "900 96px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ebb343";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.shadowColor = "rgba(235, 179, 67, 0.70)";
-          ctx.shadowBlur = 36;
-          ctx.fillText("GIMANA?", 0, 0);
+          ctx.clip();
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(gCanvas, 0, 0, 270, 480, vRight.x, vRight.y, vRight.w, vRight.h);
           ctx.restore();
-
-          // 2. Balon Komentar Lucu dengan Animasi Bouncing Wave & Beating Heart (Y: 720)
-          const bubbleScale = softBounceOut(clamp((time - 13.85) / 0.50, 0, 1), 1.12);
-          drawCuteCommentBubble(cx, 720, bubbleScale, time);
-
-          // 3. KARTU LIVE VOTING & INPUT KOMENTAR ALA TIKTOK / INSTAGRAM REELS (Y: 890 s/d 1360)
-          const pollCardY = 890;
-          const pollCardW = 984;
-          const pollCardH = 460;
-          const pollCardX = (W - pollCardW) / 2;
-
-          ctx.save();
-          // Card Body Kaca Frosted Modern
-          roundRect(ctx, pollCardX, pollCardY, pollCardW, pollCardH, 20);
-          ctx.fillStyle = "rgba(18, 19, 27, 0.94)";
-          ctx.fill();
-          ctx.lineWidth = 2.0;
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+          ctx.strokeStyle = "#252632";
+          ctx.lineWidth = 2;
+          roundRect(ctx, vRight.x, vRight.y, vRight.w, vRight.h, 8);
           ctx.stroke();
 
-          // Header Live Poll
-          roundRect(ctx, pollCardX + 24, pollCardY + 20, pollCardW - 48, 52, 10);
-          ctx.fillStyle = "#12131b";
-          ctx.fill();
+          // Callout Spot Claude (Muncul pada t >= 0.8s)
+          if (time >= 0.8) {
+            const p1 = clamp((time - 0.8) / 0.4, 0, 1);
+            // Matahari
+            drawCalloutCircle(vLeft.x + 105, vLeft.y + 610, 36, vLeft.x + 115, vLeft.y + 665, "matahari", p1);
+            // Lengan Menara
+            drawCalloutCircle(vLeft.x + 200, vLeft.y + 575, 42, vLeft.x + 310, vLeft.y + 565, "lengan menara", p1);
+          }
 
-          // Titik merah live berkedip
-          const liveBlink = Math.sin(time * 6) > 0;
-          ctx.beginPath();
-          ctx.arc(pollCardX + 54, pollCardY + 46, 6, 0, Math.PI * 2);
-          ctx.fillStyle = liveBlink ? "#ef4444" : "#7f1d1d";
-          ctx.fill();
+          // Callout Spot Gemini (Muncul pada t >= 2.2s)
+          if (time >= 2.2) {
+            const p2 = clamp((time - 2.2) / 0.4, 0, 1);
+            // Bulan
+            drawCalloutCircle(vRight.x + 355, vRight.y + 110, 34, vRight.x + 225, vRight.y + 110, "bulan", p2);
+            // Panel Surya
+            drawCalloutCircle(vRight.x + 230, vRight.y + 350, 46, vRight.x + 295, vRight.y + 350, "panel surya", p2);
+          }
 
-          ctx.font = "800 18px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#f5f4f0";
+          // Label Info di bawah Viewport
+          const metaY = vLeft.y + vLeft.h + 26;
+          ctx.font = "600 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
           ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText("LIVE COMMUNITY POLL  ·  PILIH MODEL JUARAMU SEKARANG!", pollCardX + 74, pollCardY + 46);
+          ctx.fillText("Claude Code · 12.0 s", vLeft.x, metaY);
+          ctx.fillText("Antigravity · 12.0 s", vRight.x, metaY);
 
-          // Dua Tombol Voting Interaktif (Kiri: Gemini Blue, Kanan: Claude Coral)
-          const btnW = 450;
-          const btnH = 170;
-          const btnY = pollCardY + 96;
-
-          // TOMBOL 1: TIM GEMINI (KIRI)
-          const gBtnX = pollCardX + 28;
-          roundRect(ctx, gBtnX, btnY, btnW, btnH, 14);
-          ctx.fillStyle = "rgba(110, 168, 254, 0.12)";
+          // Tag "di luar brief"
+          const tagY = metaY + 22;
+          roundRect(ctx, vLeft.x, tagY, 340, 42, 6);
+          ctx.fillStyle = "#14151e";
           ctx.fill();
-          ctx.lineWidth = 2.2;
-          ctx.strokeStyle = "#6ea8fe";
+          ctx.strokeStyle = "#383946";
+          ctx.lineWidth = 1.2;
           ctx.stroke();
-
-          // Label Pilihan 1
-          roundRect(ctx, gBtnX + 20, btnY + 18, 90, 36, 6);
-          ctx.fillStyle = "#6ea8fe";
-          ctx.fill();
-          ctx.font = "900 18px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#0c0d12";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("KETIK 1", gBtnX + 65, btnY + 36);
-
-          ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ffffff";
-          ctx.textAlign = "left";
-          ctx.fillText("TIM GEMINI", gBtnX + 125, btnY + 36);
-
-          ctx.font = "500 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#c2d6ff";
-          ctx.fillText("• Nuansa Retro Hangat & Nostalgia", gBtnX + 20, btnY + 84);
-          ctx.fillText("• Simulasi Asap Partikel & Screen-Shake", gBtnX + 20, btnY + 116);
-          ctx.fillText("• Skor Akhir: 29.1 / 30", gBtnX + 20, btnY + 148);
-
-          // TOMBOL 2: TIM CLAUDE (KANAN)
-          const cBtnX = pollCardX + pollCardW - btnW - 28;
-          roundRect(ctx, cBtnX, btnY, btnW, btnH, 14);
-          ctx.fillStyle = "rgba(224, 122, 95, 0.12)";
-          ctx.fill();
-          ctx.lineWidth = 2.2;
-          ctx.strokeStyle = "#e07a5f";
-          ctx.stroke();
-
-          // Label Pilihan 2
-          roundRect(ctx, cBtnX + 20, btnY + 18, 90, 36, 6);
+          ctx.font = "700 17px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#e07a5f";
+          ctx.fillText("di luar brief: 4 elemen*", vLeft.x + 18, tagY + 26);
+
+          roundRect(ctx, vRight.x, tagY, 340, 42, 6);
+          ctx.fillStyle = "#14151e";
           ctx.fill();
-          ctx.font = "900 18px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#0c0d12";
+          ctx.strokeStyle = "#383946";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("di luar brief: 9 elemen*", vRight.x + 18, tagY + 26);
+
+          // Catatan Kaki
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#7a7974";
           ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("KETIK 2", cBtnX + 65, btnY + 36);
+          ctx.fillText("* dihitung manual dari frame + kode", W / 2, tagY + 95);
+        }
 
-          ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ffffff";
-          ctx.textAlign = "left";
-          ctx.fillText("TIM CLAUDE", cBtnX + 125, btnY + 36);
+        // =====================================================================
+        // BAB 04 - WARNA: "Hitung warnanya." (6.00s - 12.00s) [Ref: Gambar 2]
+        // =====================================================================
+        else if (time >= 6.00 && time < 12.00) {
+          drawGlobalHeader(time, "04 — WARNA · 1 SHOT", "■ WARNA · 360 FRAME", "Hitung ", "warnanya.");
 
-          ctx.font = "500 17px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ffd4c7";
-          ctx.fillText("• Shading Bola Bumi 3D & Lampu Kota", cBtnX + 20, btnY + 84);
-          ctx.fillText("• Arsitektur Bersih 6 Modul ES6", cBtnX + 20, btnY + 116);
-          ctx.fillText("• Skor Akhir: 29.3 / 30", cBtnX + 20, btnY + 148);
+          const cCanvas = ClaudeRocket.render(2.0);
+          const gCanvas = GeminiRocket.render(10.5);
 
-          // Kolom Input Komentar Interaktif (Like TikTok / YouTube Comment Pill Bar)
-          const inputY = pollCardY + 296;
-          const inputH = 88;
-          const inputW = pollCardW - 56;
-          const inputX = pollCardX + 28;
-
-          roundRect(ctx, inputX, inputY, inputW, inputH, 14);
-          ctx.fillStyle = "#0e0f15";
-          ctx.fill();
-          ctx.lineWidth = 1.8;
-          ctx.strokeStyle = "#ebb343";
+          // Viewport Kiri: Claude
+          const vLeft = { x: 70, y: 340, w: 435, h: 560 };
+          roundRect(ctx, vLeft.x, vLeft.y, vLeft.w, vLeft.h, 8);
+          ctx.save();
+          ctx.clip();
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(cCanvas, 0, 0, 270, 480, vLeft.x, vLeft.y, vLeft.w, vLeft.h);
+          ctx.restore();
+          ctx.strokeStyle = "#252632";
+          ctx.lineWidth = 2;
+          roundRect(ctx, vLeft.x, vLeft.y, vLeft.w, vLeft.h, 8);
           ctx.stroke();
 
-          // Icon Balon Obrolan di Kiri Input Bar
-          ctx.font = "32px sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("💬", inputX + 42, inputY + inputH / 2);
+          // Viewport Kanan: Gemini
+          const vRight = { x: 575, y: 340, w: 435, h: 560 };
+          roundRect(ctx, vRight.x, vRight.y, vRight.w, vRight.h, 8);
+          ctx.save();
+          ctx.clip();
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(gCanvas, 0, 0, 270, 480, vRight.x, vRight.y, vRight.w, vRight.h);
+          ctx.restore();
+          ctx.strokeStyle = "#252632";
+          ctx.lineWidth = 2;
+          roundRect(ctx, vRight.x, vRight.y, vRight.w, vRight.h, 8);
+          ctx.stroke();
 
-          // Teks Placeholder Input
-          ctx.font = "600 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#e6e5df";
-          ctx.textAlign = "left";
-          const inputPrompt = "Tulis pilihanmu (1 atau 2) & alasanmu...";
-          ctx.fillText(inputPrompt, inputX + 80, inputY + inputH / 2 - 1);
+          // Perhitungan Odometer Berurutan: Gemini dulu, lalu Claude
+          const odoY = vLeft.y + vLeft.h + 50;
 
-          // Kursor Ketik Neon Berkedip (Blinking Cursor '|')
-          const cursorBlink = Math.sin(time * 9) > 0;
-          if (cursorBlink) {
-            const promptW = ctx.measureText(inputPrompt).width;
-            ctx.fillStyle = "#ebb343";
-            ctx.fillRect(inputX + 86 + promptW, inputY + inputH / 2 - 16, 3.5, 32);
-          }
+          // GEMINI ODOMETER: 0 -> 16.458 (6.2s - 8.5s)
+          const gRollProg = clamp((time - 6.2) / 2.0, 0, 1);
+          const gVal = Math.floor(gRollProg * 16458);
+          const gStr = gVal >= 1000 ? (Math.floor(gVal / 1000) + "." + String(gVal % 1000).padStart(3, "0")) : String(gVal);
 
-          // Tombol Kirim Emas di Kanan Input Bar (Send Button)
-          const sendW = 120;
-          const sendH = 58;
-          const sendX = inputX + inputW - sendW - 16;
-          const sendY = inputY + (inputH - sendH) / 2;
-          roundRect(ctx, sendX, sendY, sendW, sendH, 10);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
+          drawOdometerText(gStr, vRight.x + vRight.w / 2, odoY, 44, 62, 5, true, "#6ea8fe");
 
-          ctx.font = "900 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#0e0e12";
-          ctx.textAlign = "center";
-          ctx.fillText("KIRIM ➤", sendX + sendW / 2, sendY + sendH / 2);
-
-          // Footer Info di dalam Kartu
           ctx.font = "600 17px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#8a8984";
           ctx.textAlign = "center";
-          ctx.fillText("Debat Terbuka: Model mana yang menurut kamu paling siap pakai untuk project game/animasi?", cx, pollCardY + 424);
+          ctx.fillText("warna unik", vRight.x + vRight.w / 2, odoY + 84);
 
-          ctx.restore();
+          // Grid Palet Gemini
+          const gSwY = odoY + 110;
+          for (let i = 0; i < 16; i++) {
+            const bx = vRight.x + 38 + (i % 8) * 46;
+            const by = gSwY + Math.floor(i / 8) * 22;
+            roundRect(ctx, bx, by, 38, 16, 3);
+            ctx.fillStyle = GEMINI_PALETTE[i];
+            ctx.fill();
+            ctx.strokeStyle = "#383946";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
 
-          // 4. BANNER CTA BERDENYUT DI BAWAH (PENGARAH JARI KE KOLOM KOMENTAR) (Y: 1470)
-          const ctaPulse = 1.0 + Math.sin(time * 5.5) * 0.035;
-          ctx.save();
-          ctx.translate(cx, 1475);
-          ctx.scale(ctaPulse, ctaPulse);
+          // 48 Sampel Bocoran Warna (Muncul jika t >= 8.2s)
+          if (time >= 8.2) {
+            const leakY = gSwY + 54;
+            for (let i = 0; i < 48; i++) {
+              const lx = vRight.x + 48 + (i % 12) * 28;
+              const ly = leakY + Math.floor(i / 12) * 22;
+              roundRect(ctx, lx, ly, 22, 16, 2.5);
+              ctx.fillStyle = GEMINI_LEAK_SAMPLES[i];
+              ctx.fill();
+            }
 
-          const bannerW = 820;
-          const bannerH = 88;
-          roundRect(ctx, -bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
+            // Tag Merah
+            const redTagY = leakY + 104;
+            roundRect(ctx, vRight.x + 40, redTagY, 355, 42, 6);
+            ctx.fillStyle = "rgba(224, 75, 75, 0.14)";
+            ctx.fill();
+            ctx.strokeStyle = "#e04b4b";
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+            ctx.font = "700 16px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#ff6b6b";
+            ctx.fillText("+16.442 di luar palet", vRight.x + vRight.w / 2, redTagY + 26);
 
-          ctx.lineWidth = 3.5;
-          ctx.strokeStyle = "#fff6d9";
-          ctx.stroke();
+            ctx.font = "500 15px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#8a8984";
+            ctx.fillText("48 contoh dari 16.442", vRight.x + vRight.w / 2, redTagY + 68);
+          }
 
-          ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#0e0e12";
+          // CLAUDE ODOMETER: 0 -> 16 (8.6s - 10.2s)
+          let cStr = "0";
+          if (time >= 8.6) {
+            const cRollProg = clamp((time - 8.6) / 1.2, 0, 1);
+            cStr = String(Math.floor(cRollProg * 16));
+          }
+          drawOdometerText(cStr, vLeft.x + vLeft.w / 2, odoY, 44, 62, 5, true, "#e07a5f");
+
+          ctx.font = "600 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
           ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
+          ctx.fillText("warna unik", vLeft.x + vLeft.w / 2, odoY + 84);
 
-          // Panah Chevron Bouncing ke Bawah
-          const arrowBounce = Math.sin(time * 8) * 4;
-          ctx.fillText("▼  TULIS DI KOLOM KOMENTAR YAA!  ▼", 0, arrowBounce);
+          // Grid Palet Claude (16 warna rapi)
+          for (let i = 0; i < 16; i++) {
+            const bx = vLeft.x + 38 + (i % 8) * 46;
+            const by = gSwY + Math.floor(i / 8) * 22;
+            roundRect(ctx, bx, by, 38, 16, 3);
+            ctx.fillStyle = CLAUDE_PALETTE[i];
+            ctx.fill();
+            ctx.strokeStyle = "#383946";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
 
-          ctx.restore();
-
-          // 5. Kartu Identitas Studio Rixsan Joulfiand (Y: 1610)
-          roundRect(ctx, cx - 300, 1600, 600, 68, 10);
-          ctx.fillStyle = "#12131b";
-          ctx.fill();
-          ctx.lineWidth = 1.4;
-          ctx.strokeStyle = "#252636";
-          ctx.stroke();
-
-          ctx.font = "800 19px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#ebb343";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          fillTrackedText("RIXSAN JOULFIAND  ·  JOULFIAND STUDIO", cx, 1634, 2.0, "center");
-
-          ctx.restore();
+          if (time >= 10.0) {
+            const grnTagY = gSwY + 158;
+            roundRect(ctx, vLeft.x + 60, grnTagY, 315, 42, 6);
+            ctx.fillStyle = "rgba(46, 204, 113, 0.12)";
+            ctx.fill();
+            ctx.strokeStyle = "#2ecc71";
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+            ctx.font = "700 16px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#2ecc71";
+            ctx.fillText("sesuai batas ≤ 16", vLeft.x + vLeft.w / 2, grnTagY + 26);
+          }
         }
 
         // =====================================================================
-        // FOOTER TIMECODE PERSISTEN
+        // BAB 05 - BEDAH: "Kenapa beda?" (12.00s - 18.00s) [Ref: Gambar 3]
         // =====================================================================
-        const footY = 1834;
-        ctx.save();
-        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#6e6d68";
+        else if (time >= 12.00 && time < 18.00) {
+          drawGlobalHeader(time, "05 — BEDAH · 1 SHOT", "■ BEDAH", "Kenapa ", "beda?");
 
-        const mm = String(Math.floor(time)).padStart(2, "0");
-        const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
-        fillTrackedText(`00:${mm}:${ff} / 00:16:00`, LEFT_BOX.x, footY, 1.2, "left");
+          const cropBox = { x: 216, y: 340, w: 648, h: 580 };
+          roundRect(ctx, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 10);
+          ctx.fillStyle = "#090a0f";
+          ctx.fill();
+          ctx.strokeStyle = "#43527a";
+          ctx.lineWidth = 2;
+          ctx.stroke();
 
-        ctx.fillStyle = "#ebb343";
-        ctx.fillRect(LEFT_BOX.x + 240, footY - 4, 7, 7);
+          // Render Asap Roket Gemini (Frame 200) dengan Zoom-in
+          ctx.save();
+          roundRect(ctx, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 10);
+          ctx.clip();
 
-        ctx.fillStyle = "#6e6d68";
-        fillTrackedText("VERDICT SHOWCASE", LEFT_BOX.x + 260, footY, 1.2, "left");
-        fillTrackedText("1080×1920  ·  30FPS", RIGHT_BOX.x + RIGHT_BOX.w, footY, 1.2, "right");
-        ctx.restore();
+          // Gambar kepulan asap geometris khas Gemini Canvas2D
+          const smokeX = cropBox.x + cropBox.w / 2;
+          const smokeY = cropBox.y + cropBox.h / 2;
 
-        ctx.restore(); // Tutup SSAA scale
+          for (let i = 0; i < 9; i++) {
+            const py = smokeY - 140 + i * 42;
+            const px = smokeX + Math.sin(i * 0.9) * 45;
+            const r = 38 + i * 8;
+
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fillStyle = "#f4f6f8";
+            ctx.fill();
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "#b8c4d4";
+            ctx.stroke();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "#6f7f94";
+            ctx.stroke();
+          }
+
+          ctx.restore();
+
+          // Label Sudut Kanan Bawah
+          ctx.font = "600 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
+          ctx.textAlign = "right";
+          ctx.fillText("GEMINI · frame 200", cropBox.x + cropBox.w - 18, cropBox.y + cropBox.h + 28);
+
+          // Yellow Target Circle pada kepulan asap tengah
+          const targetCircle = { cx: cropBox.x + 290, cy: cropBox.y + 280, r: 52 };
+          ctx.strokeStyle = "#ebb343";
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.arc(targetCircle.cx, targetCircle.cy, targetCircle.r, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Garis konektor kuning ke kartu kode
+          const card1Y = cropBox.y + cropBox.h + 55;
+          ctx.beginPath();
+          ctx.moveTo(targetCircle.cx, targetCircle.cy + targetCircle.r);
+          ctx.lineTo(targetCircle.cx, card1Y);
+          ctx.stroke();
+
+          // 2 Kartu Kode
+          const cardW = 580;
+          const cardX = (W - cardW) / 2;
+
+          // Kartu 1: ctx.arc
+          roundRect(ctx, cardX, card1Y, cardW, 82, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#2e3040";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textAlign = "left";
+          ctx.fillText("GEMINI · SPRITES.JS · ASAP", cardX + 24, card1Y + 28);
+
+          ctx.font = "700 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("ctx.arc(x, y, r, 0, Math.PI * 2);", cardX + 24, card1Y + 58);
+
+          // Kartu 2: ctx.rotate
+          const card2Y = card1Y + 98;
+          roundRect(ctx, cardX, card2Y, cardW, 82, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#2e3040";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("GEMINI · SPRITES.JS · LENGAN MENARA", cardX + 24, card2Y + 28);
+
+          ctx.font = "700 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("ctx.rotate(angle);", cardX + 24, card2Y + 58);
+        }
+
+        // =====================================================================
+        // BAB 05 - X-RAY SCAN: Magenta Laser & Leak Scan (18.00s - 23.50s) [Ref: Gambar 4]
+        // =====================================================================
+        else if (time >= 18.00 && time < 23.50) {
+          drawGlobalHeader(time, "05 — BEDAH · 1 SHOT", "■ BEDAH", "Kenapa ", "beda?");
+
+          const cropBox = { x: 216, y: 340, w: 648, h: 580 };
+          roundRect(ctx, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 10);
+          ctx.fillStyle = "#090a0f";
+          ctx.fill();
+          ctx.strokeStyle = "#ff00ff";
+          ctx.lineWidth = 2.4;
+          ctx.stroke();
+
+          ctx.save();
+          roundRect(ctx, cropBox.x, cropBox.y, cropBox.w, cropBox.h, 10);
+          ctx.clip();
+
+          // Gambar asap dengan scan antialiasing neon magenta
+          const smokeX = cropBox.x + cropBox.w / 2;
+          const smokeY = cropBox.y + cropBox.h / 2;
+
+          for (let i = 0; i < 9; i++) {
+            const py = smokeY - 140 + i * 42;
+            const px = smokeX + Math.sin(i * 0.9) * 45;
+            const r = 38 + i * 8;
+
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fillStyle = "#484852";
+            ctx.fill();
+
+            // Ring antialiasing neon magenta tebal
+            ctx.lineWidth = 7;
+            ctx.strokeStyle = "#ff00aa";
+            ctx.shadowColor = "#ff00aa";
+            ctx.shadowBlur = 16;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+
+          // Laser sweep bar vertikal
+          const scanY = cropBox.y + ((time * 240) % cropBox.h);
+          ctx.strokeStyle = "#ff00ff";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(cropBox.x, scanY);
+          ctx.lineTo(cropBox.x + cropBox.w, scanY);
+          ctx.stroke();
+
+          ctx.restore();
+
+          // Label Sudut Kanan Bawah
+          ctx.font = "600 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ff66cc";
+          ctx.textAlign = "right";
+          ctx.fillText("X-RAY SCAN · ANTIALIAS BLEED", cropBox.x + cropBox.w - 18, cropBox.y + cropBox.h + 28);
+
+          // Dua Kartu Kode dengan highlight penyebab bocoran warna
+          const cardW = 580;
+          const cardX = (W - cardW) / 2;
+          const card1Y = cropBox.y + cropBox.h + 55;
+
+          roundRect(ctx, cardX, card1Y, cardW, 82, 8);
+          ctx.fillStyle = "#170f1a";
+          ctx.fill();
+          ctx.strokeStyle = "#ff00aa";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ff99dd";
+          ctx.textAlign = "left";
+          ctx.fillText("GEMINI · SPRITES.JS · ASAP", cardX + 24, card1Y + 28);
+
+          ctx.font = "700 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("ctx.arc(x, y, r, 0, Math.PI * 2);", cardX + 24, card1Y + 58);
+
+          const card2Y = card1Y + 98;
+          roundRect(ctx, cardX, card2Y, cardW, 82, 8);
+          ctx.fillStyle = "#170f1a";
+          ctx.fill();
+          ctx.strokeStyle = "#ff00aa";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ff99dd";
+          ctx.fillText("GEMINI · SPRITES.JS · LENGAN MENARA", cardX + 24, card2Y + 28);
+
+          ctx.font = "700 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("ctx.rotate(angle);", cardX + 24, card2Y + 58);
+        }
+
+        // =====================================================================
+        // BAB 05 - SIDE-BY-SIDE: Framebuffer vs Canvas2D (23.50s - 29.00s) [Ref: Gambar 5]
+        // =====================================================================
+        else if (time >= 23.50 && time < 29.00) {
+          drawGlobalHeader(time, "05 — BEDAH · 1 SHOT", "■ BEDAH", "Kenapa ", "beda?");
+
+          // 2 Viewport Zoom
+          const bW = 440;
+          const bH = 460;
+          const bY = 350;
+
+          // Box Kiri: Claude (Uint8Array Pixel Murni)
+          const bLeft = { x: 70, y: bY, w: bW, h: bH };
+          roundRect(ctx, bLeft.x, bLeft.y, bLeft.w, bLeft.h, 8);
+          ctx.fillStyle = "#0c0d15";
+          ctx.fill();
+          ctx.strokeStyle = "#e07a5f";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Render grid piksel tajam Claude
+          ctx.save();
+          roundRect(ctx, bLeft.x, bLeft.y, bLeft.w, bLeft.h, 8);
+          ctx.clip();
+          const pSize = 28;
+          for (let x = bLeft.x + 20; x < bLeft.x + bLeft.w - 20; x += pSize) {
+            for (let y = bLeft.y + 20; y < bLeft.y + bLeft.h - 20; y += pSize) {
+              const colIdx = ((x * 7 + y * 13) % 16);
+              ctx.fillStyle = CLAUDE_PALETTE[colIdx];
+              ctx.fillRect(x, y, pSize, pSize);
+              ctx.strokeStyle = "rgba(0,0,0,0.3)";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(x, y, pSize, pSize);
+            }
+          }
+          ctx.restore();
+
+          // Box Kanan: Gemini (Canvas 2D Subpixel Blur)
+          const bRight = { x: 570, y: bY, w: bW, h: bH };
+          roundRect(ctx, bRight.x, bRight.y, bRight.w, bRight.h, 8);
+          ctx.fillStyle = "#0c0d15";
+          ctx.fill();
+          ctx.strokeStyle = "#6ea8fe";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Render gradien antialiasing Gemini
+          ctx.save();
+          roundRect(ctx, bRight.x, bRight.y, bRight.w, bRight.h, 8);
+          ctx.clip();
+          for (let i = 0; i < 6; i++) {
+            ctx.beginPath();
+            ctx.arc(bRight.x + 220, bRight.y + 230, 40 + i * 28, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(110, 168, 254, 0.22)";
+            ctx.fill();
+            ctx.strokeStyle = "#ffee83";
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // Code Cards di bawah
+          const cardY = bY + bH + 30;
+          roundRect(ctx, bLeft.x, cardY, bLeft.w, 140, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#e07a5f";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#e07a5f";
+          ctx.fillText("CLAUDE · DRAW.JS", bLeft.x + 20, cardY + 30);
+          ctx.font = "700 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("fb[y * W + x] = c;", bLeft.x + 20, cardY + 68);
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Discrete Uint8Array Framebuffer", bLeft.x + 20, cardY + 102);
+
+          roundRect(ctx, bRight.x, cardY, bRight.w, 140, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#6ea8fe";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.font = "600 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fillText("GEMINI · SPRITES.JS", bRight.x + 20, cardY + 30);
+          ctx.font = "700 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("ctx.arc(x, y, r, 0, Math.PI * 2);", bRight.x + 20, cardY + 68);
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Canvas2D Subpixel Floating-Point", bRight.x + 20, cardY + 102);
+        }
+
+        // =====================================================================
+        // BAB 06 - DATA: "Kamu yang nilai." (29.00s - 39.00s) [Ref: Gambar 6]
+        // =====================================================================
+        else if (time >= 29.00 && time < 39.00) {
+          drawGlobalHeader(time, "06 — DATA · 1 SHOT", "■ DATA · TANPA PEMENANG", "Kamu yang ", "nilai.");
+
+          // Header Kolom
+          ctx.font = "900 24px ui-monospace, Consolas, monospace";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#e07a5f";
+          ctx.fillText("CLAUDE", 440, 360);
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fillText("GEMINI", 640, 360);
+
+          // 7 Baris Perbandingan dengan Angka Odometer
+          const rows = [
+            { label: "Lolos poin brief", valC: "16/16", valG: "15/16" },
+            { label: "Warna unik", valC: "16", valG: "16.458" },
+            { label: "Klaim README", valC: "SESUAI", valG: "TIDAK" },
+            { label: "Deterministik", valC: "12/12", valG: "12/12" },
+            { label: "Error console", valC: "0", valG: "0" },
+            { label: "Elemen ekstra (hitung manual)", valC: "4", valG: "9" },
+            { label: "Baris kode", valC: "1.062", valG: "1.679" }
+          ];
+
+          const startY = 410;
+          const rowGap = 135;
+
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const ry = startY + i * rowGap;
+
+            // Label di atas baris
+            ctx.font = "600 16px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#8a8984";
+            ctx.textAlign = "center";
+            ctx.fillText(r.label, W / 2, ry);
+
+            // Odometer Claude (Kiri)
+            drawOdometerText(r.valC, 440, ry + 16, 32, 48, 4, false);
+
+            // Odometer Gemini (Kanan)
+            drawOdometerText(r.valG, 640, ry + 16, 32, 48, 4, false);
+
+            // Garis hairline pembatas antar baris
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(180, ry + 84);
+            ctx.lineTo(900, ry + 84);
+            ctx.stroke();
+          }
+
+          // Kesimpulan Bawah
+          const footY = startY + rows.length * rowGap - 10;
+          ctx.font = "700 19px ui-monospace, Consolas, monospace";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#e07a5f";
+          ctx.fillText("ikut aturan", 440, footY);
+          ctx.fillText("sampai titik", 440, footY + 28);
+
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fillText("berani nambah", 640, footY);
+          ctx.fillText("sendiri", 640, footY + 28);
+        }
+
+        // =====================================================================
+        // BAB 07 - HARGA: "Bayar berapa?" (39.00s - 45.00s) [Ref: Gambar 7]
+        // =====================================================================
+        else if (time >= 39.00 && time < 45.00) {
+          drawGlobalHeader(time, "07 — HARGA · 1 SHOT", "■ HARGA / BULAN", "Bayar ", "berapa?");
+
+          const cardW = 420;
+          const cardH = 580;
+          const cardY = 360;
+
+          // Kartu Claude Pro (Kiri)
+          const cX = 80;
+          roundRect(ctx, cX, cardY, cardW, cardH, 12);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#e07a5f";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          // Header Card Claude
+          roundRect(ctx, cX + 24, cardY + 28, 12, 12, 3);
+          ctx.fillStyle = "#e07a5f";
+          ctx.fill();
+          ctx.font = "800 22px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "left";
+          ctx.fillText("Claude Pro", cX + 50, cardY + 39);
+
+          // USD $20
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("USD", cX + 24, cardY + 110);
+          drawOdometerText("$ 20", cX + 110, cardY + 130, 40, 56, 5, true, "#e07a5f");
+
+          // Rupiah 400.000
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Rupiah", cX + 24, cardY + 270);
+          drawOdometerText("400.000", cX + cardW / 2, cardY + 300, 40, 56, 5, true, "#e07a5f");
+
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("kira-kira, sudah", cX + 24, cardY + 410);
+          ctx.fillText("dengan pajak", cX + 24, cardY + 438);
+          ctx.fillText("(tagihan user)", cX + 24, cardY + 466);
+
+          // Kartu Gemini Google AI Pro (Kanan, Muncul jika t >= 39.4s)
+          const gX = 580;
+          roundRect(ctx, gX, cardY, cardW, cardH, 12);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#6ea8fe";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          // Header Card Gemini
+          roundRect(ctx, gX + 24, cardY + 28, 12, 12, 3);
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fill();
+          ctx.font = "800 22px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("Google AI Pro", gX + 50, cardY + 39);
+
+          // Rupiah resmi: 309.000 dicoret
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Rupiah · resmi", gX + 24, cardY + 110);
+
+          drawOdometerText("309.000", gX + cardW / 2, cardY + 130, 40, 56, 5, false);
+          // Garis Coretan Biru
+          ctx.strokeStyle = "#6ea8fe";
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(gX + 40, cardY + 158);
+          ctx.lineTo(gX + cardW - 40, cardY + 158);
+          ctx.stroke();
+
+          // Rupiah promo: 77.250
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Rupiah · promo", gX + 24, cardY + 270);
+          drawOdometerText("77.250", gX + cardW / 2, cardY + 300, 40, 56, 5, true, "#ebb343");
+
+          // Badge Diskon 75%
+          roundRect(ctx, gX + 24, cardY + 395, 175, 40, 6);
+          ctx.fillStyle = "#171822";
+          ctx.fill();
+          ctx.strokeStyle = "#ebb343";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.font = "700 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          ctx.textAlign = "center";
+          ctx.fillText("diskon 75 %", gX + 110, cardY + 420);
+
+          ctx.font = "500 17px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          ctx.textAlign = "left";
+          ctx.fillText("promo, sebagian", gX + 24, cardY + 466);
+          ctx.fillText("pengguna", gX + 24, cardY + 494);
+
+          // Subnote di Bawah
+          ctx.font = "500 19px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textAlign = "center";
+          ctx.fillText("3.8 Flash juga gratis di AI Studio (dibatasi kuota)", W / 2, cardY + cardH + 75);
+        }
+
+        // =====================================================================
+        // BAB 08 - PILIH: "Mana yang worth it buat kamu?" (45.00s - 49.50s) [Ref: Gambar 8]
+        // =====================================================================
+        else if (time >= 45.00 && time < 49.50) {
+          const headY = 72;
+          ctx.font = "700 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textBaseline = "middle";
+          ctx.textAlign = "left";
+          fillTrackedText("JOULFIAND STUDIO · ADU MODEL", 56, headY, 1.4, "left");
+
+          ctx.textAlign = "right";
+          fillTrackedText("08 — PILIH · 1 SHOT", 1024, headY, 1.4, "right");
+
+          // Model Badges
+          drawModelBadge(56, 126, 450, 62, "#e07a5f", "CLAUDE", "Opus 5.5 · medium");
+          drawModelBadge(574, 126, 450, 62, "#6ea8fe", "GEMINI", "3.8 Flash · high");
+
+          // Garis Pembagi Tengah
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(540, 110); ctx.lineTo(540, 1800); ctx.stroke();
+
+          // Judul Besar di Tengah Layar
+          const titleY = 780;
+          ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("Mana yang", W / 2, titleY);
+
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("worth it", W / 2, titleY + 84);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("buat kamu?", W / 2, titleY + 168);
+
+          // 3 Pill Opsi Muncul 1 per 1 Berurutan
+          const pillY = titleY + 280;
+          const pills = [
+            { text: "1 tes", tAppear: 45.4, x: 310 },
+            { text: "1 tugas", tAppear: 46.4, x: 505 },
+            { text: "one shot", tAppear: 47.4, x: 715 }
+          ];
+
+          for (let i = 0; i < pills.length; i++) {
+            const p = pills[i];
+            if (time >= p.tAppear) {
+              const scale = softBounceOut(clamp((time - p.tAppear) / 0.4, 0, 1), 1.15);
+              ctx.save();
+              ctx.translate(p.x, pillY);
+              ctx.scale(scale, scale);
+
+              const pW = 145;
+              const pH = 52;
+              roundRect(ctx, -pW / 2, -pH / 2, pW, pH, 10);
+              ctx.fillStyle = "#14151e";
+              ctx.fill();
+              ctx.strokeStyle = "#2d2f3d";
+              ctx.lineWidth = 1.4;
+              ctx.stroke();
+
+              ctx.font = "700 19px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#c8c7c0";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.fillText(p.text, 0, 1);
+
+              ctx.restore();
+            }
+          }
+        }
+
+        // =====================================================================
+        // BAB 09 - KODE: "Cek sendiri." (49.50s - 55.50s) [Ref: Gambar 9]
+        // =====================================================================
+        else if (time >= 49.50 && time < 55.50) {
+          drawGlobalHeader(time, "09 — KODE · 1 SHOT", "■ KODE + PROMPT", "Cek ", "sendiri.");
+
+          // Kartu Repo Publik (Mengetik URL dengan efek ketikan)
+          const repoCard = { x: 190, y: 350, w: 700, h: 140 };
+          roundRect(ctx, repoCard.x, repoCard.y, repoCard.w, repoCard.h, 10);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#2b2c3a";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "600 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textAlign = "left";
+          ctx.fillText("repo publik", repoCard.x + 28, repoCard.y + 36);
+
+          // Animasi Mengetik URL
+          const fullUrl = "github.com/rjoulfiand-afk/NrTO";
+          const typeProg = clamp((time - 49.7) / 2.2, 0, 1);
+          const charsToShow = Math.floor(typeProg * fullUrl.length);
+          const currentTyped = fullUrl.slice(0, charsToShow);
+
+          ctx.font = "800 24px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(currentTyped, repoCard.x + 28, repoCard.y + 88);
+
+          // Kursor Berkedip
+          if (Math.sin(time * 10) > 0) {
+            const urlW = ctx.measureText(currentTyped).width;
+            ctx.fillStyle = "#ebb343";
+            ctx.fillRect(repoCard.x + 32 + urlW, repoCard.y + 66, 3, 28);
+          }
+
+          // Dua Kartu Folder Repositori di Bawah URL
+          const fY = repoCard.y + repoCard.h + 26;
+          const fW = 338;
+          const fH = 260;
+
+          // Folder Claude (Kiri)
+          const fLeft = { x: 190, y: fY };
+          roundRect(ctx, fLeft.x, fLeft.y, fW, fH, 10);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#e07a5f";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#e07a5f";
+          ctx.fillText("📁 roket-orbit-claude/", fLeft.x + 22, fLeft.y + 38);
+
+          ctx.font = "500 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
+          ctx.fillText("src/ · 7 file", fLeft.x + 22, fLeft.y + 84);
+          ctx.fillText("tools/ · 7 file", fLeft.x + 22, fLeft.y + 118);
+          ctx.fillText("index.html", fLeft.x + 22, fLeft.y + 152);
+          ctx.fillText("README.md", fLeft.x + 22, fLeft.y + 186);
+          ctx.fillText("TREATMENT.md", fLeft.x + 22, fLeft.y + 220);
+
+          // Folder Gemini (Kanan)
+          const fRight = { x: 552, y: fY };
+          roundRect(ctx, fRight.x, fRight.y, fW, fH, 10);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#6ea8fe";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fillText("📁 roket-orbit-gemini/", fRight.x + 22, fRight.y + 38);
+
+          ctx.font = "500 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
+          ctx.fillText("src/ · 7 file", fRight.x + 22, fRight.y + 84);
+          ctx.fillText("tools/ · 1 file", fRight.x + 22, fRight.y + 118);
+          ctx.fillText("render.mjs", fRight.x + 22, fRight.y + 152);
+          ctx.fillText("index.html", fRight.x + 22, fRight.y + 186);
+          ctx.fillText("README.md", fRight.x + 22, fRight.y + 220);
+
+          // Kartu README.md Bawah dengan Iris Bracket Kuning
+          const readCard = { x: 190, y: fY + fH + 26, w: 700, h: 180 };
+          roundRect(ctx, readCard.x, readCard.y, readCard.w, readCard.h, 10);
+          ctx.fillStyle = "#121319";
+          ctx.fill();
+          ctx.strokeStyle = "#2b2c3a";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.font = "600 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("README.md", readCard.x + 24, readCard.y + 36);
+
+          ctx.font = "500 15px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textAlign = "right";
+          ctx.fillText("di akar repo", readCard.x + readCard.w - 24, readCard.y + 36);
+
+          // Badge Kuning "PROMPT LENGKAP"
+          roundRect(ctx, readCard.x + 24, readCard.y + 54, 170, 26, 4);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+          ctx.font = "800 13px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#0c0d12";
+          ctx.textAlign = "center";
+          ctx.fillText("PROMPT LENGKAP", readCard.x + 109, readCard.y + 71);
+
+          // Iris Focus Bracket Kuning Mengunci Teks Prompt Eksperimen
+          const irisBox = { x: readCard.x + 14, y: readCard.y + 90, w: readCard.w - 28, h: 48 };
+          ctx.strokeStyle = "#ebb343";
+          ctx.lineWidth = 1.8;
+
+          // 4 Sudut L-Bracket
+          const arm = 12;
+          ctx.beginPath();
+          // Top-Left
+          ctx.moveTo(irisBox.x, irisBox.y + arm); ctx.lineTo(irisBox.x, irisBox.y); ctx.lineTo(irisBox.x + arm, irisBox.y);
+          // Top-Right
+          ctx.moveTo(irisBox.x + irisBox.w - arm, irisBox.y); ctx.lineTo(irisBox.x + irisBox.w, irisBox.y); ctx.lineTo(irisBox.x + irisBox.w, irisBox.y + arm);
+          // Bottom-Left
+          ctx.moveTo(irisBox.x, irisBox.y + irisBox.h - arm); ctx.lineTo(irisBox.x, irisBox.y + irisBox.h); ctx.lineTo(irisBox.x + arm, irisBox.y + irisBox.h);
+          // Bottom-Right
+          ctx.moveTo(irisBox.x + irisBox.w - arm, irisBox.y + irisBox.h); ctx.lineTo(irisBox.x + irisBox.w, irisBox.y + irisBox.h); ctx.lineTo(irisBox.x + irisBox.w, irisBox.y + irisBox.h - arm);
+          ctx.stroke();
+
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.textAlign = "left";
+          ctx.fillText("## 📄 Prompt Eksperimen / Experiment Prompt", irisBox.x + 18, irisBox.y + 30);
+
+          ctx.font = "500 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("Prompt yang sama persis diberikan ke kedua model", readCard.x + 24, readCard.y + 160);
+        }
+
+        // =====================================================================
+        // BAB 10 - KOMENTAR: "Tulis di komentar." (55.50s - 62.00s) [Ref: Gambar 10]
+        // =====================================================================
+        else if (time >= 55.50) {
+          const headY = 72;
+          ctx.font = "700 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.textBaseline = "middle";
+          ctx.textAlign = "left";
+          fillTrackedText("JOULFIAND STUDIO · ADU MODEL", 56, headY, 1.4, "left");
+
+          ctx.textAlign = "right";
+          fillTrackedText("10 — KOMENTAR · 1 SHOT", 1024, headY, 1.4, "right");
+
+          // Garis Pembagi Tengah
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(540, 110); ctx.lineTo(540, 1800); ctx.stroke();
+
+          // Kicker
+          const kickY = 224;
+          roundRect(ctx, 56, kickY - 6, 10, 10, 2.5);
+          ctx.fillStyle = "#ebb343";
+          ctx.fill();
+
+          ctx.font = "700 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          fillTrackedText("■ GILIRAN KAMU", 76, kickY, 1.4, "left");
+
+          // Judul Besar
+          const titleY = 280;
+          ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "alphabetic";
+          ctx.textAlign = "left";
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText("Tulis di ", 56, titleY);
+          const w1 = ctx.measureText("Tulis di ").width;
+          ctx.fillStyle = "#ebb343";
+          ctx.fillText("komentar.", 56 + w1, titleY);
+
+          // Dua Model Pill di Tengah
+          const pillBoxY = 880;
+          const p1X = 145;
+          roundRect(ctx, p1X, pillBoxY, 150, 48, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#383946";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          roundRect(ctx, p1X + 18, pillBoxY + 18, 12, 12, 3);
+          ctx.fillStyle = "#e07a5f";
+          ctx.fill();
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
+          ctx.textAlign = "left";
+          ctx.fillText("Claude", p1X + 42, pillBoxY + 31);
+
+          const p2X = 335;
+          roundRect(ctx, p2X, pillBoxY, 150, 48, 8);
+          ctx.fillStyle = "#14151e";
+          ctx.fill();
+          ctx.strokeStyle = "#383946";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          roundRect(ctx, p2X + 18, pillBoxY + 18, 12, 12, 3);
+          ctx.fillStyle = "#6ea8fe";
+          ctx.fill();
+          ctx.font = "700 18px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#c8c7c0";
+          ctx.fillText("Gemini", p2X + 42, pillBoxY + 31);
+
+          // Kolom Input Komentar Putih / Kapsul
+          const capW = 810;
+          const capH = 92;
+          const capX = (W - capW) / 2;
+          const capY = 960;
+
+          roundRect(ctx, capX, capY, capW, capH, 20);
+          ctx.fillStyle = "#f4f3ef";
+          ctx.fill();
+          ctx.shadowColor = "rgba(0,0,0,0.5)";
+          ctx.shadowBlur = 24;
+
+          // Animasi Pergantian Teks:
+          // 55.5s - 57.5s: "aku pilih Gemini" (Gemini berwarna biru)
+          // 57.5s - 59.5s: "aku pilih Claude" (Claude berwarna oranye)
+          // 59.5s - 62.0s: "mau tes model apa lagi?"
+          ctx.font = "700 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "middle";
+          ctx.textAlign = "left";
+
+          let typedPart1 = "";
+          let typedPart2 = "";
+          let colPart2 = "#000000";
+
+          if (time < 57.6) {
+            typedPart1 = "aku pilih ";
+            typedPart2 = "Gemini";
+            colPart2 = "#2563eb"; // Biru
+          } else if (time < 59.8) {
+            typedPart1 = "aku pilih ";
+            typedPart2 = "Claude";
+            colPart2 = "#ea580c"; // Oranye
+          } else {
+            typedPart1 = "mau tes model apa lagi?";
+            typedPart2 = "";
+            colPart2 = "#000000";
+          }
+
+          const tX = capX + 38;
+          const tY = capY + capH / 2;
+          ctx.fillStyle = "#1e1e24";
+          ctx.fillText(typedPart1, tX, tY);
+
+          if (typedPart2) {
+            const wPart1 = ctx.measureText(typedPart1).width;
+            ctx.fillStyle = colPart2;
+            ctx.fillText(typedPart2, tX + wPart1, tY);
+          }
+
+          // Kursor Berkedip
+          if (Math.sin(time * 8) > 0) {
+            const fullW = ctx.measureText(typedPart1 + typedPart2).width;
+            ctx.fillStyle = "#2563eb";
+            ctx.fillRect(tX + fullW + 4, tY - 18, 3, 36);
+          }
+        }
+
+        // Footer Global
+        drawGlobalFooter(time);
+
+        ctx.restore(); // Tutup supersampling
       }
 
       window.drawFrame = drawPage4Frame;
       window.DURATION = DURATION;
       window.TOTAL_FRAMES = TOTAL_FRAMES;
 
-      // Logika Pemutar Browser Interaktif
+      // =======================================================================
+      // LOGIKA PEMUTAR INTERAKTIF BROWSER
+      // =======================================================================
       let currentTime = Number(params.get("t") ?? 0);
       let isPlaying = !isHeadless;
       let startStamp = performance.now();
@@ -3226,25 +3464,30 @@ const W = 270;
 
       if (!isHeadless) {
         const jump = (s) => { isPlaying = false; updateView(s); };
-        document.getElementById("bSample1").onclick = () => jump(1.5);
-        document.getElementById("bSample2").onclick = () => jump(5.5);
-        document.getElementById("bSample3").onclick = () => jump(9.5);
-        document.getElementById("bScore").onclick   = () => jump(12.5);
-        document.getElementById("bOutro").onclick   = () => jump(14.8);
+        document.getElementById("bSample1").onclick = () => jump(2.0);  // Bab 04 Detail
+        document.getElementById("bSample2").onclick = () => jump(8.0);  // Bab 04 Warna
+        document.getElementById("bSample3").onclick = () => jump(14.0); // Bab 05 Bedah
+        document.getElementById("bScore").onclick   = () => jump(32.0); // Bab 06 Data
+        document.getElementById("bOutro").onclick   = () => jump(56.0); // Bab 10 Komentar
 
-        slider.oninput = () => {
-          isPlaying = false;
-          updateView(Number(slider.value) / FPS);
-        };
+        if (slider) {
+          slider.max = TOTAL_FRAMES - 1;
+          slider.oninput = () => {
+            isPlaying = false;
+            updateView(Number(slider.value) / FPS);
+          };
+        }
 
-        btnPlay.onclick = () => {
-          isPlaying = !isPlaying;
-          if (isPlaying) {
-            if (currentTime >= DURATION - 0.1) currentTime = 0;
-            startStamp = performance.now() - currentTime * 1000;
-            requestAnimationFrame(tick);
-          }
-        };
+        if (btnPlay) {
+          btnPlay.onclick = () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+              if (currentTime >= DURATION - 0.1) currentTime = 0;
+              startStamp = performance.now() - currentTime * 1000;
+              requestAnimationFrame(tick);
+            }
+          };
+        }
 
         function tick(now) {
           if (!isPlaying) return;
