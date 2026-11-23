@@ -1,14 +1,22 @@
-# 🚀 Pixel Art Rocket Launch Benchmark: Claude Opus 5.5 vs Gemini 4 Argon
+# 🚀 Pixel Art Rocket Launch Benchmark: Claude Opus 5.5 vs Gemini 3.8 Flash
 
-> **Dual Agent 1-Shot Benchmark Showcase**  
-> Dibuat oleh: **Rixsan Joulfiand** (Joulfiand Studio)  
-> Repository Publik: [`https://github.com/rjoulfiand-afk/NrTO`](https://github.com/rjoulfiand-afk/NrTO)
+> **Dual Agent 1-Shot Code & Visual Benchmark Showcase (198s Master Video)**  
+> Dibuat oleh: **Rixsan Joulfiand** ([Joulfiand Studio](https://github.com/rjoulfiand-afk))  
+> Repository Resmi: [`https://github.com/rjoulfiand-afk/NrTO`](https://github.com/rjoulfiand-afk/NrTO)
 
 ---
 
-## 📄 Prompt Eksperimen / Experiment Prompt
+## 📌 Ringkasan Proyek
 
-Prompt yang sama persis diberikan ke kedua model AI (**Claude Opus 5.5** dan **Gemini 4 Argon**) dalam satu kali kirim (*1-shot, zero human intervention*):
+Eksperimen pengetesan kemampuan dua model kecerdasan buatan terdepan—**Claude Code (Opus 5.5)** dan **Gemini Agent (3.8 Flash / Carbon)**—dalam menghasilkan animasi peluncuran roket pixel art dari kode murni HTML Canvas 2D dalam **satu kali instruksi (1-shot, 0 revisi)**.
+
+Seluruh alur video, perbandingan visual, audit terminal, dan ulasan kurator disatukan ke dalam arsitektur rendering berbasis web (HTML5 Canvas 2D) dan di-render secara deterministik frame demi frame menggunakan Playwright dan FFmpeg.
+
+---
+
+## 📄 Prompt Eksperimen (1-Shot · Zero Human Intervention)
+
+Prompt di bawah ini diberikan secara serentak dan identik ke kedua model AI:
 
 ```text
 Buat video animasi pixel art vertikal berdurasi 12 detik, sepenuhnya dari kode.
@@ -33,56 +41,69 @@ Keluaran akhir: file source code siap render dan petunjuk cara menjalankannya. J
 
 ---
 
-## 🔬 Spesifikasi & Ringkasan Hasil Uji
+## 🔬 Rekapitulasi Data & Penilaian Objektif
 
-| Parameter | Spesifikasi Brief | Implementasi Gemini 4 Argon | Implementasi Claude Opus 5.5 |
-| :--- | :--- | :--- | :--- |
-| **Durasi Video** | 12.0 Detik Murni | 12.0 Detik (360 Frame @ 30 FPS) | 12.0 Detik (360 Frame @ 30 FPS) |
-| **Resolusi Internal** | 270 × 480 px | 270 × 480 px (4X Nearest-Neighbor) | 270 × 480 px (4X Nearest-Neighbor) |
-| **Resolusi Output** | 1080 × 1920 px (9:16 Vertikal) | 1080 × 1920 px | 1080 × 1920 px |
-| **Arsitektur Kode** | Murni Kode (HTML5 / JS) | Monolitik 1-File (`animation.html`) | Modular 6-Modul ES6 (`src/*.js`) |
-| **Rendering Engine** | Canvas 2D | HTML5 Canvas 2D Offscreen | Custom Framebuffer (`Uint8Array`) |
-| **Batas Palet Warna** | Maksimal 16 Warna Konsisten | Palet 16 Warna (Warm Earthy Retro) | Palet 16 Warna (Cosmic High-Contrast) |
-| **Audio SFX** | Sintesis Kode Prosedural | Web Audio API Chiptune (44.1 kHz) | Web Audio API Chiptune (44.1 kHz) |
+| Metrik Penilaian | Claude Opus 5.5 (Roger 🧡) | Gemini 3.8 Flash (Merry 💙) | Keterangan & Catatan Juri (Arto) |
+| :--- | :---: | :---: | :--- |
+| **Lolos Poin Brief** | **16 / 16** | 15 / 16 | Claude taat 100% pada batasan, Gemini melebihi kuota palet |
+| **Warna Unik** | **16 warna** | 16.458 warna | Claude disiplin palet retro; Gemini memakai dithering & gradasi bebas |
+| **Klaim README** | **Sesuai** | Tidak Sesuai | Gemini mengklaim palet terbatas, namun kode merender ribuan shade |
+| **Deterministik** | **12.0s / 12.0s** | **12.0s / 12.0s** | Keduanya konsisten dikendalikan oleh fungsi `drawFrame(t)` |
+| **Error Console** | **0 Error** | **0 Error** | Kedua kode tereksekusi mulus tanpa runtime exception |
+| **Elemen Ekstra** | 4 elemen | 9 elemen | Gemini menambahkan satelit, panel surya, bulan, telemetry radar |
+| **Total Baris Kode** | 1.062 baris | 1.679 baris | Claude lebih ringkas dan modular; Gemini kaya detail visual |
+| **Biaya Langganan** | $20 USD (~Rp 400.000) | Rp 309.000 (Promo diskon: Rp 77.250) | Gemini 3.8 Flash juga tersedia gratis di Google AI Studio |
 
 ---
 
-## 📂 Struktur File Utama
+## 🎬 Alur Struktur Halaman & Script Render (198 Detik)
 
+| No | Modul Halaman | Durasi | Skrip Render Playwright | Deskripsi & Konten Visual |
+| :-: | :--- | :-: | :--- | :--- |
+| **00** | `intro.html` | 46.0s | `render_intro.js` | Pengenalan maskot Roger & Merry, drama senggol panggung, dual terminal setup & konfigurasi engine. |
+| **01** | `page1.html` | 26.0s | `render_page1.js` | Tampilan editor `prompt.txt`, pengetikan dinamis, scanner iris kuning membidik 5 poin spesifikasi, dan stempel emas *1× KIRIM · 0 REVISI*. |
+| **02** | `page2.html` | 32.0s | `render_page2.js` | Live audit metrik terminal, scanner X-Ray kode, dan visualisasi pemetaan palet 16 warna. |
+| **03** | `pict.html` | 12.0s | `render_pict.js` | Penayangan video hasil animasi peluncuran roket 12 detik secara berdampingan (*side-by-side showdown*). |
+| **04** | `page4.html` | 54.0s | `render_page4.js` | Review kritis maskot Arto (3D monokel): bedah detail objek, audit hitungan warna, tabel data komparasi, dan perbandingan harga langganan. |
+| **05** | `page5.html` | 28.0s | `render_page5.js` | Boarding dropship luar angkasa, animasi kolom komentar bergantian (*"Aku pilih Gemini"* ➔ *"Aku pilih Claude"* ➔ *"Mau tes model apa lagi?"*), serta outro studio. |
+| **ALL**| `final.html` | 198.0s | `render_final.js` | Penggabungan utuh master 6 part dengan transisi optik *seamless crossfade* + audio sintetis master 44.1 kHz. |
+
+---
+
+## 🛠️ Tutorial Menjalankan & Preview
+
+### 1. Preview Interaktif di Browser (Tanpa Instalasi)
+Cukup buka salah satu file HTML langsung di Google Chrome, Microsoft Edge, atau browser modern lainnya:
+- Buka `final.html` untuk memutar video penuh 198 detik dengan kontrol navigasi scrubber, slider waktu, dan tombol pintasan chapter.
+- Buka `page1.html`, `page2.html`, `pict.html`, `page4.html`, atau `page5.html` untuk menguji per modul tampilan.
+
+### 2. Render Otomatis ke MP4 (Headless Playwright & FFmpeg)
+Pastikan telah menginstal [Node.js](https://nodejs.org/) dan [FFmpeg](https://ffmpeg.org/):
+
+```bash
+# 1. Install library Playwright
+npm install playwright
+
+# 2. Install browser Chromium headless
+npx playwright install chromium
+
+# 3. Render video Master Final (Full HD 1080x1920 @ 30 FPS)
+node render_final.js
 ```
-NrTO/
-├── README.md               # Dokumentasi lengkap & Prompt eksperimen
-├── animation.html          # Implementasi otentik Gemini 4 Argon (Monolith Canvas2D)
-├── claude.html             # Implementasi otentik Claude Opus 5.5 (Modular Uint8Array)
-├── page1.html              # Halaman 1: Pengetikan prompt & pengiriman
-├── page2.html              # Halaman 2: Audit spek, X-ray scanner, & palet 16 warna
-├── pict.html               # Halaman 3: Perbandingan video sejajar (Side-by-side)
-├── page4.html              # Halaman 4: Analisis forensik, data, harga, & outro viral
-├── render_final.js         # Script render video lengkap
-├── render_page4.js         # Script render khusus Halaman 4
-└── package.json            # Konfigurasi dependensi (Playwright, FFmpeg)
+
+Untuk merender per bagian secara individual:
+```bash
+node render_intro.js   # Render Intro (00)
+node render_page1.js   # Render Soal & Prompt (01)
+node render_page2.js   # Render Proses & Audit (02)
+node render_pict.js    # Render Showdown Roket (03)
+node render_page4.js   # Render Arto Review (04)
+node render_page5.js   # Render Finale & Outro (05)
 ```
 
 ---
 
-## 🛠️ Cara Menjalankan & Merender
+## ⚖️ Lisensi & Hak Cipta
 
-1. **Install dependensi**:
-   ```bash
-   npm install
-   npx playwright install chromium
-   ```
-
-2. **Render Video Final Halaman 4**:
-   ```bash
-   node render_page4.js
-   ```
-
-3. **Preview Interaktif Browser**:
-   Buka file `page4.html`, `pict.html`, atau `final.html` langsung di browser Chrome/Edge.
-
----
-
-*Hak Cipta © 2026 Rixsan Joulfiand · Joulfiand Studio. Seluruh hak cipta dilindungi undang-undang.*
-
-
+Kode sumber eksperimen dan rendering dilindungi hak cipta © 2026 **Rixsan Joulfiand** · **Joulfiand Studio**.  
+Disediakan untuk keperluan edukasi, riset arsitektur AI, dan dokumentasi benchmark komparatif.

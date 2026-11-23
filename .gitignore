@@ -2,16 +2,20 @@
 node_modules/
 package-lock.json
 
-# Render Frames & Media output
+# Render Frames & Media output (Heavy media & frames)
 frames*/
 *.mp4
 *.wav
 *.png
 *.jpg
 *.jpeg
+*.gif
+*.webp
 
-# Python & Private Scripts/Databases (User Private Files - DO NOT COMMIT)
+# User Private Scripts, Python, OSINT & Databases (STRICT PRIVACY DO NOT COMMIT)
 *.py
+*.py.*
+*.py.bak*
 *.db
 *.sqlite
 *.sqlite3
@@ -25,6 +29,49 @@ downloads/
 ig_vault*
 .build_cache.json
 *.bak
+holehe/
+ignorant/
+instaloader/
+laporan.txt
+sync_report.md
+anti-slop/
+
+# Scratch, Inspect & Diagnostic Scripts
+test_*
+inspect_*
+check_*
+dump_*
+apply_*
+build_*
+update_*
+find_*
+extract_*
+debug_*
+stitch_audio.js
+cues.js
+cues.json
+skillMDts.txt
+gemini_prompt_full.txt
+code.txt
+cam.html
+err.html
+generate.html
+generate_final_html.js
+into.html
+intro_mascots.html
+jxn.html
+nawh.html
+now.html
+ochovoid*
+portofolio.html
+preview.html
+render_intro_mascots.js
+ro.tsx
+start.html
+threeui.htm
+web.html
 
 # Test artifacts
 test_screenshots/
+.env
+vault_private_exports/

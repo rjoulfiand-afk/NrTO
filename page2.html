@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
-  <title>Joulfiand Studio — Halaman 2 (Proses & Audit Objektif)</title>
+  <title>Joulfiand Studio — Halaman 2: Proses & Audit Bersama Merry & Roger (32s)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -23,14 +23,14 @@
       justify-content: center;
     }
     #stage {
-      height: calc(100vh - 58px);
+      height: calc(100vh - 64px);
       aspect-ratio: 9 / 16;
       display: block;
       background: #0f0f11;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
     }
     #controls {
-      height: 52px;
+      height: 58px;
       display: flex;
       gap: 6px;
       align-items: center;
@@ -41,6 +41,7 @@
       width: 100%;
       font-size: 11px;
       flex-wrap: wrap;
+      z-index: 10;
     }
     button {
       background: #1e1e24;
@@ -51,25 +52,33 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 11px;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
     }
     button:hover {
       background: #2b2b33;
+      border-color: #ebb343;
     }
     button.primary {
       background: #ebb343;
       color: #0e0e10;
       border-color: #ebb343;
-      font-weight: 700;
+      font-weight: 800;
+    }
+    button.primary:hover {
+      background: #ffd066;
     }
     input[type="range"] {
-      width: 160px;
+      width: 170px;
       cursor: pointer;
       accent-color: #ebb343;
     }
     #timeLabel {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
       color: #ebb343;
       font-weight: 700;
-      min-width: 105px;
+      min-width: 124px;
       text-align: right;
     }
     body.headless {
@@ -88,19 +97,19 @@
   </style>
 </head>
 <body>
-  <!-- Kanvas 2x Supersampled (2160x3840 -> ditampilkan 1080x1920) -->
+  <!-- Kanvas 2x Supersampled (2160x3840 -> 1080x1920) Identik dengan Intro, Page 1 & Page 3 -->
   <canvas id="stage" width="2160" height="3840"></canvas>
 
   <div id="controls">
     <button id="btnPlay" class="primary">Play / Pause</button>
-    <button id="btnS1">1. Transisi (1.0s)</button>
-    <button id="btnS2">2. X-Ray & Log (4.2s)</button>
-    <button id="btnS3">3. Iris Scan (7.5s)</button>
-    <button id="btnS4">4. Audit 16 Warna (11.8s)</button>
-    <button id="btnS5">5. LETSGO!! (15.8s)</button>
-    <button id="btnS6">6. Hook Page 3 (17.2s)</button>
-    <input id="slider" type="range" min="0" max="539" value="0" />
-    <span id="timeLabel">00.00 / 18.00 s</span>
+    <button id="b1">1. Merry Engine (3.5s)</button>
+    <button id="b2">2. Roger Engine (8.6s)</button>
+    <button id="b3">3. Merry Fitur (13.8s)</button>
+    <button id="b4">4. Roger Fitur (19.0s)</button>
+    <button id="b5">5. Duet Audit (23.8s)</button>
+    <button id="b6">6. LETSGO!! (28.8s)</button>
+    <input id="slider" type="range" min="0" max="959" value="0" />
+    <span id="timeLabel">00.00 / 32.00 s</span>
   </div>
 
   <script>
@@ -109,9 +118,7 @@
 
       const params = new URLSearchParams(window.location.search);
       const isHeadless = params.has("headless") || params.has("render");
-      if (isHeadless) {
-        document.body.classList.add("headless");
-      }
+      if (isHeadless) document.body.classList.add("headless");
 
       const canvas = document.getElementById("stage");
       const ctx = canvas.getContext("2d", { alpha: false });
@@ -120,14 +127,14 @@
       const H = 1920;
       const SSAA = 2;
       const FPS = 30;
-      const DURATION = 18.0;
-      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 540 frame
+      const DURATION = 32.0; // 32.00 Detik Santai, Jelas, Bebas Tabrakan
+      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 960 frame
 
-      // Koordinat Presisi 100% Identik dengan Halaman 1 & Halaman 3 (pict.html)
-      const LEFT_BOX  = { x: 48,  y: 464, w: 468, h: 832 };
-      const RIGHT_BOX = { x: 564, y: 464, w: 468, h: 832 };
+      const LEFT_COL_X  = 48;
+      const RIGHT_COL_X = 564;
+      const COL_W       = 468;
 
-      // Palet 16 Warna Asli dari Kode Gemini (animation.html)
+      // Palet 16 Warna ASLI dari Kode Gemini & Claude yang sudah dikirim
       const GEMINI_PALETTE_16 = [
         "#0b0c10", "#141b33", "#24345c", "#3b2d54",
         "#7a305c", "#c94a38", "#eb7b34", "#f7b545",
@@ -135,7 +142,6 @@
         "#3c4657", "#1f242d", "#2e8b6e", "#5ce6a0"
       ];
 
-      // Palet 16 Warna Asli dari Kode Claude (palette.js)
       const CLAUDE_PALETTE_16 = [
         "#000000", "#F5F5F5", "#9CA3AF", "#3A3F4B",
         "#0B1230", "#1D2B64", "#3B82F6", "#60A5FA",
@@ -143,30 +149,39 @@
         "#E8907A", "#2A1E1A", "#3E8F6A", "#1F5C6B"
       ];
 
-      // Data Log Eksekusi Faktual
+      // 5 Baris Log Ringkas Akurat Sesuai Source Code Asli
       const GEMINI_LOGS = [
-        { t: 2.3, txt: "$ node render.js", col: "#f4f3ef" },
-        { t: 2.7, txt: "✓ write animation.html (438L)", col: "#969590" },
-        { t: 3.1, txt: "✓ write render.js (146L)", col: "#969590" },
-        { t: 3.6, txt: "▸ synth audio.wav (PCM16 44.1kHz)", col: "#6ea8fe" },
-        { t: 4.3, txt: "▸ playwright: 270x480 -> 4x NN", col: "#d8d7d2" },
-        { t: 5.1, txt: "▸ rendering 360 frames @ 30fps...", col: "#d8d7d2" },
-        { t: 6.2, txt: "⚡ fix: libx264 level 4.1 + stereo", col: "#ebb343" },
-        { t: 7.1, txt: "✓ mux rocket_launch_pixelart.mp4", col: "#5ce6a0" }
+        { t: 1.50, txt: "$ init bufferCanvas (270×480)",    col: "#f4f3ef" },
+        { t: 2.35, txt: "▸ BAYER4 dither (10 sky stops)",   col: "#6ea8fe" },
+        { t: 3.30, txt: "▸ drawTwoStageRocket + Stage Sep", col: "#d8d7d2" },
+        { t: 4.30, txt: "▸ drawOrbitPlanet (SATURN-IV)",    col: "#ebb343" },
+        { t: 5.20, txt: "✓ 4× NN -> 1080×1920 (360F)",      col: "#5ce6a0" }
       ];
 
       const CLAUDE_LOGS = [
-        { t: 2.3, txt: "$ npm run build", col: "#f4f3ef" },
-        { t: 2.7, txt: "✓ load 6 ES6 modules (src/*.js)", col: "#969590" },
-        { t: 3.1, txt: "✓ alloc Uint8Array(129600) FB", col: "#969590" },
-        { t: 3.6, txt: "▸ tools/audio.mjs -> audio.wav", col: "#e07a5f" },
-        { t: 4.3, txt: "▸ tools/render.mjs (headless)", col: "#d8d7d2" },
-        { t: 5.1, txt: "▸ rendering 360 frames @ 30fps...", col: "#d8d7d2" },
-        { t: 6.2, txt: "⚡ tools/check.mjs: <= 16 colors", col: "#ebb343" },
-        { t: 7.1, txt: "✓ mux claude_rocket_pixelart.mp4", col: "#5ce6a0" }
+        { t: 6.45, txt: "$ alloc Uint8Array(270×480)",      col: "#f4f3ef" },
+        { t: 7.30, txt: "▸ load 6 modul (timeline..draw)",  col: "#e07a5f" },
+        { t: 8.25, txt: "▸ Gravity Turn 90° + Plasma MECO", col: "#d8d7d2" },
+        { t: 9.20, txt: "▸ drawPlanet (3D Earth + Lights)", col: "#ebb343" },
+        { t: 10.10, txt: "✓ RGBA32[idx] LUT -> 360F ✓",     col: "#5ce6a0" }
       ];
 
-      // --- Fungsi Matematika & Easing ---
+      // 3 Fitur Andalan Faktual Sesuai Kode Masing-Masing (untuk Mode B)
+      const GEMINI_FEATURES = [
+        { tag: "STAGE SEPARATION", title: "Roket 2 Tingkat (t = 6.0s)",  desc: "Booster tahap 1 lepas & jatuh, mesin vakum nyala" },
+        { tag: "PLANET SATURN-IV", title: "Planet Cincin + Target Lock", desc: "Cincin 3D, bulan berkawah, meteor & horizon bumi" },
+        { tag: "TELEMETRI & RCS",  title: "Max-Q Cone + RCS Kiri-Kanan", desc: "HUD progress bar, sinyal gelombang & MISSION START" }
+      ];
+
+      const CLAUDE_FEATURES = [
+        { tag: "GRAVITY TURN 90°", title: "Rotasi Miring Mulus ke Orbit", desc: "Roket berputar 90° + RCS thruster arah hidung" },
+        { tag: "BUMI 3D + NIGHT",  title: "Planet Bumi & Lampu Kota",     desc: "Value noise benua, awan, bulan & city lights malam" },
+        { tag: "PLASMA VAKUM",     title: "Api Booster → Plasma Biru",    desc: "Peralihan MECO di t = 7.7s + 16-color indexed FB" }
+      ];
+
+      // =======================================================================
+      // 1. MATEMATIKA, EASING & HELPER WARNA
+      // =======================================================================
       const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
       const lerp = (a, b, t) => a + (b - a) * t;
       const smoothstep = (a, b, x) => {
@@ -178,26 +193,30 @@
         return k * k * k * (k * (k * 6 - 15) + 10);
       };
       const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
-      function softBounceOut(x, overshoot = 1.12) {
+      const easeOutQuart = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 4);
+      function gentleSettleOut(x, overshoot = 0.72) {
         const k = clamp(x, 0, 1);
         const c1 = overshoot;
         const c3 = c1 + 1;
         return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
       }
+      function bellCurve(time, a, peakIn, peakOut, b) {
+        return smootherstep(a, peakIn, time) * (1 - smootherstep(peakOut, b, time));
+      }
 
-      function roundRect(ctx, x, y, w, h, r) {
+      function roundRect(c, x, y, w, h, r) {
         const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
-        ctx.beginPath();
-        ctx.moveTo(x + rad, y);
-        ctx.lineTo(x + w - rad, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
-        ctx.lineTo(x + w, y + h - rad);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
-        ctx.lineTo(x + rad, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
-        ctx.lineTo(x, y + rad);
-        ctx.quadraticCurveTo(x, y, x + rad, y);
-        ctx.closePath();
+        c.beginPath();
+        c.moveTo(x + rad, y);
+        c.lineTo(x + w - rad, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + rad);
+        c.lineTo(x + w, y + h - rad);
+        c.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        c.lineTo(x + rad, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - rad);
+        c.lineTo(x, y + rad);
+        c.quadraticCurveTo(x, y, x + rad, y);
+        c.closePath();
       }
 
       function drawCrosshair(x, y, size, color) {
@@ -215,11 +234,9 @@
           return w;
         });
         totalW += tracking * Math.max(0, chars.length - 1);
-
         let curX = x;
         if (align === "right") curX = x - totalW;
         else if (align === "center") curX = x - totalW / 2;
-
         ctx.textAlign = "left";
         for (let i = 0; i < chars.length; i++) {
           ctx.fillText(chars[i], curX, y);
@@ -228,41 +245,70 @@
         return totalW;
       }
 
-      function drawClaudeWheel(cx, cy, radius, angleRad, color = "#e07a5f") {
+      function hexToRgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      }
+
+      function shadeRgb(rgb, factor, rimRgb, rimWeight) {
+        let r = rgb[0] * factor, g = rgb[1] * factor, b = rgb[2] * factor;
+        if (rimRgb && rimWeight > 0) {
+          r += rimRgb[0] * rimWeight;
+          g += rimRgb[1] * rimWeight;
+          b += rimRgb[2] * rimWeight;
+        }
+        return `rgb(${clamp(Math.round(r), 0, 255)},${clamp(Math.round(g), 0, 255)},${clamp(Math.round(b), 0, 255)})`;
+      }
+
+      function normalize3(v) {
+        const len = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / len, v[1] / len, v[2] / len];
+      }
+      function cross3(a, b) {
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      }
+      function dot3(a, b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      }
+
+      // =======================================================================
+      // 2. LOGO VEKTOR ASLI CLAUDE (SUNBURST 11-SPOKE) & GEMINI (SPARKLE)
+      // =======================================================================
+      function drawClaudeSunburstLogo(cx, cy, radius, angleRad, color = "#e07a5f", alpha = 1.0) {
+        if (alpha <= 0.01) return;
         ctx.save();
+        ctx.globalAlpha *= alpha;
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
-        const numSpokes = 12;
+        const spokeRatios = [1.00, 0.86, 0.96, 0.80, 0.98, 0.84, 0.94, 0.78, 1.00, 0.88, 0.92];
+        const n = spokeRatios.length;
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(2.2, radius * 0.16);
+        ctx.lineWidth = Math.max(2.1, radius * 0.21);
         ctx.lineCap = "round";
-
-        for (let i = 0; i < numSpokes; i++) {
-          const a = (i / numSpokes) * Math.PI * 2;
-          const innerR = radius * 0.22;
-          const outerR = (i % 2 === 0) ? radius : radius * 0.82;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 - Math.PI * 0.5;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
-          ctx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+          ctx.moveTo(Math.cos(a) * radius * 0.16, Math.sin(a) * radius * 0.16);
+          ctx.lineTo(Math.cos(a) * radius * spokeRatios[i], Math.sin(a) * radius * spokeRatios[i]);
           ctx.stroke();
         }
-
         ctx.beginPath();
-        ctx.arc(0, 0, radius * 0.24, 0, Math.PI * 2);
+        ctx.arc(0, 0, radius * 0.29, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
         ctx.restore();
       }
 
-      function drawGeminiSparkle(cx, cy, radius, angleRad, color = "#6ea8fe") {
+      function drawGeminiSparkleLogo(cx, cy, radius, angleRad, alpha = 1.0) {
+        if (alpha <= 0.01) return;
         ctx.save();
+        ctx.globalAlpha *= alpha;
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
         const grad = ctx.createLinearGradient(-radius, -radius, radius, radius);
         grad.addColorStop(0, "#6ea8fe");
         grad.addColorStop(0.55, "#8b5cf6");
         grad.addColorStop(1, "#38bdf8");
-
         ctx.beginPath();
         ctx.moveTo(0, -radius);
         ctx.quadraticCurveTo(0, 0, radius, 0);
@@ -270,474 +316,833 @@
         ctx.quadraticCurveTo(0, 0, -radius, 0);
         ctx.quadraticCurveTo(0, 0, 0, -radius);
         ctx.closePath();
-
         ctx.fillStyle = grad;
-        ctx.shadowColor = "rgba(110, 168, 254, 0.45)";
-        ctx.shadowBlur = 16;
+        ctx.shadowColor = "rgba(110, 168, 254, 0.42)";
+        ctx.shadowBlur = 14;
         ctx.fill();
         ctx.restore();
       }
 
-      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText) {
+      // =======================================================================
+      // 3. HIERARCHICAL 3D VOXEL ENGINE (ROGER & MERRY — ZERO CLIPPING!)
+      // =======================================================================
+      const KEY_LIGHT  = normalize3([-0.36, 0.72, 0.60]);
+      const FILL_LIGHT = normalize3([ 0.55, 0.25, 0.45]);
+
+      function transformPoint(p, tf) {
+        let x = p[0] * tf.sx, y = p[1] * tf.sy, z = p[2] * tf.sz;
+        if (tf.rz) {
+          const c = Math.cos(tf.rz), s = Math.sin(tf.rz);
+          const nx = x * c - y * s, ny = x * s + y * c;
+          x = nx; y = ny;
+        }
+        if (tf.rx) {
+          const c = Math.cos(tf.rx), s = Math.sin(tf.rx);
+          const ny = y * c - z * s, nz = y * s + z * c;
+          y = ny; z = nz;
+        }
+        if (tf.ry) {
+          const c = Math.cos(tf.ry), s = Math.sin(tf.ry);
+          const nx = x * c + z * s, nz = -x * s + z * c;
+          x = nx; z = nz;
+        }
+        return [x + tf.tx, y + tf.ty, z + tf.tz];
+      }
+
+      function pushBoxQuads(quadList, cx, cy, cz, w, h, d, rgb, localTf, worldTf, opts = {}) {
+        const hw = w / 2, hh = h / 2, hd = d / 2;
+        const rawVerts = [
+          [cx - hw, cy - hh, cz + hd], [cx + hw, cy - hh, cz + hd],
+          [cx + hw, cy + hh, cz + hd], [cx - hw, cy + hh, cz + hd],
+          [cx - hw, cy - hh, cz - hd], [cx + hw, cy - hh, cz - hd],
+          [cx + hw, cy + hh, cz - hd], [cx - hw, cy + hh, cz - hd]
+        ];
+        const verts = rawVerts.map((v) => transformPoint(localTf ? transformPoint(v, localTf) : v, worldTf));
+        const faceDefs = [
+          { idx: [0, 1, 2, 3], ao: 1.00 }, { idx: [5, 4, 7, 6], ao: 0.78 },
+          { idx: [1, 5, 6, 2], ao: 0.90 }, { idx: [4, 0, 3, 7], ao: 0.94 },
+          { idx: [3, 2, 6, 7], ao: 1.06 }, { idx: [4, 5, 1, 0], ao: 0.66 }
+        ];
+        const mask = opts.faceMask || [1, 1, 1, 1, 1, 1];
+        const rimRgb = opts.rimRgb || null;
+        const rimDir = opts.rimDir || [0, 0, 0];
+        const dimFactor = opts.dimFactor !== undefined ? opts.dimFactor : 1.0;
+        const layer = opts.layer !== undefined ? opts.layer : 2;
+        const unlit = opts.unlit === true;
+
+        for (let f = 0; f < 6; f++) {
+          if (!mask[f]) continue;
+          const fd = faceDefs[f];
+          const v0 = verts[fd.idx[0]], v1 = verts[fd.idx[1]], v2 = verts[fd.idx[2]], v3 = verts[fd.idx[3]];
+          const n = normalize3(cross3(
+            [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]],
+            [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]]
+          ));
+          const center = [
+            (v0[0] + v1[0] + v2[0] + v3[0]) * 0.25,
+            (v0[1] + v1[1] + v2[1] + v3[1]) * 0.25,
+            (v0[2] + v1[2] + v2[2] + v3[2]) * 0.25
+          ];
+          quadList.push({
+            verts: [v0, v1, v2, v3], normal: n, center, rgb,
+            ao: fd.ao, rimRgb, rimDir, dimFactor, layer, unlit,
+            strokeSame: opts.strokeSame !== false
+          });
+        }
+      }
+
+      function renderActorQuads(quadList, originX, originY, camDist, fov, actorAlpha = 1.0) {
+        if (actorAlpha <= 0.01 || quadList.length === 0) return;
+        const camPos = [0, 1.4, camDist];
+        const visible = [];
+
+        for (let i = 0; i < quadList.length; i++) {
+          const q = quadList[i];
+          const dx = camPos[0] - q.center[0];
+          const dy = camPos[1] - q.center[1];
+          const dz = camPos[2] - q.center[2];
+          if (dot3(q.normal, [dx, dy, dz]) <= 0.0005 || dz < 2.0) continue;
+
+          let fill;
+          if (q.unlit) {
+            fill = shadeRgb(q.rgb, q.dimFactor, null, 0);
+          } else {
+            const ndl = Math.max(0, dot3(q.normal, KEY_LIGHT));
+            const ndf = Math.max(0, dot3(q.normal, FILL_LIGHT));
+            const shade = (0.48 + 0.44 * ndl + 0.14 * ndf) * q.ao * q.dimFactor;
+            const rimHit = q.rimRgb ? Math.max(0, dot3(q.normal, q.rimDir)) * 0.24 * q.dimFactor : 0;
+            fill = shadeRgb(q.rgb, shade, q.rimRgb, rimHit);
+          }
+
+          const proj = q.verts.map((v) => {
+            const sc = fov / Math.max(1.5, camPos[2] - v[2]);
+            return [originX + (v[0] - camPos[0]) * sc, originY - (v[1] - camPos[1]) * sc];
+          });
+
+          visible.push({ layer: q.layer, distSq: dx * dx + dy * dy + dz * dz, proj, fill, strokeSame: q.strokeSame });
+        }
+
+        visible.sort((a, b) => (a.layer !== b.layer ? a.layer - b.layer : b.distSq - a.distSq));
+
         ctx.save();
+        ctx.globalAlpha *= clamp(actorAlpha, 0, 1);
+        for (let i = 0; i < visible.length; i++) {
+          const item = visible[i], p = item.proj;
+          ctx.beginPath();
+          ctx.moveTo(p[0][0], p[0][1]);
+          ctx.lineTo(p[1][0], p[1][1]);
+          ctx.lineTo(p[2][0], p[2][1]);
+          ctx.lineTo(p[3][0], p[3][1]);
+          ctx.closePath();
+          ctx.fillStyle = item.fill;
+          ctx.fill();
+          if (item.strokeSame) {
+            ctx.strokeStyle = item.fill;
+            ctx.lineWidth = 0.75;
+            ctx.lineJoin = "round";
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      function project3DPoint(wx, wy, wz, originX, originY, camDist, fov) {
+        const sc = fov / Math.max(1.5, camDist - wz);
+        return { x: originX + wx * sc, y: originY - (wy - 1.4) * sc, sc };
+      }
+
+      // --- MODEL 3D ROGER (CLAUDE CODE · KANAN) ---
+      const ROGER_ORANGE = hexToRgb("#ea7444");
+      const ROGER_EYE    = hexToRgb("#141419");
+      const ROGER_BROW   = hexToRgb("#261a16");
+      const ROGER_SHINE  = hexToRgb("#ffffff");
+      const ROGER_BLUSH  = hexToRgb("#ff8a80");
+      const ROGER_RIM    = hexToRgb("#ffb088");
+      const ROGER_RIMDIR = normalize3([0.75, 0.35, -0.30]);
+
+      function buildRogerQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale,
+          speakEnergy = 0, waveLeft = 0, waveRight = 0, blinkAmount = 0,
+          happyAmount = 0, excitedAmount = 0, lookX = 0, blushAmount = 0, dimFactor = 1
+        } = pose;
+
+        const bounce = Math.abs(Math.sin(time * 7.2)) * speakEnergy;
+        const breathe = Math.sin(time * 2.8) * 0.015;
+        const worldTf = {
+          tx: x, ty: y + bounce * 0.38 + Math.sin(time * 2.8) * 0.08, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * (1 + bounce * 0.05 - breathe * 0.4),
+          sy: scale * (1 - bounce * 0.04 + breathe),
+          sz: scale * (1 + bounce * 0.03)
+        };
+        const baseOpts = { rimRgb: ROGER_RIM, rimDir: ROGER_RIMDIR, dimFactor };
+
+        const legXs = [-3.35, -1.20, 1.20, 3.35];
+        for (let i = 0; i < 4; i++) {
+          const stepLift = Math.max(0, Math.sin(time * 8.4 + i * 1.55)) * 0.25 * speakEnergy;
+          pushBoxQuads(quads, legXs[i], -2.25 + stepLift, 0, 1.38, 2.50, 1.85, ROGER_ORANGE, null, worldTf, { ...baseOpts, layer: 0 });
+        }
+
+        const leftArmLayer = yaw < 0 ? 1 : 4;
+        const rightArmLayer = yaw < 0 ? 4 : 1;
+
+        let leftArmAng = -0.08 + Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveLeft > 0.01) leftArmAng = lerp(leftArmAng, -0.82 - Math.sin(time * 14.5) * 0.32, waveLeft);
+        pushBoxQuads(quads, -0.82, 0, 0, 1.75, 2.05, 1.95, ROGER_ORANGE,
+          { tx: -4.8, ty: 1.55, tz: 0, rx: 0, ry: 0, rz: leftArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: leftArmLayer });
+
+        let rightArmAng = 0.08 - Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveRight > 0.01) rightArmAng = lerp(rightArmAng, 0.85 + Math.sin(time * 14.5) * 0.34, waveRight);
+        pushBoxQuads(quads, 0.82, 0, 0, 1.75, 2.05, 1.95, ROGER_ORANGE,
+          { tx: 4.8, ty: 1.55, tz: 0, rx: 0, ry: 0, rz: rightArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: rightArmLayer });
+
+        pushBoxQuads(quads, 0, 1.85, 0, 9.6, 6.2, 4.1, ROGER_ORANGE, null, worldTf, { ...baseOpts, layer: 2 });
+
+        const eyeZ = 2.26, eyeBaseY = 2.55, shiftX = clamp(lookX, -1, 1) * 0.45;
+        for (const side of [-1, 1]) {
+          const ex = side * 2.55 + shiftX;
+          if (happyAmount > 0.55) {
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex - 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: 0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex + 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: -0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+          } else {
+            const eyeH = lerp(1.54 * (1 + excitedAmount * 0.14), 0.22, blinkAmount);
+            pushBoxQuads(quads, ex, eyeBaseY, eyeZ, 1.52, eyeH, 0.58, ROGER_EYE, null, worldTf, { ...baseOpts, layer: 3 });
+            if (blinkAmount < 0.40) {
+              const ss = 1 + excitedAmount * 0.22;
+              pushBoxQuads(quads, ex - 0.32 + shiftX * 0.24, eyeBaseY + 0.32, eyeZ + 0.31, 0.40 * ss, 0.40 * ss, 0.08, ROGER_SHINE, null, worldTf,
+                { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+              pushBoxQuads(quads, ex + 0.28 + shiftX * 0.16, eyeBaseY - 0.26, eyeZ + 0.31, 0.22, 0.22, 0.08, ROGER_SHINE, null, worldTf,
+                { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+            }
+          }
+          const browLift = happyAmount * 0.42 + excitedAmount * 0.48;
+          const browTilt = side === -1 ? (happyAmount * 0.16 + excitedAmount * 0.18) : (-happyAmount * 0.16 - excitedAmount * 0.18);
+          pushBoxQuads(quads, 0, 0, 0, 1.72, 0.30, 0.34, ROGER_BROW,
+            { tx: ex, ty: eyeBaseY + 1.24 + browLift, tz: eyeZ + 0.08, rx: 0, ry: 0, rz: browTilt, sx: 1, sy: 1, sz: 1 },
+            worldTf, { ...baseOpts, layer: 3.6 });
+        }
+
+        if (blushAmount > 0.08) {
+          pushBoxQuads(quads, -3.45 + shiftX * 0.35, 1.22, 2.14, 1.15 * blushAmount, 0.46 * blushAmount, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+          pushBoxQuads(quads,  3.45 + shiftX * 0.35, 1.22, 2.14, 1.15 * blushAmount, 0.46 * blushAmount, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+        }
+        return quads;
+      }
+
+      // --- MODEL 3D MERRY (GEMINI AGENT · KIRI) ---
+      const MERRY_GRID = [
+        ".....KKKKKK.....", "...KKGGYYRRKK...", "..KGGGYYORRRRK..", "..KGGCCCCRRRRK..",
+        ".KGGCCCCCCCCRRK.", ".KGBBCCCCCCBBBK.", ".KBBWEBBBBWEBBK.", ".KBBEEBBBBEEBBK.",
+        "KBBPPBBMMBBPPBBK", "KBBBBBMTTMBBBBBK", "KBBBBBKKKKBBBBBK", "KBBBBK....KBBBBK",
+        "KBBBK......KBBBK", "KBBBK......KBBBK", ".KKK........KKK."
+      ];
+      const MERRY_COLORS = {
+        K: hexToRgb("#0c1328"), B: hexToRgb("#1d63ff"), C: hexToRgb("#38bdf8"),
+        G: hexToRgb("#22c55e"), Y: hexToRgb("#facc15"), O: hexToRgb("#fb923c"),
+        R: hexToRgb("#ef4444"), E: hexToRgb("#090d1c"), W: hexToRgb("#ffffff"),
+        P: hexToRgb("#f472b6"), M: hexToRgb("#0a0e1d"), T: hexToRgb("#fb7185")
+      };
+      const MERRY_RIM    = hexToRgb("#93c5fd");
+      const MERRY_RIMDIR = normalize3([-0.75, 0.38, -0.30]);
+      const MERRY_ROWS = MERRY_GRID.length, MERRY_COLS = MERRY_GRID[0].length;
+      const MERRY_VOXEL_META = [];
+      for (let r = 0; r < MERRY_ROWS; r++) {
+        for (let c = 0; c < MERRY_COLS; c++) {
+          const ch = MERRY_GRID[r][c];
+          if (ch === ".") continue;
+          const solid = (rr, cc) => rr >= 0 && rr < MERRY_ROWS && cc >= 0 && cc < MERRY_COLS && MERRY_GRID[rr][cc] !== ".";
+          MERRY_VOXEL_META.push({
+            r, c, ch,
+            faceMask: [1, 1, solid(r, c + 1) ? 0 : 1, solid(r, c - 1) ? 0 : 1, solid(r - 1, c) ? 0 : 1, solid(r + 1, c) ? 0 : 1]
+          });
+        }
+      }
+      const MERRY_SPARKLES = [
+        { ang: 0.4, rad: 6.0, yOff:  3.4, size: 0.65, col: hexToRgb("#facc15"), isPlus: true  },
+        { ang: 1.8, rad: 5.4, yOff:  4.0, size: 0.50, col: hexToRgb("#38bdf8"), isPlus: false },
+        { ang: 3.1, rad: 5.8, yOff:  0.8, size: 0.52, col: hexToRgb("#22c55e"), isPlus: false },
+        { ang: 4.5, rad: 5.6, yOff: -1.4, size: 0.54, col: hexToRgb("#ef4444"), isPlus: false },
+        { ang: 5.6, rad: 5.7, yOff:  2.0, size: 0.48, col: hexToRgb("#f472b6"), isPlus: false }
+      ];
+
+      function buildMerryQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale,
+          speakEnergy = 0, wavePhase = 0, blinkAmount = 0,
+          happyEyes = 0, lookRight = 0, excitedHop = 0, dimFactor = 1
+        } = pose;
+
+        const hop = Math.abs(Math.sin(time * 8.2)) * speakEnergy + excitedHop * Math.abs(Math.sin(time * 11.5)) * 0.55;
+        const breathe = Math.sin(time * 3.1 + 1.0) * 0.015;
+        const worldTf = {
+          tx: x, ty: y + hop * 0.44 + Math.sin(time * 3.0 + 0.8) * 0.10, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * (1 + hop * 0.05 - breathe * 0.4),
+          sy: scale * (1 - hop * 0.04 + breathe),
+          sz: scale * (1 + hop * 0.03)
+        };
+
+        const vSize = 0.62, vDepth = 2.60;
+        const mouthOpen = speakEnergy > 0.10 ? (Math.sin(time * 18.0) > -0.22) : (happyEyes > 0.5);
+        const eyesClosed = blinkAmount > 0.55;
+
+        for (let i = 0; i < MERRY_VOXEL_META.length; i++) {
+          const vm = MERRY_VOXEL_META[i];
+          let ch = vm.ch;
+          const isL = (vm.r === 6 || vm.r === 7) && (vm.c === 4 || vm.c === 5);
+          const isR = (vm.r === 6 || vm.r === 7) && (vm.c === 10 || vm.c === 11);
+          if (isL || isR) {
+            if (eyesClosed) ch = (vm.r === 7) ? "E" : "B";
+            else if (happyEyes > 0.55) {
+              if (isL) ch = (vm.r === 6 && vm.c === 5) || (vm.r === 7 && vm.c === 4) ? "E" : "B";
+              if (isR) ch = (vm.r === 6 && vm.c === 10) || (vm.r === 7 && vm.c === 11) ? "E" : "B";
+            } else if (lookRight > 0.50) {
+              ch = (vm.r === 6 && (vm.c === 5 || vm.c === 11)) ? "W" : "E";
+            }
+          }
+          if (!mouthOpen && (ch === "M" || ch === "T")) ch = (vm.r === 8 && (vm.c === 7 || vm.c === 8)) ? "M" : "B";
+
+          const vx = (vm.c - (MERRY_COLS - 1) / 2) * vSize;
+          const vy = ((MERRY_ROWS - 1) / 2 - vm.r) * vSize + 1.15;
+          pushBoxQuads(quads, vx, vy, 0, vSize, vSize, vDepth, MERRY_COLORS[ch], null, worldTf, {
+            faceMask: vm.faceMask, rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: 1, strokeSame: true
+          });
+        }
+
+        let armAng = 0.10 + Math.sin(time * 3.8) * 0.10;
+        if (wavePhase > 0.01) armAng = lerp(armAng, 0.65 + Math.sin(time * 16.5) * 0.40, wavePhase);
+        const handTf = { tx: 4.32, ty: 1.25, tz: 0, rx: 0, ry: 0, rz: armAng, sx: 1, sy: 1, sz: 1 };
+        const handLayer = yaw > 0.45 ? 0 : 2;
+        pushBoxQuads(quads, 0.45, 0.0, 0, 0.70, 0.70, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 0.96, 0.54, 0, 0.70, 0.70, 1.30, MERRY_COLORS.W, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 1.36, 1.02, 0, 0.66, 0.66, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+
+        const orbitSpeed = 0.75 + speakEnergy * 1.15 + excitedHop * 0.90;
+        for (let i = 0; i < MERRY_SPARKLES.length; i++) {
+          const sp = MERRY_SPARKLES[i];
+          const a = sp.ang + time * orbitSpeed;
+          const spZ = z + Math.sin(a) * (sp.rad * 0.50) * scale;
+          const spLayer = spZ < z ? 0 : 3;
+          const spTf = {
+            tx: x + Math.cos(a) * sp.rad * scale,
+            ty: y + (sp.yOff + Math.sin(time * 4.0 + i * 1.3) * 0.38) * scale + 1.0,
+            tz: spZ, rx: time * 1.5 + i, ry: time * 1.9 + i, rz: 0,
+            sx: scale, sy: scale, sz: scale
+          };
+          if (sp.isPlus) {
+            pushBoxQuads(quads, 0, 0, 0, sp.size * 2.1, sp.size * 0.66, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+            pushBoxQuads(quads, 0, 0, 0, sp.size * 0.66, sp.size * 2.1, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+          } else {
+            pushBoxQuads(quads, 0, 0, 0, sp.size, sp.size, sp.size, sp.col, null, spTf, { dimFactor, layer: spLayer });
+          }
+        }
+        return quads;
+      }
+
+      // =======================================================================
+      // 4. KOMPONEN UI EDITORIAL (BADGE, SPEECH CARD, IRIS, X-RAY & FEATURE LAB)
+      // =======================================================================
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText, activeGlow = 0) {
+        ctx.save();
+        if (activeGlow > 0.02) {
+          ctx.shadowColor = accentHex;
+          ctx.shadowBlur = 18 * activeGlow;
+        }
         roundRect(ctx, x, y, w, h, 10);
         ctx.fillStyle = "#151518";
         ctx.fill();
+        ctx.shadowBlur = 0;
 
-        ctx.lineWidth = 1.25;
-        ctx.strokeStyle = "#26262c";
+        ctx.lineWidth = activeGlow > 0.3 ? 1.65 : 1.25;
+        ctx.strokeStyle = activeGlow > 0.3 ? accentHex : "#26262c";
         ctx.stroke();
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
         ctx.fillRect(x + 12, y + 1, w - 24, 1);
 
-        const dotSize = 13;
-        const dotX = x + 22;
-        const dotY = y + (h - dotSize) / 2;
-        roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
+        roundRect(ctx, x + 22, y + (h - 13) / 2, 13, 13, 3.5);
         ctx.fillStyle = accentHex;
         ctx.fill();
 
         ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
         ctx.fillStyle = accentHex;
         ctx.textBaseline = "middle";
-        const brandX = dotX + dotSize + 13;
+        const brandX = x + 48;
         const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
 
         ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.fillStyle = "#8e8d88";
+        ctx.textAlign = "left";
         ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
         ctx.restore();
       }
 
-      // Menggambar Kotak Iris Kaca Kuning dengan 4 Kotak Kecil di Luar Sudutnya (Konsisten dengan Halaman 1)
-      function drawIrisScannerBox(x, y, w, h, tagText, alpha) {
+      function drawFloorShadow(cx, cy, rx, ry, alpha, tintRgba) {
         if (alpha <= 0.01) return;
         ctx.save();
-        ctx.globalAlpha = alpha;
-
-        ctx.shadowColor = "rgba(235, 179, 67, 0.28)";
-        ctx.shadowBlur = 16;
-        ctx.fillStyle = "rgba(235, 179, 67, 0.16)";
-        ctx.fillRect(x, y, w, h);
-        ctx.shadowColor = "transparent";
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x, y, w, h);
-        ctx.clip();
-        ctx.strokeStyle = "rgba(255, 246, 205, 0.30)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x + 10, y + h);
-        ctx.lineTo(x + 26, y);
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.strokeStyle = "#ebb343";
-        ctx.lineWidth = 1.8;
-        ctx.strokeRect(x, y, w, h);
-
-        // 4 Kotak Kecil di Luar Sudut (7x7 px)
-        const nodeSize = 7;
-        const outerCorners = [
-          { cx: x - nodeSize, cy: y - nodeSize },
-          { cx: x + w,        cy: y - nodeSize },
-          { cx: x - nodeSize, cy: y + h },
-          { cx: x + w,        cy: y + h }
-        ];
-        for (let i = 0; i < outerCorners.length; i++) {
-          const oc = outerCorners[i];
-          ctx.fillStyle = "#141418";
-          ctx.fillRect(oc.cx, oc.cy, nodeSize, nodeSize);
-          ctx.strokeStyle = "#ffe07d";
-          ctx.lineWidth = 1.6;
-          ctx.strokeRect(oc.cx, oc.cy, nodeSize, nodeSize);
-        }
-
-        if (tagText) {
-          ctx.font = "800 12.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          const tagW = ctx.measureText(tagText).width + 16;
-          const tagH = 20;
-          const tagX = x;
-          const tagY = y - nodeSize - tagH - 3;
-
-          roundRect(ctx, tagX, tagY, tagW, tagH, 4);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
-
-          ctx.fillStyle = "#0e0e10";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText(tagText, tagX + 8, tagY + tagH / 2 + 0.5);
-        }
-
+        ctx.translate(cx, cy);
+        ctx.scale(1, ry / rx);
+        const grad = ctx.createRadialGradient(0, 0, rx * 0.10, 0, 0, rx);
+        grad.addColorStop(0, `rgba(0, 0, 0, ${(0.72 * alpha).toFixed(3)})`);
+        grad.addColorStop(0.58, tintRgba || `rgba(0, 0, 0, ${(0.28 * alpha).toFixed(3)})`);
+        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
       }
 
-      // Menggambar Diagram X-Ray Arsitektur File (Monolitik 2 File vs Modular 6 File)
+      function drawEmoteBadge(x, y, iconType, accentHex, alpha, time) {
+        if (alpha <= 0.02) return;
+        const bob = Math.sin(time * 5.8) * 5;
+        const sc = gentleSettleOut(clamp(alpha * 1.25, 0, 1), 0.9);
+        ctx.save();
+        ctx.globalAlpha *= clamp(alpha, 0, 1);
+        ctx.translate(x, y + bob);
+        ctx.scale(sc, sc);
+        ctx.shadowColor = accentHex;
+        ctx.shadowBlur = 16;
+        roundRect(ctx, -24, -24, 48, 48, 12);
+        ctx.fillStyle = "#16161d";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = accentHex;
+        ctx.stroke();
+
+        if (iconType === "claude") drawClaudeSunburstLogo(0, 0, 14, time * 0.8, accentHex, 1);
+        else if (iconType === "gemini") drawGeminiSparkleLogo(0, 0, 14, Math.sin(time * 1.6) * 0.14, 1);
+        else {
+          ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = accentHex;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(iconType, 0, 2);
+        }
+        ctx.restore();
+      }
+
+      // Speech Card Editorial (Lebar penuh 984px sejajar dengan 2 panel atas, y = 1514..1736)
+      function drawEditorialSpeechCard(opts) {
+        const {
+          speakerTag, roleTag, line1, line2, accentHex,
+          appearProg, typeProg, time, pointerX, dualMode
+        } = opts;
+        if (appearProg <= 0.01) return;
+
+        const cardX = LEFT_COL_X;
+        const cardW = 984;
+        const cardH = 222;
+        const cardY = lerp(1542, 1514, easeOutQuart(clamp(appearProg, 0, 1)));
+
+        ctx.save();
+        ctx.globalAlpha *= smootherstep(0, 0.55, appearProg);
+
+        // Pointer segitiga menunjuk langsung ke maskot yang sedang bicara!
+        if (!dualMode && pointerX !== undefined) {
+          const px = clamp(pointerX, cardX + 100, cardX + cardW - 100);
+          ctx.beginPath();
+          ctx.moveTo(px - 16, cardY + 2);
+          ctx.lineTo(px, cardY - 16);
+          ctx.lineTo(px + 16, cardY + 2);
+          ctx.closePath();
+          ctx.fillStyle = "#141419";
+          ctx.fill();
+          ctx.strokeStyle = accentHex;
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+        }
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.65)";
+        ctx.shadowBlur = 32;
+        ctx.shadowOffsetY = 10;
+        roundRect(ctx, cardX, cardY, cardW, cardH, 14);
+        ctx.fillStyle = "#141419";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = accentHex;
+        ctx.stroke();
+
+        if (!dualMode && pointerX !== undefined) {
+          const px = clamp(pointerX, cardX + 100, cardX + cardW - 100);
+          ctx.fillStyle = "#141419";
+          ctx.fillRect(px - 14, cardY - 1, 28, 4);
+        }
+
+        // Top Bar Speech Card
+        ctx.fillStyle = "#191921";
+        roundRect(ctx, cardX + 2, cardY + 2, cardW - 4, 54, 12);
+        ctx.fill();
+        ctx.fillStyle = "#262632";
+        ctx.fillRect(cardX + 2, cardY + 56, cardW - 4, 1);
+
+        if (dualMode) {
+          roundRect(ctx, cardX + 24, cardY + 22, 12, 12, 3); ctx.fillStyle = "#6ea8fe"; ctx.fill();
+          roundRect(ctx, cardX + 41, cardY + 22, 12, 12, 3); ctx.fillStyle = "#e07a5f"; ctx.fill();
+        } else {
+          roundRect(ctx, cardX + 24, cardY + 22, 12, 12, 3); ctx.fillStyle = accentHex; ctx.fill();
+        }
+
+        const tagStartX = dualMode ? cardX + 64 : cardX + 46;
+        ctx.font = "800 17.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = accentHex;
+        ctx.textBaseline = "middle";
+        const spW = fillTrackedText(speakerTag, tagStartX, cardY + 29, 1.8, "left");
+        ctx.font = "500 15.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88";
+        ctx.fillText("  ·  " + roleTag, tagStartX + spW, cardY + 29);
+
+        // Mini audio visualizer bar di kanan header speech card
+        const wfRight = cardX + cardW - 24, wfMidY = cardY + 29;
+        const talkingNow = typeProg > 0.02 && typeProg < 0.96;
+        for (let b = 0; b < 12; b++) {
+          const bx = wfRight - (11 - b) * 8;
+          const wave = talkingNow
+            ? 5 + Math.abs(Math.sin(time * 16 + b * 0.72) * Math.cos(time * 9 - b * 0.38)) * 20
+            : 4 + Math.sin(time * 3.5 + b) * 1.4;
+          roundRect(ctx, bx - 4, wfMidY - wave / 2, 4, wave, 2);
+          ctx.fillStyle = talkingNow ? accentHex : "#3b3b46";
+          ctx.fill();
+        }
+
+        // Teks dialog dengan highlight kata kunci teknis otomatis!
+        const fullText = line2 ? (line1 + "\n" + line2) : line1;
+        const shownStr = fullText.slice(0, Math.floor(clamp(typeProg, 0, 1) * fullText.length));
+        const parts = shownStr.split("\n"), s1 = parts[0] || "", s2 = parts[1] || "";
+
+        ctx.font = "800 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        const renderHL = (str, yPos) => {
+          const kws = [
+            { w: "Canvas 2D",      col: "#6ea8fe" },
+            { w: "Bayer 4×4",      col: "#ebb343" },
+            { w: "Uint8Array",     col: "#e07a5f" },
+            { w: "6 modul ES6",    col: "#ebb343" },
+            { w: "16 warna",       col: "#5ce6a0" },
+            { w: "Saturn-IV",      col: "#6ea8fe" },
+            { w: "Gravity Turn",   col: "#e07a5f" },
+            { w: "plasma vakum",   col: "#60a5fa" },
+            { w: "Bumi 3D",        col: "#ebb343" },
+            { w: "paling keren?",  col: "#ebb343" }
+          ];
+          let best = null;
+          for (const kw of kws) {
+            const idx = str.indexOf(kw.w);
+            if (idx >= 0 && (!best || idx < best.idx)) best = { idx, len: kw.w.length, col: kw.col };
+          }
+          if (!best) {
+            ctx.fillStyle = "#f5f4f0";
+            ctx.fillText(str, cardX + 32, yPos);
+          } else {
+            const p0 = str.slice(0, best.idx);
+            const p1 = str.slice(best.idx, best.idx + best.len);
+            const p2 = str.slice(best.idx + best.len);
+            ctx.fillStyle = "#f5f4f0"; ctx.fillText(p0, cardX + 32, yPos);
+            const w0 = ctx.measureText(p0).width;
+            ctx.fillStyle = best.col; ctx.fillText(p1, cardX + 32 + w0, yPos);
+            const w1 = ctx.measureText(p1).width;
+            ctx.fillStyle = "#f5f4f0"; ctx.fillText(p2, cardX + 32 + w0 + w1, yPos);
+          }
+        };
+
+        renderHL(s1, cardY + 108);
+        if (s2.length > 0) renderHL(s2, cardY + 158);
+
+        if (typeProg > 0.02 && (typeProg < 1.0 || Math.sin(time * 8) > 0)) {
+          const onL2 = parts.length > 1;
+          const activeStr = onL2 ? s2 : s1;
+          const curY = onL2 ? cardY + 158 : cardY + 108;
+          ctx.fillStyle = accentHex;
+          roundRect(ctx, cardX + 32 + ctx.measureText(activeStr).width + 8, curY - 16, 4, 32, 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawIrisScannerBox(x, y, w, h, tagText, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.fillStyle = "rgba(235, 179, 67, 0.12)";
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = 1.7;
+        ctx.strokeRect(x, y, w, h);
+
+        const ns = 7;
+        for (const [cx, cy] of [[x - ns, y - ns], [x + w, y - ns], [x - ns, y + h], [x + w, y + h]]) {
+          ctx.fillStyle = "#141418";
+          ctx.fillRect(cx, cy, ns, ns);
+          ctx.strokeStyle = "#ffe07d";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(cx, cy, ns, ns);
+        }
+        if (tagText) {
+          ctx.font = "800 12px ui-monospace, Consolas, monospace";
+          const tw = ctx.measureText(tagText).width + 14;
+          roundRect(ctx, x, y - ns - 22, tw, 20, 4);
+          ctx.fillStyle = "#ebb343"; ctx.fill();
+          ctx.fillStyle = "#0e0e10"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+          ctx.fillText(tagText, x + 7, y - ns - 11.5);
+        }
+        ctx.restore();
+      }
+
+      // Diagram X-Ray Ringkas (muat presisi di y+234..y+430, h = 196px)
       function drawXRayBlueprint(x, y, w, h, isGemini, time) {
         ctx.save();
         roundRect(ctx, x, y, w, h, 8);
         ctx.fillStyle = "#0b0b0e";
         ctx.fill();
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "#22222a";
+        ctx.strokeStyle = "#22222b";
         ctx.stroke();
 
         const accent = isGemini ? "#6ea8fe" : "#e07a5f";
-        ctx.font = "700 13px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#6e6d68";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText(isGemini ? "X-RAY :: MONOLITHIC PIPELINE" : "X-RAY :: MODULAR ES6 PIPELINE", x + 14, y + 12);
+        ctx.font = "700 12px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#787771";
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        fillTrackedText(isGemini ? "X-RAY · OFFSCREEN 2D" : "X-RAY · 6 MODUL + UINT8 FB", x + 14, y + 12, 0.9, "left");
 
         if (isGemini) {
-          // Gemini: 2 Blok File Besar Terpadu (animation.html + render.js)
-          const b1X = x + 16, b1Y = y + 40, b1W = 190, b1H = 74;
-          roundRect(ctx, b1X, b1Y, b1W, b1H, 6);
-          ctx.fillStyle = "rgba(110, 168, 254, 0.10)";
-          ctx.fill();
-          ctx.strokeStyle = accent;
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
+          const b1X = x + 14, b1Y = y + 38, b1W = 186, b1H = 74;
+          roundRect(ctx, b1X, b1Y, b1W, b1H, 7);
+          ctx.fillStyle = "rgba(110, 168, 254, 0.09)"; ctx.fill();
+          ctx.strokeStyle = accent; ctx.lineWidth = 1.3; ctx.stroke();
 
-          ctx.font = "700 15px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.fillText("animation.html", b1X + 12, b1Y + 14);
-          ctx.font = "400 12.5px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#969590";
-          ctx.fillText("• Canvas2D 270×480", b1X + 12, b1Y + 36);
-          ctx.fillText("• 438 baris (All-in-One)", b1X + 12, b1Y + 53);
+          ctx.font = "700 14px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#f4f3ef";
+          ctx.fillText("animation.html", b1X + 12, b1Y + 13);
+          ctx.font = "400 11.5px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#969590";
+          ctx.fillText("bufferCanvas 270×480", b1X + 12, b1Y + 35);
+          ctx.fillText("BAYER4 + Two-Stage", b1X + 12, b1Y + 51);
 
-          const b2X = x + 16, b2Y = y + 124, b2W = 190, b2H = 54;
-          roundRect(ctx, b2X, b2Y, b2W, b2H, 6);
-          ctx.fillStyle = "#14151c";
-          ctx.fill();
-          ctx.strokeStyle = "#36394a";
-          ctx.stroke();
+          const b2X = x + 14, b2Y = y + 122, b2W = 186, b2H = 56;
+          roundRect(ctx, b2X, b2Y, b2W, b2H, 7);
+          ctx.fillStyle = "#13141b"; ctx.fill();
+          ctx.strokeStyle = "#323544"; ctx.stroke();
+          ctx.font = "700 13.5px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("render.js", b2X + 12, b2Y + 11);
+          ctx.font = "400 11.5px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#8a8984";
+          ctx.fillText("Playwright + WAV Synth", b2X + 12, b2Y + 31);
 
-          ctx.font = "700 14px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#d8d7d2";
-          ctx.fillText("render.js (146L)", b2X + 12, b2Y + 11);
-          ctx.font = "400 12px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#8a8984";
-          ctx.fillText("• Playwright + WAV Synth", b2X + 12, b2Y + 31);
-
-          // Panah Aliran ke Buffer Kanan
-          const outX = x + 236, outY = y + 56, outW = 180, outH = 106;
-          ctx.strokeStyle = accent;
-          ctx.lineWidth = 1.5;
+          const outX = x + 230, outY = y + 52, outW = 188, outH = 112;
+          ctx.strokeStyle = "rgba(110, 168, 254, 0.55)"; ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.moveTo(b1X + b1W, b1Y + b1H / 2);
-          ctx.lineTo(outX, outY + 34);
-          ctx.moveTo(b2X + b2W, b2Y + b2H / 2);
-          ctx.lineTo(outX, outY + 76);
+          ctx.moveTo(b1X + b1W, b1Y + b1H / 2); ctx.lineTo(outX, outY + 34);
+          ctx.moveTo(b2X + b2W, b2Y + b2H / 2); ctx.lineTo(outX, outY + 82);
           ctx.stroke();
 
-          roundRect(ctx, outX, outY, outW, outH, 6);
-          ctx.fillStyle = "#12141c";
-          ctx.fill();
-          ctx.strokeStyle = accent;
-          ctx.stroke();
-
-          ctx.font = "700 13.5px ui-monospace, Consolas, monospace";
+          const u = (time * 0.9) % 1.0;
           ctx.fillStyle = accent;
-          ctx.fillText("OFFSCREEN BUFFER", outX + 12, outY + 16);
-          ctx.font = "400 12px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#d8d7d2";
-          ctx.fillText("drawImage(4× Scale)", outX + 12, outY + 40);
-          ctx.fillText("Bayer 4×4 Dither", outX + 12, outY + 58);
+          ctx.beginPath();
+          ctx.arc(lerp(b1X + b1W, outX, u), lerp(b1Y + b1H / 2, outY + 34, u), 3.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          roundRect(ctx, outX, outY, outW, outH, 7);
+          ctx.fillStyle = "#12141c"; ctx.fill();
+          ctx.strokeStyle = accent; ctx.stroke();
+
+          ctx.font = "700 13px ui-monospace, Consolas, monospace"; ctx.fillStyle = accent;
+          ctx.fillText("4× NEAREST SCALE", outX + 12, outY + 16);
+          ctx.font = "400 12px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("16-Color PAL Lock", outX + 12, outY + 42);
+          ctx.fillText("0% Anti-Alias Blur", outX + 12, outY + 62);
           ctx.fillStyle = "#5ce6a0";
-          ctx.fillText("-> 1080×1920 MP4", outX + 12, outY + 80);
+          ctx.fillText("→ 1080×1920 MP4", outX + 12, outY + 86);
         } else {
-          // Claude: 6 Modul ES6 Kecil Terpisah -> Uint8Array Indexed Framebuffer
-          const mods = [
-            "timeline.js", "palette.js",
-            "scenes.js",   "font.js",
-            "util.js",     "draw.js"
-          ];
-          const mW = 92, mH = 38, gapX = 8, gapY = 8;
-          const startX = x + 16, startY = y + 40;
-
+          const mods = ["timeline.js", "palette.js", "util.js", "font.js", "scenes.js", "draw.js"];
+          const mW = 89, mH = 40, gapX = 8, gapY = 9;
+          const startX = x + 14, startY = y + 38;
           for (let i = 0; i < mods.length; i++) {
-            const col = i % 2;
-            const row = Math.floor(i / 2);
-            const mx = startX + col * (mW + gapX);
-            const my = startY + row * (mH + gapY);
-
-            const pulse = Math.sin(time * 5 - i * 0.7) > 0.4;
-            roundRect(ctx, mx, my, mW, mH, 5);
-            ctx.fillStyle = pulse ? "rgba(224, 122, 95, 0.14)" : "#151418";
-            ctx.fill();
-            ctx.lineWidth = 1.2;
-            ctx.strokeStyle = pulse ? accent : "#34323c";
-            ctx.stroke();
-
+            const col = i % 2, row = Math.floor(i / 2);
+            const mx = startX + col * (mW + gapX), my = startY + row * (mH + gapY);
+            const pulse = Math.sin(time * 4.0 - i * 0.75) > 0.45;
+            roundRect(ctx, mx, my, mW, mH, 6);
+            ctx.fillStyle = pulse ? "rgba(224, 122, 95, 0.14)" : "#151418"; ctx.fill();
+            ctx.lineWidth = 1.2; ctx.strokeStyle = pulse ? accent : "#302f38"; ctx.stroke();
             ctx.font = "600 11.5px ui-monospace, Consolas, monospace";
             ctx.fillStyle = pulse ? "#f4f3ef" : "#a09f9a";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.fillText(mods[i], mx + mW / 2, my + mH / 2 + 0.5);
           }
 
-          // Konektor ke Uint8Array Framebuffer
-          const outX = x + 236, outY = y + 56, outW = 180, outH = 106;
-          ctx.strokeStyle = accent;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(startX + mW * 2 + gapX, startY + 65);
-          ctx.lineTo(outX, outY + 53);
-          ctx.stroke();
+          const outX = x + 230, outY = y + 52, outW = 188, outH = 112;
+          const busFromX = startX + mW * 2 + gapX;
+          ctx.strokeStyle = "rgba(224, 122, 95, 0.55)"; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(busFromX, y + 108); ctx.lineTo(outX, outY + 56); ctx.stroke();
 
-          roundRect(ctx, outX, outY, outW, outH, 6);
-          ctx.fillStyle = "#1a1413";
-          ctx.fill();
-          ctx.strokeStyle = accent;
-          ctx.stroke();
-
-          ctx.textAlign = "left";
-          ctx.textBaseline = "top";
-          ctx.font = "700 13.5px ui-monospace, Consolas, monospace";
+          const u = (time * 0.9 + 0.35) % 1.0;
           ctx.fillStyle = accent;
+          ctx.beginPath(); ctx.arc(lerp(busFromX, outX, u), lerp(y + 108, outY + 56, u), 3.2, 0, Math.PI * 2); ctx.fill();
+
+          roundRect(ctx, outX, outY, outW, outH, 7);
+          ctx.fillStyle = "#191413"; ctx.fill();
+          ctx.strokeStyle = accent; ctx.stroke();
+
+          ctx.textAlign = "left"; ctx.textBaseline = "top";
+          ctx.font = "700 13px ui-monospace, Consolas, monospace"; ctx.fillStyle = accent;
           ctx.fillText("INDEXED BUFFER", outX + 12, outY + 16);
-          ctx.font = "400 12px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#d8d7d2";
-          ctx.fillText("Uint8Array(129600)", outX + 12, outY + 40);
-          ctx.fillText("RGBA32[idx] Lookup", outX + 12, outY + 58);
+          ctx.font = "400 12px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("Uint8Array(129600)", outX + 12, outY + 42);
+          ctx.fillText("RGBA32[idx] LUT", outX + 12, outY + 62);
           ctx.fillStyle = "#5ce6a0";
-          ctx.fillText("-> 1080×1920 MP4", outX + 12, outY + 80);
+          ctx.fillText("→ 1080×1920 MP4", outX + 12, outY + 86);
         }
-
         ctx.restore();
       }
 
-      // Menggambar Audit Laboratorium: 16-Color Swatch Grid + 4x Pixel Loupe + Rapor ffprobe
-      function drawSpecAuditInsidePanel(box, isGemini, auditProg, time) {
-        const x = box.x + 20;
-        const y = box.y + 72;
-        const w = box.w - 40;
+      // Mode B Inside Panel: Palet 16 Warna Asli + 3 Kartu Fitur Asli + Verified Bar (muat rapi di h = 716!)
+      function drawFeatureAndAuditInsidePanel(x, y, w, isGemini, auditProg, activeFeatureIdx) {
+        const ix = x + 18, iw = w - 36; // 432px
         const palette = isGemini ? GEMINI_PALETTE_16 : CLAUDE_PALETTE_16;
+        const feats   = isGemini ? GEMINI_FEATURES : CLAUDE_FEATURES;
+        const accent  = isGemini ? "#6ea8fe" : "#e07a5f";
 
         ctx.save();
 
-        // 1. Audit Palet 16 Warna Murni
-        roundRect(ctx, x, y, w, 178, 8);
-        ctx.fillStyle = "#0b0b0e";
-        ctx.fill();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "#24242c";
-        ctx.stroke();
+        // 1. Palet 16 Warna Murni (8x2 kotak bersih, y+64..y+196)
+        const swY = y + 64;
+        roundRect(ctx, ix, swY, iw, 132, 8);
+        ctx.fillStyle = "#0b0b0e"; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = "#23232c"; ctx.stroke();
 
-        const checkedColors = Math.min(16, Math.floor(clamp(auditProg * 1.4, 0, 1) * 16));
-        ctx.font = "700 14px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#969590";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText("AUDIT PALET WARNA UNIK", x + 14, y + 14);
-
+        const checked = Math.min(16, Math.floor(clamp(auditProg * 2.2, 0, 1) * 16));
+        ctx.font = "700 13px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#969590"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.fillText("PALET 16 WARNA MURNI", ix + 14, swY + 14);
         ctx.textAlign = "right";
-        ctx.fillStyle = checkedColors === 16 ? "#5ce6a0" : "#ebb343";
-        ctx.fillText(`${String(checkedColors).padStart(2, "0")} / 16 WARNA ✓`, x + w - 14, y + 14);
+        ctx.fillStyle = checked === 16 ? "#5ce6a0" : "#ebb343";
+        ctx.fillText(`${String(checked).padStart(2, "0")} / 16 ✓`, ix + iw - 14, swY + 14);
 
-        // Grid 8x2 Swatch Warna Asli
-        const cols = 8;
-        const swGap = 6;
-        const swW = (w - 28 - swGap * (cols - 1)) / cols;
-        const swH = 44;
-
+        const cols = 8, gap = 7, swW = (iw - 28 - gap * 7) / 8, swH = 32;
         for (let i = 0; i < 16; i++) {
-          const r = Math.floor(i / cols);
-          const c = i % cols;
-          const sx = x + 14 + c * (swW + swGap);
-          const sy = y + 44 + r * (swH + 18);
-          const isActive = i < checkedColors;
-
-          roundRect(ctx, sx, sy, swW, swH, 5);
-          ctx.fillStyle = isActive ? palette[i] : "#16161c";
+          const r = Math.floor(i / cols), c = i % cols;
+          const sx = ix + 14 + c * (swW + gap), sy = swY + 42 + r * (swH + 8);
+          roundRect(ctx, sx, sy, swW, swH, 4);
+          ctx.fillStyle = i < checked ? palette[i] : "#16161c";
           ctx.fill();
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = isActive ? "rgba(255,255,255,0.22)" : "#262630";
+          ctx.lineWidth = 1; ctx.strokeStyle = i < checked ? "rgba(255,255,255,0.20)" : "#252530";
+          ctx.stroke();
+        }
+
+        // 2. 3 Kartu Fitur Andalan (y+210..y+610, masing-masing h=124, gap=14)
+        for (let i = 0; i < 3; i++) {
+          const fy = y + 210 + i * 138;
+          const f = feats[i];
+          const isLit = activeFeatureIdx === i;
+
+          roundRect(ctx, ix, fy, iw, 124, 9);
+          ctx.fillStyle = isLit ? "#15161d" : "#0e0e13";
+          ctx.fill();
+          ctx.lineWidth = isLit ? 1.6 : 1.1;
+          ctx.strokeStyle = isLit ? accent : "#24242e";
           ctx.stroke();
 
-          ctx.font = "500 10px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = isActive ? "#8e8d88" : "#44444e";
-          ctx.textAlign = "center";
-          ctx.fillText(palette[i].toUpperCase(), sx + swW / 2, sy + swH + 4);
+          ctx.fillStyle = isLit ? accent : "#2b2b36";
+          ctx.fillRect(ix + 16, fy, 52, 2.5);
+
+          ctx.textAlign = "left"; ctx.textBaseline = "top";
+          ctx.font = "700 12.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = isLit ? accent : "#8e8d88";
+          fillTrackedText(`0${i + 1} · ${f.tag}`, ix + 16, fy + 16, 1.0, "left");
+
+          ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef";
+          ctx.fillText(f.title, ix + 16, fy + 44);
+
+          ctx.font = "400 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#969590";
+          ctx.fillText(f.desc, ix + 16, fy + 84);
         }
 
-        // 2. Inspeksi Ketajaman Piksel 4x Nearest-Neighbor (Pixel Loupe)
-        const loupeY = y + 194;
-        roundRect(ctx, x, loupeY, w, 152, 8);
-        ctx.fillStyle = "#0b0b0e";
+        // 3. Verified Footer Strip (y+624..y+684, h=60)
+        const vY = y + 624;
+        const verified = auditProg >= 0.65;
+        roundRect(ctx, ix, vY, iw, 60, 8);
+        ctx.fillStyle = verified ? "#121a16" : "#101015";
         ctx.fill();
-        ctx.strokeStyle = "#24242c";
+        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = verified ? "rgba(92, 230, 160, 0.45)" : "#23232c";
         ctx.stroke();
-
-        // Gambar Grid Loupe 6x6 Piksel Tajam di Kiri
-        const gridX = x + 16, gridY = loupeY + 16, cellS = 20;
-        for (let gy = 0; gy < 6; gy++) {
-          for (let gx = 0; gx < 6; gx++) {
-            const cIdx = (gx + gy * 2 + (isGemini ? 5 : 6)) % 16;
-            ctx.fillStyle = palette[cIdx];
-            ctx.fillRect(gridX + gx * cellS, gridY + gy * cellS, cellS - 1, cellS - 1);
-          }
-        }
-        ctx.strokeStyle = "#ebb343";
-        ctx.lineWidth = 1.6;
-        ctx.strokeRect(gridX - 1, gridY - 1, cellS * 6 + 2, cellS * 6 + 2);
-
-        // Info Loupe di Kanan
-        const infoX = gridX + cellS * 6 + 18;
-        ctx.textAlign = "left";
-        ctx.font = "700 15px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#f4f3ef";
-        ctx.fillText("NEAREST-NEIGHBOR 4×", infoX, loupeY + 20);
-
-        ctx.font = "400 13.5px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#969590";
-        ctx.fillText("Internal : 270 × 480 px", infoX, loupeY + 48);
-        ctx.fillText("Output   : 1080 × 1920 px", infoX, loupeY + 70);
-        ctx.fillText("1 px src = 4×4 px blok tajam", infoX, loupeY + 92);
 
         ctx.font = "700 14px ui-monospace, Consolas, monospace";
-        ctx.fillStyle = "#5ce6a0";
-        ctx.fillText("✓ 0% ANTI-ALIAS / BLUR", infoX, loupeY + 118);
-
-        // 3. Rapor 5 Syarat Teknis (ffprobe Verification)
-        const tableY = loupeY + 168;
-        const checks = [
-          { k: "RESOLUSI VIDEO",    v: "1080×1920 (9:16)",  t: 0.15 },
-          { k: "FRAME & DURASI",    v: "360F · 30FPS · 12s", t: 0.30 },
-          { k: "KONSISTENSI WAKTU", v: "drawFrame(t) Murni", t: 0.45 },
-          { k: "BATAS PALET WARNA", v: "16 / 16 Warna Unik", t: 0.60 },
-          { k: "AUDIO PROSEDURAL",  v: "WAV 44.1kHz -> AAC", t: 0.75 }
-        ];
-
-        for (let i = 0; i < checks.length; i++) {
-          const rowY = tableY + i * 68;
-          const passed = auditProg >= checks[i].t;
-
-          roundRect(ctx, x, rowY, w, 56, 7);
-          ctx.fillStyle = passed ? "#131615" : "#111115";
-          ctx.fill();
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = passed ? "rgba(92, 230, 160, 0.35)" : "#22222a";
-          ctx.stroke();
-
-          ctx.font = "600 13.5px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#8e8d88";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText(checks[i].k, x + 16, rowY + 28);
-
-          ctx.font = "700 15px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.textAlign = "right";
-          ctx.fillText(checks[i].v, x + w - 52, rowY + 28);
-
-          // Badge Centang Hijau [✓]
-          roundRect(ctx, x + w - 40, rowY + 14, 28, 28, 6);
-          ctx.fillStyle = passed ? "rgba(92, 230, 160, 0.18)" : "#1c1c22";
-          ctx.fill();
-          ctx.font = "800 16px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = passed ? "#5ce6a0" : "#44444e";
-          ctx.textAlign = "center";
-          ctx.fillText(passed ? "✓" : "·", x + w - 26, rowY + 29);
-        }
+        ctx.fillStyle = verified ? "#5ce6a0" : "#787771";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(
+          verified ? "✓ 16/16 WARNA · 360F · 4× NN · LULUS" : "MEMVERIFIKASI SPEK FFPROBE...",
+          ix + iw / 2, vY + 30.5
+        );
 
         ctx.restore();
       }
 
-      // Menggambar Badge "LETSGO!!" di Layar Terkunci dengan Presisi Editorial
-      function drawEditorialLetsGoBadge(cx, cy, isGemini, scaleProg) {
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.scale(scaleProg, scaleProg);
-
-        const accent = isGemini ? "#6ea8fe" : "#e07a5f";
-        const w = 356;
-        const h = 118;
-
-        // Bayangan lembut & Bodi Panel
-        ctx.shadowColor = isGemini ? "rgba(110, 168, 254, 0.32)" : "rgba(224, 122, 95, 0.32)";
-        ctx.shadowBlur = 32;
-        ctx.shadowOffsetY = 6;
-        roundRect(ctx, -w / 2, -h / 2, w, h, 8);
-        ctx.fillStyle = "#121319";
-        ctx.fill();
-        ctx.shadowColor = "transparent";
-
-        // Double Hairline Border
-        ctx.lineWidth = 1.8;
-        ctx.strokeStyle = accent;
-        ctx.stroke();
-
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-        ctx.lineWidth = 1;
-        roundRect(ctx, -w / 2 + 4, -h / 2 + 4, w - 8, h - 8, 6);
-        ctx.stroke();
-
-        // 4 Corner Crosshairs di sudut luar
-        const cwSize = 5;
-        drawCrosshair(-w / 2, -h / 2, cwSize, "#ebb343");
-        drawCrosshair(w / 2,  -h / 2, cwSize, "#ebb343");
-        drawCrosshair(-w / 2,  h / 2, cwSize, "#ebb343");
-        drawCrosshair(w / 2,   h / 2, cwSize, "#ebb343");
-
-        // Micro-Kicker Atas
-        ctx.font = "700 12px ui-monospace, 'Cascadia Code', Consolas, monospace";
-        ctx.fillStyle = "#8e8d88";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        fillTrackedText(isGemini ? "● SEQUENCE READY  ·  4 ARGON" : "● SEQUENCE READY  ·  OPUS 5.5", 0, -h / 2 + 18, 1.6, "center");
-
-        // Typography Utama "LETSGO!!" (Besar, Bold, Tajam, Anti-Slop)
-        ctx.font = "900 48px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-        ctx.fillStyle = "#f5f4f0";
-        ctx.textBaseline = "middle";
-        fillTrackedText("LETSGO!!", 0, -2, 3.2, "center");
-
-        // Sub-Tag Bawah: Kapsul Emas Minimalis
-        const tagW = 230;
-        const tagH = 24;
-        roundRect(ctx, -tagW / 2, h / 2 - 32, tagW, tagH, 5);
-        ctx.fillStyle = "rgba(235, 179, 67, 0.14)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(235, 179, 67, 0.65)";
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
-        ctx.font = "800 12.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
-        ctx.fillStyle = "#ebb343";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        fillTrackedText(isGemini ? "▶ LAUNCH GEMINI CODE" : "▶ LAUNCH CLAUDE CODE", 0, h / 2 - 20, 1.2, "center");
-
-        ctx.restore();
-      }
-
-      // =========================================================================
-      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 18.00)
-      // =========================================================================
+      // =======================================================================
+      // 5. FUNGSI UTAMA: drawFrame(t) — PAGE 2 DENGAN DUO MASKOT 3D (32.00s)
+      //    0.00 -  1.35s : Smooth Entrance (Frame, Badges, Judul, Panel, Mascots)
+      //    1.35 -  6.35s : Beat 1 — MERRY jelaskan Canvas 2D + Bayer 4×4 Dither
+      //    6.40 - 11.40s : Beat 2 — ROGER jelaskan Uint8Array FB + 6 Modul ES6
+      //   11.50 - 16.65s : Beat 3 — MERRY pamer Roket 2 Tingkat + Saturn-IV
+      //   16.70 - 21.85s : Beat 4 — ROGER balas Gravity Turn 90° + Bumi 3D Lampu Kota
+      //   21.95 - 25.95s : Beat 5 — DUET AUDIT LULUS ("Mana hasil yang paling keren?")
+      //   26.00 - 32.00s : Beat 6 — Morph Panel -> Frame Page 3 + "LETSGO!!" -> Clean Launch
+      // =======================================================================
       function drawFrame(t) {
         const time = clamp(Number(t) || 0, 0, DURATION);
 
-        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(SSAA, SSAA);
 
-        // 1. Latar Belakang Warm Obsidian (#0f0f11)
+        // Bobot 5 Beat Dialog (0% tumpang tindih!) + Transisi ke Page 3
+        const b1MerryEngine = bellCurve(time,  1.35,  1.80,  5.95,  6.35);
+        const b2RogerEngine = bellCurve(time,  6.40,  6.85, 11.00, 11.40);
+        const b3MerryRocket = bellCurve(time, 11.50, 11.95, 16.25, 16.65);
+        const b4RogerRocket = bellCurve(time, 16.70, 17.15, 21.45, 21.85);
+        const b5DuetAudit   = bellCurve(time, 21.95, 22.40, 25.45, 25.95);
+
+        const toPage3      = smootherstep(26.15, 27.15, time);
+        const mascotStageA = smootherstep(0.25, 1.05, time) * (1 - smootherstep(25.75, 26.55, time));
+        const modeBSwitch  = smootherstep(11.15, 11.85, time);
+
+        const merryFocus = Math.max(b1MerryEngine, b3MerryRocket, b5DuetAudit * 0.85);
+        const rogerFocus = Math.max(b2RogerEngine, b4RogerRocket, b5DuetAudit * 0.85);
+
+        // 1. Latar Warm Obsidian (#0f0f11) + Reactive Studio Lighting
         ctx.fillStyle = "#0f0f11";
         ctx.fillRect(0, 0, W, H);
 
-        const topWash = ctx.createRadialGradient(340, 260, 20, 340, 260, 680);
-        topWash.addColorStop(0, "rgba(235, 179, 67, 0.048)");
-        topWash.addColorStop(0.6, "rgba(110, 168, 254, 0.02)");
+        const topWash = ctx.createRadialGradient(W / 2, 420, 40, W / 2, 420, 760);
+        topWash.addColorStop(0, "rgba(235, 179, 67, 0.045)");
         topWash.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = topWash;
-        ctx.fillRect(0, 0, W, 950);
+        ctx.fillRect(0, 0, W, H);
 
-        // 2. Grid Editorial Hairline (1px)
+        if (merryFocus > 0.01) {
+          const gL = ctx.createRadialGradient(282, 1020, 30, 282, 1020, 560);
+          gL.addColorStop(0, `rgba(110, 168, 254, ${(merryFocus * 0.075).toFixed(4)})`);
+          gL.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = gL; ctx.fillRect(0, 0, W, H);
+        }
+        if (rogerFocus > 0.01) {
+          const gR = ctx.createRadialGradient(798, 1020, 30, 798, 1020, 560);
+          gR.addColorStop(0, `rgba(224, 122, 95, ${(rogerFocus * 0.075).toFixed(4)})`);
+          gR.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = gR; ctx.fillRect(0, 0, W, H);
+        }
+
+        // 2. Grid Editorial Hairline (1px) — Identik Intro, Page 1 & Page 3
         ctx.strokeStyle = "#1e1e23";
         ctx.lineWidth = 1;
         ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
@@ -746,615 +1151,515 @@
         ctx.fillRect(24, 122, W - 48, 1);
         ctx.fillRect(24, 1792, W - 48, 1);
 
-        // Garis vertikal tengah (terputus rapi di area judul & area hook bawah)
+        // Garis progress ultra-tipis (1.5px)
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(24, 121.5, (W - 48) * (time / DURATION), 1.5);
+
+        // Garis vertikal tengah hanya di header & sela 2 panel (tidak menabrak speech card/badge!)
         ctx.fillStyle = "#1d1d22";
         ctx.fillRect(539.5, 44, 1, 212);
-        ctx.fillRect(539.5, 446, 1, 902);
-        ctx.fillRect(539.5, 1520, 1, 272);
+        if (toPage3 < 0.1 || time > 31.15) {
+          ctx.fillRect(539.5, 448, 1, toPage3 > 0.5 ? 850 : 716);
+        }
 
         drawCrosshair(540, 122, 4, "#36363f");
         drawCrosshair(540, 1792, 4, "#36363f");
 
-        // -----------------------------------------------------------------------
-        // 3. MASTHEAD ATAS & MODEL BADGES
-        // -----------------------------------------------------------------------
+        // 3. Masthead Atas & Model Badges (GEMINI Carbon · High | CLAUDE Opus 5.5 · Extra)
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#ebb343";
         ctx.fillRect(48, 80, 6, 6);
-
         ctx.fillStyle = "#7c7b76";
         fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
-
         ctx.fillStyle = "#969590";
-        const mastRight = time < 0.8
-          ? "01 — SOAL  ·  1 SHOT"
-          : (time > 16.0 ? "03 — HASIL  ·  1 SHOT" : "02 — PROSES  ·  1 SHOT");
-        fillTrackedText(mastRight, W - 48, 83.5, 1.8, "right");
+        fillTrackedText(toPage3 > 0.5 ? "03 — HASIL  ·  1 SHOT" : "02 — PROSES  ·  1 SHOT", W - 48, 83.5, 1.8, "right");
 
-        drawModelBadge(LEFT_BOX.x,  162, LEFT_BOX.w,  56, "#6ea8fe", "GEMINI", "4 Argon · High");
-        drawModelBadge(RIGHT_BOX.x, 162, RIGHT_BOX.w, 56, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra");
+        drawModelBadge(LEFT_COL_X,  162, COL_W, 56, "#6ea8fe", "GEMINI", "Carbon · High",    merryFocus * 0.75);
+        drawModelBadge(RIGHT_COL_X, 162, COL_W, 56, "#e07a5f", "CLAUDE", "Opus 5.5 · Extra", rogerFocus * 0.75);
 
-        // -----------------------------------------------------------------------
-        // 4. TRANSISI JUDUL ATAS (Dari Judul Halaman 1 -> Judul Halaman 2 -> Halaman 3)
-        // -----------------------------------------------------------------------
-        const titleMorph = smootherstep(0.35, 1.45, time);
+        // 4. Judul Editorial Atas (Morph halus ke "GEMINI VS CLAUDE." saat Beat 6)
+        const headIn = clamp((time - 0.12) / 0.78, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = smootherstep(0, 0.55, headIn);
+        ctx.translate(0, (1 - easeOutQuart(headIn)) * 18);
 
-        // Judul Lama Halaman 1 (Memudar keluar di 0.35s - 1.10s)
-        if (titleMorph < 0.85) {
+        roundRect(ctx, LEFT_COL_X, 266, 11, 11, 2.5);
+        ctx.fillStyle = "#ebb343";
+        ctx.fill();
+
+        ctx.font = "600 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8f8d87";
+        ctx.textBaseline = "middle";
+        fillTrackedText(
+          toPage3 > 0.5 ? "HASIL  ·  ONE SHOT" : "BEDAH PROSES  ·  MERRY & ROGER",
+          LEFT_COL_X + 22, 272, 2.0, "left"
+        );
+
+        if (toPage3 < 0.5) {
           ctx.save();
-          ctx.globalAlpha = 1 - smoothstep(0.0, 0.75, titleMorph);
-          ctx.translate(0, -titleMorph * 24);
-
-          roundRect(ctx, LEFT_BOX.x, 266, 11, 11, 2.5);
-          ctx.fillStyle = "#ebb343";
-          ctx.fill();
-          ctx.font = "600 19px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#8f8d87";
-          ctx.textBaseline = "middle";
-          fillTrackedText("SOALNYA", LEFT_BOX.x + 22, 272, 2.0, "left");
-
-          ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.textBaseline = "top";
+          ctx.globalAlpha *= (1 - toPage3 * 2);
+          ctx.font = "900 66px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "top"; ctx.textAlign = "left";
           ctx.fillStyle = "#f5f4f0";
-          ctx.fillText("Satu prompt,", LEFT_BOX.x, 302);
-          ctx.fillText("sama ", LEFT_BOX.x, 386);
-          const sw = ctx.measureText("sama ").width;
+          ctx.fillText("Satu instruksi, ", LEFT_COL_X, 312);
+          const w1 = ctx.measureText("Satu instruksi, ").width;
           ctx.fillStyle = "#ebb343";
-          ctx.fillText("persis.", LEFT_BOX.x + sw, 386);
+          ctx.fillText("dua cara kerja.", LEFT_COL_X + w1, 312);
           ctx.restore();
-        }
-
-        // Judul Halaman 2 ("Satu instruksi, dua cara kerja." -> Mengunci ke "GEMINI VS CLAUDE.")
-        if (titleMorph > 0.15) {
-          const hookMorph = smootherstep(15.20, 16.20, time);
+        } else {
           ctx.save();
-          ctx.globalAlpha = smoothstep(0.15, 0.95, titleMorph);
-          ctx.translate(0, (1 - easeOutCubic(titleMorph)) * 22);
-
-          roundRect(ctx, LEFT_BOX.x, 266, 11, 11, 2.5);
+          ctx.globalAlpha *= (toPage3 - 0.5) * 2;
+          ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "top"; ctx.textAlign = "left";
+          ctx.fillStyle = "#f5f4f0";
+          ctx.fillText("GEMINI ", LEFT_COL_X, 314);
+          const w1 = ctx.measureText("GEMINI ").width;
           ctx.fillStyle = "#ebb343";
-          ctx.fill();
-
-          ctx.font = "600 19px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#8f8d87";
-          ctx.textBaseline = "middle";
-          fillTrackedText(
-            hookMorph > 0.5 ? "HASIL  ·  ONE SHOT" : "PROSES EKSEKUSI  ·  AUDIT OBJEKTIF",
-            LEFT_BOX.x + 22,
-            272,
-            2.0,
-            "left"
-          );
-
-          if (hookMorph < 0.5) {
-            ctx.save();
-            ctx.globalAlpha *= (1 - hookMorph * 2);
-            ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.textBaseline = "top";
-            ctx.fillStyle = "#f5f4f0";
-            ctx.fillText("Satu instruksi, ", LEFT_BOX.x, 312);
-            const w1 = ctx.measureText("Satu instruksi, ").width;
-            ctx.fillStyle = "#ebb343";
-            ctx.fillText("dua cara kerja.", LEFT_BOX.x + w1, 312);
-            ctx.restore();
-          } else {
-            // Mengunci presisi ke posisi & styling judul Halaman 3 ("GEMINI VS CLAUDE.")
-            ctx.save();
-            ctx.globalAlpha *= (hookMorph - 0.5) * 2;
-            ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.textBaseline = "top";
-            ctx.fillStyle = "#f5f4f0";
-            ctx.fillText("GEMINI ", LEFT_BOX.x, 314);
-            const w1 = ctx.measureText("GEMINI ").width;
-            ctx.fillStyle = "#ebb343";
-            ctx.fillText("VS CLAUDE.", LEFT_BOX.x + w1, 314);
-            ctx.restore();
-          }
+          ctx.fillText("VS CLAUDE.", LEFT_COL_X + w1, 314);
           ctx.restore();
         }
+        ctx.restore();
 
-        // Elemen Sisa Halaman 1 yang Memudar di Detik 0.0 - 1.2s
-        if (time < 1.25) {
-          const outAlpha = 1 - smootherstep(0.05, 1.10, time);
-          ctx.save();
-          ctx.globalAlpha = outAlpha;
+        // 5. DUA PANEL PROSES & AUDIT
+        //    Selama komentar maskot: y = 448, h = 716 (berakhir di y = 1164 — 100% bebas tabrakan!)
+        //    Saat Beat 6 (toPage3):  morph mulus ke exact Page 3 (y = 464, h = 832)!
+        const panelIn = clamp((time - 0.22) / 0.85, 0, 1);
+        const curY = lerp(448, 464, toPage3) + (1 - easeOutQuart(panelIn)) * 22;
+        const curH = lerp(716, 832, toPage3);
 
-          // Stempel 1x Kirim 0 Revisi
-          ctx.save();
-          ctx.translate(W / 2, 1094 + (1 - outAlpha) * 25);
-          ctx.rotate(-3.2 * (Math.PI / 180));
-          roundRect(ctx, -270, -34, 540, 68, 10);
-          ctx.fillStyle = "#161410";
-          ctx.fill();
-          ctx.lineWidth = 2.4;
-          ctx.strokeStyle = "#ebb343";
-          ctx.stroke();
-          ctx.font = "800 31px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.textBaseline = "middle";
-          fillTrackedText("1× KIRIM  ·  0 REVISI", 0, 1, 2.2, "center");
-          ctx.restore();
-
-          // Bar Input Bawah
-          roundRect(ctx, 48, 1272 + (1 - outAlpha) * 40, 984, 92, 11);
-          ctx.fillStyle = "#141418";
-          ctx.fill();
-          ctx.strokeStyle = "#2f2f38";
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // -----------------------------------------------------------------------
-        // 5. MORFOLOGI 2 KARTU HALAMAN 1 -> 2 PANEL PROSES & AUDIT (468 x 832 px)
-        // -----------------------------------------------------------------------
-        const expandProg = smootherstep(0.45, 1.85, time);
-        const curCardY = lerp(820, LEFT_BOX.y, expandProg);
-        const curCardH = lerp(154, LEFT_BOX.h, expandProg);
-
-        const auditSwitch = smootherstep(9.50, 10.30, time);
-        const shutterLock = smootherstep(14.50, 15.35, time);
-        const letsGoProg = smootherstep(15.40, 15.85, time);
-
-        const drawProcessColumn = (box, isGemini) => {
-          const x = box.x;
-          const w = box.w;
-          const y = curCardY;
-          const h = curCardH;
+        const drawPanel = (x, isGemini) => {
+          const w = COL_W, y = curY, h = curH;
           const accent = isGemini ? "#6ea8fe" : "#e07a5f";
-          const title = isGemini ? "Gemini Code" : "Claude Code";
+          const isMyTurn = isGemini ? merryFocus : rogerFocus;
+          const dimOther = isGemini
+            ? (1 - Math.max(b2RogerEngine, b4RogerRocket) * 0.22)
+            : (1 - Math.max(b1MerryEngine, b3MerryRocket) * 0.22);
 
           ctx.save();
+          ctx.globalAlpha = smootherstep(0, 0.55, panelIn) * lerp(dimOther, 1.0, toPage3);
 
-          // Bayangan & Bodi Utama Panel
-          ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-          ctx.shadowBlur = 24;
+          ctx.shadowColor = isMyTurn > 0.3 && toPage3 < 0.5
+            ? (isGemini ? "rgba(110, 168, 254, 0.22)" : "rgba(224, 122, 95, 0.22)")
+            : "rgba(0, 0, 0, 0.55)";
+          ctx.shadowBlur = isMyTurn > 0.3 && toPage3 < 0.5 ? 28 : 22;
           ctx.shadowOffsetY = 8;
-          roundRect(ctx, x, y, w, h, lerp(10, 2, shutterLock));
-          ctx.fillStyle = shutterLock > 0.8 ? "#050507" : "#131317";
-          ctx.fill();
-          ctx.shadowColor = "transparent";
 
-          ctx.lineWidth = 1.6;
-          ctx.strokeStyle = shutterLock > 0.8
+          roundRect(ctx, x, y, w, h, lerp(11, 0, toPage3));
+          ctx.fillStyle = toPage3 > 0.5 ? "#050507" : "#131317";
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+
+          ctx.lineWidth = isMyTurn > 0.3 && toPage3 < 0.5 ? 1.8 : 1.4;
+          ctx.strokeStyle = toPage3 > 0.5
             ? "#292930"
-            : (isGemini ? "rgba(110, 168, 254, 0.48)" : "rgba(224, 122, 95, 0.48)");
+            : (isMyTurn > 0.3 ? accent : (isGemini ? "rgba(110, 168, 254, 0.35)" : "rgba(224, 122, 95, 0.35)"));
           ctx.stroke();
 
-          // Crosshair sudut luar seperti pada pict.html saat mengunci ke Halaman 3
-          if (shutterLock > 0.3) {
+          if (toPage3 > 0.3) {
+            ctx.save();
+            ctx.globalAlpha *= toPage3;
             drawCrosshair(x - 1, y - 1, 4, "#4a4a52");
             drawCrosshair(x + w + 1, y - 1, 4, "#4a4a52");
             drawCrosshair(x - 1, y + h + 1, 4, "#4a4a52");
             drawCrosshair(x + w + 1, y + h + 1, 4, "#4a4a52");
-          }
-
-          // Clip isi panel
-          ctx.beginPath();
-          roundRect(ctx, x + 1, y + 1, w - 2, h - 2, lerp(9, 1, shutterLock));
-          ctx.clip();
-
-          // A. TAMPILAN AWAL (Saat kartu baru memanjang dari Halaman 1)
-          if (expandProg < 0.95) {
-            ctx.save();
-            ctx.globalAlpha = 1 - smoothstep(0.25, 0.85, expandProg);
-            ctx.font = "800 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.fillStyle = accent;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "top";
-            ctx.fillText(title, x + 32, y + 34);
-
-            ctx.font = "500 22px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#969590";
-            ctx.fillText("1 prompt masuk", x + 32, y + 86);
             ctx.restore();
           }
 
-          // Header Bar Panel (Tampil selama Fase 2 & Fase 3)
-          if (expandProg > 0.30 && shutterLock < 0.98) {
-            const innerAlpha = smoothstep(0.30, 0.90, expandProg) * (1 - shutterLock);
+          ctx.save();
+          ctx.beginPath();
+          roundRect(ctx, x + 1, y + 1, w - 2, h - 2, lerp(10, 0, toPage3));
+          ctx.clip();
+
+          // ISI PANEL SELAMA KOMENTAR MASKOT (Hilang mulus saat toPage3)
+          const contentA = 1 - smootherstep(25.75, 26.45, time);
+          if (contentA > 0.01) {
             ctx.save();
-            ctx.globalAlpha = innerAlpha;
+            ctx.globalAlpha *= contentA;
 
+            // Header bar panel (h = 50px)
             ctx.fillStyle = "#18181f";
-            ctx.fillRect(x, y, w, 54);
+            ctx.fillRect(x, y, w, 50);
             ctx.fillStyle = "#262630";
-            ctx.fillRect(x, y + 54, w, 1);
+            ctx.fillRect(x, y + 50, w, 1);
 
-            if (isGemini) {
-              drawGeminiSparkle(x + 28, y + 27, 13, time * 1.5, accent);
-            } else {
-              drawClaudeWheel(x + 28, y + 27, 12, time * 2.0, accent);
-            }
+            if (isGemini) drawGeminiSparkleLogo(x + 26, y + 25, 12, time * 1.2, 1);
+            else drawClaudeSunburstLogo(x + 26, y + 25, 11.5, time * 1.6, accent, 1);
 
-            ctx.font = "800 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.font = "800 19px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
             ctx.fillStyle = accent;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            ctx.fillText(title, x + 50, y + 28);
+            ctx.textAlign = "left"; ctx.textBaseline = "middle";
+            ctx.fillText(isGemini ? "Gemini Code" : "Claude Code", x + 46, y + 26);
 
-            ctx.font = "600 13.5px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = auditSwitch > 0.5 ? "#5ce6a0" : "#ebb343";
+            ctx.font = "600 13px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = modeBSwitch > 0.5 ? "#5ce6a0" : "#ebb343";
             ctx.textAlign = "right";
-            ctx.fillText(
-              auditSwitch > 0.5 ? "AUDIT SPEK :: ffprobe ✓" : "LIVE BUILD & X-RAY",
-              x + w - 20,
-              y + 28
-            );
+            ctx.fillText(modeBSwitch > 0.5 ? "FITUR & AUDIT 16W" : "BUILD & X-RAY", x + w - 18, y + 26);
 
-            // B. FASE 2 (2.0s - 9.8s): LOG TERMINAL + DIAGRAM X-RAY + 4 COUNTER METRIK
-            if (auditSwitch < 0.95) {
+            // MODE A (0.00s - 11.5s): 5 LOGS + X-RAY + 4 METRIK
+            if (modeBSwitch < 0.98) {
               ctx.save();
-              ctx.globalAlpha = innerAlpha * (1 - auditSwitch);
+              ctx.globalAlpha *= (1 - modeBSwitch);
 
-              // 1. Kotak Log Eksekusi Singkat
-              const logBoxX = x + 20, logBoxY = y + 72, logBoxW = w - 40, logBoxH = 248;
-              roundRect(ctx, logBoxX, logBoxY, logBoxW, logBoxH, 8);
-              ctx.fillStyle = "#0b0b0e";
-              ctx.fill();
-              ctx.lineWidth = 1;
-              ctx.strokeStyle = "#22222a";
-              ctx.stroke();
+              const logX = x + 18, logY = y + 64, logW = w - 36, logH = 156;
+              roundRect(ctx, logX, logY, logW, logH, 8);
+              ctx.fillStyle = "#0b0b0e"; ctx.fill();
+              ctx.lineWidth = 1; ctx.strokeStyle = "#22222b"; ctx.stroke();
 
               const logs = isGemini ? GEMINI_LOGS : CLAUDE_LOGS;
-              ctx.font = "500 14.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
-              ctx.textAlign = "left";
-              ctx.textBaseline = "top";
-
+              ctx.font = "500 14px ui-monospace, 'Cascadia Code', Consolas, monospace";
+              ctx.textAlign = "left"; ctx.textBaseline = "top";
               for (let i = 0; i < logs.length; i++) {
                 if (time >= logs[i].t) {
-                  const lAlpha = smoothstep(logs[i].t, logs[i].t + 0.20, time);
                   ctx.save();
-                  ctx.globalAlpha *= lAlpha;
+                  ctx.globalAlpha *= smootherstep(logs[i].t, logs[i].t + 0.28, time);
                   ctx.fillStyle = logs[i].col;
-                  ctx.fillText(logs[i].txt, logBoxX + 14, logBoxY + 14 + i * 28);
+                  ctx.fillText(logs[i].txt, logX + 14, logY + 14 + i * 26);
                   ctx.restore();
                 }
               }
 
-              // 2. Visual X-Ray Architecture Blueprint
-              drawXRayBlueprint(x + 20, y + 336, w - 40, 192, isGemini, time);
+              drawXRayBlueprint(x + 18, y + 234, w - 36, 196, isGemini, time);
 
-              // 3. Empat Counter Metrik Objektif (2x2 Grid Kartu Fakta)
-              const metricsY = y + 544;
-              const mW = (w - 40 - 14) / 2;
-              const mH = 122;
-              const frameProg = clamp((time - 4.2) / 3.2, 0, 1);
-              const curFrames = Math.floor(frameProg * 360);
-              const curLines = Math.floor(clamp((time - 2.3) / 2.2, 0, 1) * (isGemini ? 584 : 412));
-
+              // 4 Kartu Metrik (2x2, h = 118px -> berakhir di y + 692, sisa 24px margin!)
+              const mY = y + 444, mW = (w - 36 - 12) / 2, mH = 118;
+              const startCnt = isGemini ? 1.80 : 6.60;
+              const fp = easeOutCubic(clamp((time - startCnt) / 3.40, 0, 1));
+              const curF = Math.floor(fp * 360);
               const cards = isGemini
                 ? [
-                    { label: "ARSITEKTUR FILE", val: "2 File",   sub: "Monolitik Terpadu", col: accent },
-                    { label: "VOLUME KODE",     val: `${curLines} Baris`, sub: "HTML + Node Script", col: "#f4f3ef" },
-                    { label: "MODE KANVAS",     val: "Canvas2D", sub: "Offscreen 270×480", col: "#ebb343" },
-                    { label: "RENDER FRAME",    val: `${curFrames}/360`,  sub: frameProg >= 1 ? "Selesai 100% ✓" : "Playwright 30fps", col: "#5ce6a0" }
+                    { l: "PIPELINE",   v: "Canvas2D",     s: "Offscreen 270×480", c: accent },
+                    { l: "DITHERING",  v: "Bayer 4×4",    s: "10 Sky Color Stops", c: "#ebb343" },
+                    { l: "PALET LOCK", v: "16 Warna",     s: "PAL Strict Const",  c: "#f4f3ef" },
+                    { l: "FRAME",      v: `${curF}/360`,  s: fp >= 0.99 ? "Lulus 30fps ✓" : "Playwright NN", c: "#5ce6a0" }
                   ]
                 : [
-                    { label: "ARSITEKTUR FILE", val: "6 Modul",  sub: "ES6 Terpisah Rapi", col: accent },
-                    { label: "VOLUME KODE",     val: `${curLines} Baris`, sub: "src/*.js + tools",  col: "#f4f3ef" },
-                    { label: "MODE KANVAS",     val: "Uint8 FB", sub: "Indexed 16-Color",  col: "#ebb343" },
-                    { label: "RENDER FRAME",    val: `${curFrames}/360`,  sub: frameProg >= 1 ? "Selesai 100% ✓" : "Playwright 30fps", col: "#5ce6a0" }
+                    { l: "PIPELINE",   v: "Uint8 FB",     s: "Indexed 129.600 px", c: accent },
+                    { l: "STRUKTUR",   v: "6 Modul",      s: "timeline..draw ES6", c: "#ebb343" },
+                    { l: "PALET LOCK", v: "16 Warna",     s: "RGBA32[idx] LUT",    c: "#f4f3ef" },
+                    { l: "FRAME",      v: `${curF}/360`,  s: fp >= 0.99 ? "Lulus 30fps ✓" : "Playwright NN", c: "#5ce6a0" }
                   ];
 
               for (let c = 0; c < 4; c++) {
-                const colIdx = c % 2;
-                const rowIdx = Math.floor(c / 2);
-                const cx = x + 20 + colIdx * (mW + 14);
-                const cy = metricsY + rowIdx * (mH + 14);
-
+                const cx = x + 18 + (c % 2) * (mW + 12);
+                const cy = mY + Math.floor(c / 2) * (mH + 12);
                 roundRect(ctx, cx, cy, mW, mH, 8);
-                ctx.fillStyle = "#0e0e13";
-                ctx.fill();
-                ctx.lineWidth = 1.2;
-                ctx.strokeStyle = "#25252e";
-                ctx.stroke();
+                ctx.fillStyle = "#0e0e13"; ctx.fill();
+                ctx.lineWidth = 1.1; ctx.strokeStyle = "#24242e"; ctx.stroke();
 
-                ctx.font = "600 12.5px ui-monospace, Consolas, monospace";
-                ctx.fillStyle = "#7c7b76";
-                ctx.textAlign = "left";
-                ctx.textBaseline = "top";
-                ctx.fillText(cards[c].label, cx + 14, cy + 14);
-
-                ctx.font = "800 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-                ctx.fillStyle = cards[c].col;
-                ctx.fillText(cards[c].val, cx + 14, cy + 40);
-
-                ctx.font = "400 13px ui-monospace, Consolas, monospace";
-                ctx.fillStyle = "#969590";
-                ctx.fillText(cards[c].sub, cx + 14, cy + 86);
+                ctx.textAlign = "left"; ctx.textBaseline = "top";
+                ctx.font = "600 12px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#7c7b76";
+                ctx.fillText(cards[c].l, cx + 14, cy + 14);
+                ctx.font = "800 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif"; ctx.fillStyle = cards[c].c;
+                ctx.fillText(cards[c].v, cx + 14, cy + 40);
+                ctx.font = "400 12.5px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#969590";
+                ctx.fillText(cards[c].s, cx + 14, cy + 82);
               }
-
               ctx.restore();
             }
 
-            // C. FASE 3 (9.5s - 14.5s): AUDIT LABORATORIUM (16 WARNA + PIXEL LOUPE + FFPROBE)
-            if (auditSwitch > 0.05) {
+            // MODE B (11.15s - 26.0s): PALET 16 WARNA + 3 FITUR ANDALAN ROKET ASLI!
+            if (modeBSwitch > 0.02) {
               ctx.save();
-              ctx.globalAlpha = innerAlpha * auditSwitch;
-              const auditLocalProg = clamp((time - 9.80) / 3.80, 0, 1);
-              drawSpecAuditInsidePanel(box, isGemini, auditLocalProg, time);
+              ctx.globalAlpha *= modeBSwitch;
+              const auditProg = clamp((time - (isGemini ? 11.60 : 16.70)) / 3.80, 0, 1);
+              let activeFeat = -1;
+              if (isGemini && b3MerryRocket > 0.2) activeFeat = time < 14.05 ? 0 : 1;
+              if (!isGemini && b4RogerRocket > 0.2) activeFeat = time < 19.25 ? 0 : 1;
+              if (b5DuetAudit > 0.2) activeFeat = 2;
+              drawFeatureAndAuditInsidePanel(x, y, w, isGemini, Math.max(auditProg, b5DuetAudit), activeFeat);
               ctx.restore();
             }
 
             ctx.restore();
           }
 
-          // D. FASE 4 (14.5s - 18.0s): LOCKED VIEWPORT SHUTTER (SIAP MASUK HALAMAN 3)
-          if (shutterLock > 0.05) {
+          // STANDBY RETICLE SAAT VIEWPORT MENGUNCI KE PAGE 3 (26.15s - 32.00s)
+          if (toPage3 > 0.1) {
             ctx.save();
-            ctx.globalAlpha = shutterLock;
-
-            const centerX = x + w / 2;
-            const centerY = y + h / 2;
-
-            // Reticle bidik tipis di tengah layar hitam
-            ctx.strokeStyle = "#1f2026";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, 88, 0, Math.PI * 2);
-            ctx.stroke();
-            drawCrosshair(centerX, centerY, 14, "#32323c");
-
-            // KONDISI 1: Detik 14.5s - 15.35s -> Tampilkan Status LOCKED & READY
-            if (letsGoProg < 0.10) {
-              const pillW = 280, pillH = 54;
-              roundRect(ctx, centerX - pillW / 2, centerY - pillH / 2, pillW, pillH, 10);
-              ctx.fillStyle = "#121318";
-              ctx.fill();
-              ctx.lineWidth = 1.5;
-              ctx.strokeStyle = accent;
-              ctx.stroke();
-
-              ctx.font = "800 18px ui-monospace, Consolas, monospace";
-              ctx.fillStyle = "#f4f3ef";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillText(isGemini ? "GEMINI  ·  READY ✓" : "CLAUDE  ·  READY ✓", centerX, centerY - 6);
-
-              ctx.font = "500 13px ui-monospace, Consolas, monospace";
-              ctx.fillStyle = "#5ce6a0";
-              ctx.fillText("1080×1920 · 360F · LOCKED", centerX, centerY + 15);
-            } else {
-              // KONDISI 2: Detik 15.35s - 17.50s -> TAMPILKAN "LETSGO!!" DENGAN DESAIN EDITORIAL PRESTISIUS
-              // Memudar lembut di 17.15s - 17.80s agar frame 18.0s bersih murni identik dengan frame 0 pict.html!
-              const letsGoFadeOut = 1 - smootherstep(17.15, 17.75, time);
-              if (letsGoFadeOut > 0.01) {
-                const scaleK = softBounceOut(clamp(letsGoProg, 0, 1), 1.15);
-                ctx.save();
-                ctx.globalAlpha = letsGoFadeOut;
-                drawEditorialLetsGoBadge(centerX, centerY, isGemini, scaleK);
-                ctx.restore();
-              }
-            }
-
+            ctx.globalAlpha *= toPage3;
+            const cx = x + w / 2, cy = y + h / 2;
+            ctx.strokeStyle = "#1d1e24"; ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.arc(cx, cy, 76, 0, Math.PI * 2); ctx.stroke();
+            drawCrosshair(cx, cy, 12, "#2f303a");
+            ctx.font = "600 13.5px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#5ce6a0"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            fillTrackedText(isGemini ? "GEMINI · STANDBY 00.00s" : "CLAUDE · STANDBY 00.00s", cx, cy + 110, 1.4, "center");
             ctx.restore();
           }
 
-          ctx.restore();
+          ctx.restore(); // End clip
 
-          // Caption di Bawah Masing-Masing Kotak (Muncul saat mengunci ke posisi Halaman 3)
-          if (expandProg > 0.8) {
-            const capAlpha = smoothstep(0.8, 1.0, expandProg);
+          // Caption Page 3 di bawah kotak saat lock-in!
+          if (toPage3 > 0.2) {
             ctx.save();
-            ctx.globalAlpha = capAlpha;
+            ctx.globalAlpha = toPage3;
             ctx.font = "500 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
-            ctx.fillStyle = "#969590";
-            ctx.textAlign = "left";
-            ctx.textBaseline = "top";
+            ctx.fillStyle = "#969590"; ctx.textAlign = "left"; ctx.textBaseline = "top";
             ctx.fillText(isGemini ? "Gemini Code  ·  12.0 s" : "Claude Code  ·  12.0 s", x, y + h + 18);
-
             ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
-            ctx.fillStyle = "#525259";
-            ctx.textAlign = "right";
+            ctx.fillStyle = "#525259"; ctx.textAlign = "right";
             ctx.fillText("270×480 · 4X NN", x + w, y + h + 21);
             ctx.restore();
           }
+
+          ctx.restore();
         };
 
-        drawProcessColumn(LEFT_BOX, true);
-        drawProcessColumn(RIGHT_BOX, false);
+        drawPanel(LEFT_COL_X,  true);
+        drawPanel(RIGHT_COL_X, false);
 
-        // -----------------------------------------------------------------------
-        // 6. KOTAK IRIS KUNING PEMINDAI FAKTA (3.10s - 9.35s)
-        //    Menyorot secara sinkron perbedaan objektif di kedua kolom!
-        // -----------------------------------------------------------------------
-        if (time >= 3.10 && time <= 9.35) {
-          const irisAlpha = smootherstep(3.10, 3.40, time) * (1 - smootherstep(8.95, 9.35, time));
-
-          const k1 = smootherstep(4.90, 5.35, time);
-          const k2 = smootherstep(6.75, 7.20, time);
-
-          const mW = (LEFT_BOX.w - 40 - 14) / 2;
-
-          // Posisi di Kolom Kiri (Gemini)
-          const gRect0 = { x: LEFT_BOX.x + 16, y: LEFT_BOX.y + 332, w: LEFT_BOX.w - 32, h: 200, tag: "2 FILE MONOLITIK" };
-          const gRect1 = { x: LEFT_BOX.x + 16, y: LEFT_BOX.y + 676, w: mW + 8,          h: 130, tag: "OFFSCREEN 2D" };
-          const gRect2 = { x: LEFT_BOX.x + 16 + mW + 14, y: LEFT_BOX.y + 676, w: mW + 8, h: 130, tag: "360 FRAME LULUS" };
-
-          // Posisi di Kolom Kanan (Claude)
-          const cRect0 = { x: RIGHT_BOX.x + 16, y: RIGHT_BOX.y + 332, w: RIGHT_BOX.w - 32, h: 200, tag: "6 MODUL ES6" };
-          const cRect1 = { x: RIGHT_BOX.x + 16, y: RIGHT_BOX.y + 676, w: mW + 8,           h: 130, tag: "UINT8 INDEXED FB" };
-          const cRect2 = { x: RIGHT_BOX.x + 16 + mW + 14, y: RIGHT_BOX.y + 676, w: mW + 8, h: 130, tag: "360 FRAME LULUS" };
-
-          const interpRect = (r0, r1, r2) => {
-            const xa = lerp(r0.x, r1.x, k1), xb = lerp(xa, r2.x, k2);
-            const ya = lerp(r0.y, r1.y, k1), yb = lerp(ya, r2.y, k2);
-            const wa = lerp(r0.w, r1.w, k1), wb = lerp(wa, r2.w, k2);
-            const ha = lerp(r0.h, r1.h, k1), hb = lerp(ha, r2.h, k2);
-            const tag = k2 > 0.5 ? r2.tag : (k1 > 0.5 ? r1.tag : r0.tag);
-            return { x: xb, y: yb, w: wb, h: hb, tag };
-          };
-
-          const gCur = interpRect(gRect0, gRect1, gRect2);
-          const cCur = interpRect(cRect0, cRect1, cRect2);
-
-          drawIrisScannerBox(gCur.x, gCur.y, gCur.w, gCur.h, gCur.tag, irisAlpha);
-          drawIrisScannerBox(cCur.x, cCur.y, cCur.w, cCur.h, cCur.tag, irisAlpha);
+        // 6. KOTAK IRIS KUNING SINGKAT — MENYOROT APA YANG SEDANG DIJELASKAN MASKOT!
+        //    Beat 1 (Merry): sorot X-Ray Gemini | Beat 2 (Roger): sorot X-Ray Claude
+        //    Beat 3 (Merry): sorot Fitur 1 -> Fitur 2 Gemini | Beat 4 (Roger): sorot Fitur 1 -> Fitur 2 Claude
+        if (b1MerryEngine > 0.05) {
+          drawIrisScannerBox(LEFT_COL_X + 14, 448 + 230, COL_W - 28, 204, "CANVAS 2D + BAYER4", b1MerryEngine);
+        }
+        if (b2RogerEngine > 0.05) {
+          drawIrisScannerBox(RIGHT_COL_X + 14, 448 + 230, COL_W - 28, 204, "UINT8 FB + 6 MODUL", b2RogerEngine);
+        }
+        if (b3MerryRocket > 0.05) {
+          const mk = smootherstep(13.85, 14.40, time);
+          drawIrisScannerBox(LEFT_COL_X + 14, lerp(448 + 206, 448 + 344, mk), COL_W - 28, 132, mk > 0.5 ? "SATURN-IV + TARGET" : "STAGE SEPARATION", b3MerryRocket);
+        }
+        if (b4RogerRocket > 0.05) {
+          const rk = smootherstep(19.05, 19.60, time);
+          drawIrisScannerBox(RIGHT_COL_X + 14, lerp(448 + 206, 448 + 344, rk), COL_W - 28, 132, rk > 0.5 ? "BUMI 3D + CITY LIGHTS" : "GRAVITY TURN 90°", b4RogerRocket);
         }
 
-        // -----------------------------------------------------------------------
-        // 7. AREA BAWAH: TIMELINE HALAMAN 3 & HOOK "MANA HASIL YANG LEBIH BAIK?"
-        // -----------------------------------------------------------------------
-        if (time >= 13.80) {
-          const botAppear = smootherstep(13.80, 14.80, time);
-          ctx.save();
-          ctx.globalAlpha = botAppear;
+        // 7. PANGGUNG 3D MERRY (KIRI) & ROGER (KANAN) DI ZONA TENGAH-BAWAH (y = 1176..1495)
+        //    0% menabrak panel atas (berakhir di y=1164) & 0% menabrak speech card (mulai di y=1514)!
+        if (mascotStageA > 0.01) {
+          const originX = W / 2;
+          const originY = 1352;
+          const camDist = 34;
+          const fov = 860;
 
-          const tlX = LEFT_BOX.x;
-          const tlW = (RIGHT_BOX.x + RIGHT_BOX.w) - tlX; // 984 px
-          const segW = tlW / 3;
-          const tlY = 1382;
+          const mSlide = gentleSettleOut(clamp((time - 0.25) / 0.85, 0, 1), 0.70);
+          const rSlide = gentleSettleOut(clamp((time - 0.40) / 0.85, 0, 1), 0.70);
 
-          ctx.fillStyle = "#25252b";
-          ctx.fillRect(tlX, tlY, tlW, 2);
+          const mSpeak = Math.max(
+            bellCurve(time,  1.50,  1.75,  5.65,  5.95),
+            bellCurve(time, 11.65, 11.90, 15.95, 16.25),
+            bellCurve(time, 22.10, 22.40, 25.15, 25.55)
+          );
+          const rSpeak = Math.max(
+            bellCurve(time,  6.55,  6.80, 10.70, 11.00),
+            bellCurve(time, 16.85, 17.10, 21.15, 21.45),
+            bellCurve(time, 22.10, 22.40, 25.15, 25.55)
+          );
 
-          for (let i = 0; i <= 3; i++) {
-            const tx = Math.round(tlX + i * segW);
-            ctx.fillStyle = i === 0 ? "#8f8d87" : "#36363e";
-            ctx.fillRect(tx, tlY - 5, 1.5, 12);
+          const merryX = lerp(-12.5, -9.6, mSlide) + merryFocus * 0.45;
+          const merryZ = merryFocus * 2.0 - rogerFocus * 0.6;
+          const merryY = 0;
+          const merryYaw = 0.22 - merryFocus * 0.14 + rogerFocus * 0.24 + Math.sin(time * 2.0) * 0.04;
+          const merryScale = 0.86 * (1 + merryFocus * 0.06 - rogerFocus * 0.03);
+
+          const rogerX = lerp(12.5, 9.6, rSlide) - rogerFocus * 0.45;
+          const rogerZ = rogerFocus * 2.0 - merryFocus * 0.6;
+          const rogerY = 0;
+          const rogerYaw = -0.22 + rogerFocus * 0.14 - merryFocus * 0.24 + Math.sin(time * 1.9 + 1.0) * 0.04;
+          const rogerScale = 0.86 * (1 + rogerFocus * 0.06 - merryFocus * 0.03);
+
+          const blinkPulse = (tSec, marks) => {
+            for (const m of marks) { const d = Math.abs(tSec - m); if (d < 0.10) return Math.cos((d / 0.10) * (Math.PI / 2)); }
+            return 0;
+          };
+          const mBlink = blinkPulse(time, [3.2, 8.8, 14.5, 19.6, 24.4]);
+          const rBlink = blinkPulse(time, [4.1, 9.5, 15.2, 20.4, 24.8]);
+
+          const mFloor = project3DPoint(merryX, -3.50, merryZ, originX, originY, camDist, fov);
+          const rFloor = project3DPoint(rogerX, -3.50, rogerZ, originX, originY, camDist, fov);
+
+          drawFloorShadow(mFloor.x, mFloor.y, 4.5 * mFloor.sc * merryScale, 1.15 * mFloor.sc * merryScale, mascotStageA * 0.92,
+            `rgba(110, 168, 254, ${(0.12 + merryFocus * 0.14).toFixed(3)})`);
+          drawFloorShadow(rFloor.x, rFloor.y, 4.9 * rFloor.sc * rogerScale, 1.20 * rFloor.sc * rogerScale, mascotStageA * 0.92,
+            `rgba(224, 122, 95, ${(0.12 + rogerFocus * 0.14).toFixed(3)})`);
+
+          const mQuads = buildMerryQuads(time, {
+            x: merryX, y: merryY, z: merryZ, yaw: merryYaw, pitch: 0.06, roll: merryFocus * Math.sin(time * 4.5) * 0.04,
+            scale: merryScale, speakEnergy: mSpeak,
+            wavePhase: Math.max(b1MerryEngine * 0.65, b3MerryRocket * 0.85, b5DuetAudit * 0.90),
+            blinkAmount: mBlink, happyEyes: Math.max(b3MerryRocket, b5DuetAudit),
+            lookRight: Math.max(b2RogerEngine, b4RogerRocket), excitedHop: b3MerryRocket * 0.45,
+            dimFactor: lerp(1.0, 0.82, Math.max(b2RogerEngine, b4RogerRocket))
+          });
+
+          const rQuads = buildRogerQuads(time, {
+            x: rogerX, y: rogerY, z: rogerZ, yaw: rogerYaw, pitch: 0.06, roll: rogerFocus * Math.sin(time * 4.2 + 1) * 0.04,
+            scale: rogerScale, speakEnergy: rSpeak,
+            waveLeft: b5DuetAudit * 0.65,
+            waveRight: Math.max(b2RogerEngine * 0.65, b4RogerRocket * 0.85, b5DuetAudit * 0.90),
+            blinkAmount: rBlink, happyAmount: b5DuetAudit,
+            excitedAmount: Math.max(b2RogerEngine, b4RogerRocket),
+            lookX: Math.max(b1MerryEngine, b3MerryRocket) > 0.3 ? -0.95 : 0,
+            blushAmount: Math.max(b4RogerRocket * 0.55, b5DuetAudit * 0.80),
+            dimFactor: lerp(1.0, 0.82, Math.max(b1MerryEngine, b3MerryRocket))
+          });
+
+          renderActorQuads(mQuads, originX, originY, camDist, fov, mascotStageA);
+          renderActorQuads(rQuads, originX, originY, camDist, fov, mascotStageA);
+
+          // Emote kecil di samping kepala maskot (tetap berada di bawah panel y=1164!)
+          const mHead = project3DPoint(merryX - 4.7 * merryScale, 4.3 * merryScale, merryZ, originX, originY, camDist, fov);
+          const rHead = project3DPoint(rogerX + 4.7 * rogerScale, 4.3 * rogerScale, rogerZ, originX, originY, camDist, fov);
+
+          if (b1MerryEngine > 0.1 || b3MerryRocket > 0.1) {
+            drawEmoteBadge(mHead.x - 10, Math.max(1216, mHead.y), b3MerryRocket > 0.1 ? "gemini" : "!", "#6ea8fe", Math.max(b1MerryEngine, b3MerryRocket) * mascotStageA, time);
+          }
+          if (b2RogerEngine > 0.1 || b4RogerRocket > 0.1) {
+            drawEmoteBadge(rHead.x + 10, Math.max(1216, rHead.y), b4RogerRocket > 0.1 ? "claude" : "!", "#e07a5f", Math.max(b2RogerEngine, b4RogerRocket) * mascotStageA, time);
+          }
+          if (b5DuetAudit > 0.1) {
+            drawEmoteBadge(mHead.x - 10, Math.max(1216, mHead.y), "gemini", "#6ea8fe", b5DuetAudit * mascotStageA, time);
+            drawEmoteBadge(rHead.x + 10, Math.max(1216, rHead.y), "claude", "#e07a5f", b5DuetAudit * mascotStageA, time + 0.6);
           }
 
-          ctx.fillStyle = "#ebb343";
-          ctx.fillRect(tlX - 1.5, tlY - 9, 3, 20);
+          // 8. BALON DIALOG EDITORIAL (y = 1514..1736 — 0% tumpang tindih!)
+          if (b1MerryEngine > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY", roleTag: "GEMINI CARBON · BUILD & X-RAY",
+              line1: "Aku pakai Canvas 2D offscreen 270×480,",
+              line2: "plus Bayer 4×4 dither biar senjanya halus!",
+              accentHex: "#6ea8fe", appearProg: b1MerryEngine,
+              typeProg: clamp((time - 1.55) / 3.10, 0, 1),
+              time, pointerX: mFloor.x, dualMode: false
+            });
+          }
+
+          if (b2RogerEngine > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "ROGER", roleTag: "CLAUDE OPUS 5.5 · BUILD & X-RAY",
+              line1: "Kalau aku pakai Uint8Array framebuffer +",
+              line2: "6 modul ES6 — dijamin 100% murni 16 warna!",
+              accentHex: "#e07a5f", appearProg: b2RogerEngine,
+              typeProg: clamp((time - 6.60) / 3.15, 0, 1),
+              time, pointerX: rFloor.x, dualMode: false
+            });
+          }
+
+          if (b3MerryRocket > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY", roleTag: "GEMINI CARBON · FITUR ROKET",
+              line1: "Roketku 2 tingkat: booster lepas di detik 6,",
+              line2: "plus planet cincin Saturn-IV & target lock!",
+              accentHex: "#6ea8fe", appearProg: b3MerryRocket,
+              typeProg: clamp((time - 11.70) / 3.25, 0, 1),
+              time, pointerX: mFloor.x, dualMode: false
+            });
+          }
+
+          if (b4RogerRocket > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "ROGER", roleTag: "CLAUDE OPUS 5.5 · FITUR ROKET",
+              line1: "Eits, punyaku Gravity Turn miring 90 derajat",
+              line2: "pakai plasma vakum + Bumi 3D lampu kota!",
+              accentHex: "#e07a5f", appearProg: b4RogerRocket,
+              typeProg: clamp((time - 16.90) / 3.25, 0, 1),
+              time, pointerX: rFloor.x, dualMode: false
+            });
+          }
+
+          if (b5DuetAudit > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY & ROGER", roleTag: "DUAL AUDIT · 16 WARNA LOLOS ✓",
+              line1: "Dua-duanya lolos audit 16 warna & 360F!",
+              line2: "Mana nih hasil roket yang paling keren?",
+              accentHex: "#ebb343", appearProg: b5DuetAudit,
+              typeProg: clamp((time - 22.15) / 2.45, 0, 1),
+              time, dualMode: true
+            });
+          }
+        }
+
+        // 9. BEAT 6 (26.15s - 32.00s): TIMELINE PAGE 3 & SINGLE "LETSGO!!" BADGE
+        if (toPage3 > 0.01) {
+          const tlX = LEFT_COL_X, tlW = 984, segW = tlW / 3, tlY = 1382;
+          ctx.save();
+          ctx.globalAlpha = toPage3;
+
+          ctx.fillStyle = "#25252b"; ctx.fillRect(tlX, tlY, tlW, 2);
+          for (let i = 0; i <= 3; i++) {
+            ctx.fillStyle = i === 0 ? "#8f8d87" : "#36363e";
+            ctx.fillRect(Math.round(tlX + i * segW), tlY - 5, 1.5, 12);
+          }
+          ctx.fillStyle = "#ebb343"; ctx.fillRect(tlX - 1.5, tlY - 9, 3, 20);
 
           ctx.font = "700 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
           ctx.textBaseline = "top";
-          ctx.fillStyle = "#ebb343";
-          fillTrackedText("1  ·  SENJA", tlX, tlY + 20, 0.8, "left");
-          ctx.fillStyle = "#4d4d55";
-          fillTrackedText("2  ·  LEPAS LANDAS", tlX + segW, tlY + 20, 0.8, "left");
+          ctx.fillStyle = "#ebb343"; fillTrackedText("1  ·  SENJA", tlX, tlY + 20, 0.8, "left");
+          ctx.fillStyle = "#4d4d55"; fillTrackedText("2  ·  LEPAS LANDAS", tlX + segW, tlY + 20, 0.8, "left");
           fillTrackedText("3  ·  ORBIT", tlX + segW * 2, tlY + 20, 0.8, "left");
 
-          // Counter 00.00 / 12.00 s yang menyambung persis ke Halaman 3
           const timeY = tlY + 62;
           ctx.font = "600 24px ui-monospace, 'Cascadia Code', Consolas, monospace";
           ctx.textAlign = "left";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.fillText("00.00", tlX, timeY);
+          ctx.fillStyle = "#f4f3ef"; ctx.fillText("00.00", tlX, timeY);
           const w0 = ctx.measureText("00.00").width;
-          ctx.fillStyle = "#6e6d68";
-          ctx.fillText(" / 12.00 s", tlX + w0, timeY);
+          ctx.fillStyle = "#6e6d68"; ctx.fillText(" / 12.00 s", tlX + w0, timeY);
 
           ctx.font = "500 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.textAlign = "right";
-          ctx.fillStyle = "#5c5b57";
+          ctx.textAlign = "right"; ctx.fillStyle = "#5c5b57";
           ctx.fillText("FRAME 001 / 360", tlX + tlW, timeY + 4);
-
           ctx.restore();
-
-          // ---------------------------------------------------------------------
-          // BANNER HOOK EDITORIAL PRESTISIUS: "MANA HASIL YANG LEBIH BAIK?"
-          // (Muncul pada 14.50s, memudar lembut di 17.15s - 17.85s sehingga frame 18.0s identik 100% dengan pict.html)
-          // ---------------------------------------------------------------------
-          const bannerFade = smoothstep(14.40, 15.00, time) * (1 - smootherstep(17.15, 17.80, time));
-          if (bannerFade > 0.01) {
-            const easeY = softBounceOut(clamp((time - 14.40) / 0.65, 0, 1), 1.12);
-            ctx.save();
-            ctx.globalAlpha = bannerFade;
-
-            const bW = 884;
-            const bH = 80;
-            const bX = (W - bW) / 2;
-            const bY = lerp(1575, 1550, easeY);
-
-            // Bayangan obsidian matte berkelas
-            ctx.shadowColor = "rgba(235, 179, 67, 0.22)";
-            ctx.shadowBlur = 30;
-            ctx.shadowOffsetY = 8;
-            roundRect(ctx, bX, bY, bW, bH, 10);
-            ctx.fillStyle = "#131318";
-            ctx.fill();
-            ctx.shadowColor = "transparent";
-
-            // Double Hairline Border Elegan
-            ctx.lineWidth = 1.8;
-            ctx.strokeStyle = "#2d2d38";
-            ctx.stroke();
-
-            roundRect(ctx, bX + 3, bY + 3, bW - 6, bH - 6, 8);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = "rgba(235, 179, 67, 0.42)";
-            ctx.stroke();
-
-            // 4 Corner Markers Kuning Emas (Gaya Iris & Swiss Technical HUD)
-            const nodeS = 6;
-            const bCorners = [
-              { x: bX - nodeS / 2,      y: bY - nodeS / 2 },
-              { x: bX + bW - nodeS / 2, y: bY - nodeS / 2 },
-              { x: bX - nodeS / 2,      y: bY + bH - nodeS / 2 },
-              { x: bX + bW - nodeS / 2, y: bY + bH - nodeS / 2 }
-            ];
-            for (let i = 0; i < bCorners.length; i++) {
-              ctx.fillStyle = "#ebb343";
-              ctx.fillRect(bCorners[i].x, bCorners[i].y, nodeS, nodeS);
-            }
-
-            // Left Flag / Pill: "[ VOTE / SHOWDOWN ]"
-            const pillX = bX + 22;
-            const pillY = bY + (bH - 32) / 2;
-            const pillW = 108;
-            const pillH = 32;
-            roundRect(ctx, pillX, pillY, pillW, pillH, 6);
-            ctx.fillStyle = "#ebb343";
-            ctx.fill();
-
-            ctx.font = "800 13px ui-monospace, 'Cascadia Code', Consolas, monospace";
-            ctx.fillStyle = "#0e0e10";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("ONE SHOT", pillX + pillW / 2, pillY + pillH / 2 + 0.5);
-
-            // Garis Pembatas Vertikal Tipis
-            ctx.fillStyle = "#2c2c36";
-            ctx.fillRect(pillX + pillW + 16, bY + 16, 1.5, bH - 32);
-
-            // Typography Utama: "MANA HASIL YANG LEBIH BAIK?" (Dua Warna: Putih Diamond + Emas Hangat)
-            const textStartX = pillX + pillW + 32;
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-
-            // Kicker Kecil di Atas
-            ctx.font = "700 12px ui-monospace, 'Cascadia Code', Consolas, monospace";
-            ctx.fillStyle = "#8a8984";
-            fillTrackedText("DUAL AGENT BENCHMARK  ·  SIAP DITAMPILKAN", textStartX, bY + 24, 1.6, "left");
-
-            // Kalimat Tanya Besar, Tegas & Mewah
-            ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            const part1 = "MANA HASIL ";
-            ctx.fillStyle = "#f5f4f0";
-            ctx.fillText(part1, textStartX, bY + 52);
-
-            const p1W = ctx.measureText(part1).width;
-            ctx.fillStyle = "#ebb343";
-            ctx.fillText("YANG LEBIH BAIK?", textStartX + p1W, bY + 52);
-
-            ctx.restore();
-          }
         }
 
-        // -----------------------------------------------------------------------
-        // 8. FOOTER BAWAH
-        // -----------------------------------------------------------------------
+        // Unified "LETSGO!!" Badge (27.55s - 31.25s -> memudar bersih sebelum t=32.0s)
+        const letsGoA = smootherstep(27.55, 28.10, time) * (1 - smootherstep(30.35, 31.20, time));
+        if (letsGoA > 0.01) {
+          const sc = gentleSettleOut(clamp((time - 27.55) / 0.55, 0, 1), 0.72);
+          ctx.save();
+          ctx.globalAlpha = letsGoA;
+          ctx.translate(W / 2, 880);
+          ctx.scale(lerp(0.92, 1.0, sc), lerp(0.92, 1.0, sc));
+
+          const bw = 448, bh = 132;
+          ctx.shadowColor = "rgba(235, 179, 67, 0.36)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 8;
+          roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 10);
+          ctx.fillStyle = "#121319"; ctx.fill();
+          ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+          ctx.lineWidth = 2.0; ctx.strokeStyle = "#ebb343"; ctx.stroke();
+          drawCrosshair(-bw / 2, -bh / 2, 5, "#ebb343");
+          drawCrosshair( bw / 2, -bh / 2, 5, "#ebb343");
+          drawCrosshair(-bw / 2,  bh / 2, 5, "#ebb343");
+          drawCrosshair( bw / 2,  bh / 2, 5, "#ebb343");
+
+          ctx.font = "700 12.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8e8d88"; ctx.textBaseline = "middle";
+          fillTrackedText("● BENCHMARK SHOWDOWN  ·  READY TO LAUNCH", 0, -bh / 2 + 22, 1.6, "center");
+
+          ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f5f4f0";
+          fillTrackedText("LETSGO!!", 0, 2, 3.4, "center");
+
+          roundRect(ctx, -152, bh / 2 - 34, 304, 26, 6);
+          ctx.fillStyle = "rgba(235, 179, 67, 0.14)"; ctx.fill();
+          ctx.strokeStyle = "rgba(235, 179, 67, 0.65)"; ctx.lineWidth = 1.2; ctx.stroke();
+
+          ctx.font = "700 12px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          fillTrackedText("GEMINI CARBON HIGH  vs  CLAUDE OPUS 5.5", 0, bh / 2 - 20, 1.1, "center");
+          ctx.restore();
+        }
+
+        // 10. FOOTER EDITORIAL
         const footY = 1834;
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
-        ctx.textAlign = "left";
         ctx.fillStyle = "#6e6d68";
 
         const mm = String(Math.floor(time)).padStart(2, "0");
         const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
-        fillTrackedText(`00:${mm}:${ff}`, LEFT_BOX.x, footY, 1.2, "left");
+        fillTrackedText(toPage3 > 0.85 ? "00:12:00" : `00:${mm}:${ff}`, LEFT_COL_X, footY, 1.2, "left");
 
         ctx.fillStyle = "#ebb343";
-        ctx.fillRect(LEFT_BOX.x + 104, footY - 4, 7, 7);
+        ctx.fillRect(LEFT_COL_X + 104, footY - 4, 7, 7);
 
         ctx.fillStyle = "#6e6d68";
-        fillTrackedText("120 BPM", LEFT_BOX.x + 124, footY, 1.2, "left");
-        fillTrackedText("1080×1920  ·  30FPS", RIGHT_BOX.x + RIGHT_BOX.w, footY, 1.2, "right");
-
-        ctx.restore();
+        fillTrackedText("120 BPM", LEFT_COL_X + 124, footY, 1.2, "left");
+        fillTrackedText("1080×1920  ·  30FPS", RIGHT_COL_X + COL_W, footY, 1.2, "right");
       }
 
       window.drawFrame = drawFrame;
@@ -1378,17 +1683,15 @@
 
       if (!isHeadless) {
         const jump = (s) => { isPlaying = false; updateView(s); };
-        document.getElementById("btnS1").onclick = () => jump(1.0);
-        document.getElementById("btnS2").onclick = () => jump(4.2);
-        document.getElementById("btnS3").onclick = () => jump(7.5);
-        document.getElementById("btnS4").onclick = () => jump(11.8);
-        document.getElementById("btnS5").onclick = () => jump(15.8);
-        document.getElementById("btnS6").onclick = () => jump(17.2);
+        document.getElementById("b1").onclick = () => jump(3.50);
+        document.getElementById("b2").onclick = () => jump(8.60);
+        document.getElementById("b3").onclick = () => jump(13.80);
+        document.getElementById("b4").onclick = () => jump(19.00);
+        document.getElementById("b5").onclick = () => jump(23.80);
+        document.getElementById("b6").onclick = () => jump(28.80);
 
-        slider.oninput = () => {
-          isPlaying = false;
-          updateView(Number(slider.value) / FPS);
-        };
+        slider.max = TOTAL_FRAMES - 1;
+        slider.oninput = () => { isPlaying = false; updateView(Number(slider.value) / FPS); };
 
         btnPlay.onclick = () => {
           isPlaying = !isPlaying;
@@ -1399,15 +1702,16 @@
           }
         };
 
+        // Preview live jalan super mulus di native 60/120Hz (Playwright headless tetap 30 FPS)
         function tick(now) {
           if (!isPlaying) return;
           const elapsed = (now - startStamp) / 1000;
           if (elapsed >= DURATION) {
-            updateView(DURATION - 0.03);
+            updateView(DURATION - 0.01);
             isPlaying = false;
             return;
           }
-          updateView(Math.floor(elapsed * FPS) / FPS);
+          updateView(elapsed);
           requestAnimationFrame(tick);
         }
 

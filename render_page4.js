@@ -4,8 +4,8 @@ const { execFileSync } = require("child_process");
 const { chromium } = require("playwright");
 
 const FPS = 30;
-const DURATION = 62.0;
-const TOTAL_FRAMES = Math.round(FPS * DURATION); // 1860 frame
+const DURATION = 54.0; // 54.00 Detik Sinkron 100% dengan page4-final.html
+const TOTAL_FRAMES = Math.round(FPS * DURATION); // 1620 frame
 const WIDTH = 1080;
 const HEIGHT = 1920;
 const NUM_WORKERS = 4;
@@ -13,18 +13,30 @@ const NUM_WORKERS = 4;
 const FRAMES_DIR = path.join(__dirname, "frames_page4");
 const AUDIO_PATH = path.join(__dirname, "audio_page4.wav");
 const OUTPUT_MP4 = path.join(__dirname, "page4_verdict.mp4");
-const HTML_PATH = "file:///" + path.resolve(__dirname, "page4.html").replace(/\\/g, "/") + "?headless=1";
+
+function resolveHtmlPath() {
+  const candidates = ["page4-final.html", "page4-v4.html", "page4.html"];
+  for (const name of candidates) {
+    const full = path.resolve(__dirname, name);
+    if (fs.existsSync(full)) {
+      console.log(`      ✓ Sumber HTML ditemukan: ${name}`);
+      return "file:///" + full.replace(/\\/g, "/") + "?headless=1";
+    }
+  }
+  throw new Error("File page4-final.html tidak ditemukan di folder ini.");
+}
 
 // ============================================================================
-// 1. SINTESIS AUDIO EFEK SUARA HALAMAN 4 (62.00 DETIK · 10 BAB LENGKAP)
+// 1. SINTESIS AUDIO PAGE 4 FINAL (54.00 DETIK · 0ms DESYNC DI SEMUA ADEGAN)
+//    Zero drone latar · Deterministik PRNG · Soft-knee limiter (0% clipping)
 // ============================================================================
 function generatePage4Audio(wavPath) {
-  console.log(`[1/3] Mensintesis audio SFX Halaman 4 sinkron penuh (${DURATION.toFixed(2)} detik)...`);
+  console.log(`[1/3] Mensintesis audio SFX Halaman 4 Final (${DURATION.toFixed(2)} detik)...`);
   const sampleRate = 44100;
   const numSamples = Math.floor(sampleRate * DURATION);
   const samples = new Float32Array(numSamples);
 
-  let prng = 314159265;
+  let prng = 884219037;
   const nextRand = () => {
     prng = (1664525 * prng + 1013904223) >>> 0;
     return (prng / 4294967296) * 2.0 - 1.0;
@@ -39,190 +51,191 @@ function generatePage4Audio(wavPath) {
     }
   };
 
-  const addAirSwoosh = (startSec, durSec, brightness = 1.0, gain = 0.35) => {
+  const addAirSwoosh = (startSec, durSec = 0.60, brightness = 1.0, gain = 0.30) => {
     let lp = 0, hp = 0;
     addSound(startSec, durSec, (lt, d) => {
       const p = lt / d;
-      const env = Math.sin(p * Math.PI) * Math.pow(1 - p, 0.4);
-      const cutoff = (0.02 + Math.sin(p * Math.PI) * 0.14) * brightness;
+      const env = Math.sin(p * Math.PI) * Math.pow(1 - p, 0.5);
+      const cutoff = (0.022 + Math.sin(p * Math.PI) * 0.12) * brightness;
       const w = nextRand();
       lp += cutoff * (w - lp);
       hp += 0.008 * (lp - hp);
-      return (lp - hp) * env * gain * 2.5;
+      return (lp - hp) * env * gain * 2.1;
     });
   };
 
-  const addScoreChime = (startSec, baseFreq = 880, gain = 0.22) => {
-    addSound(startSec, 0.28, (lt) => {
-      const env = Math.exp(-lt * 18);
-      const f1 = baseFreq;
-      const f2 = baseFreq * 1.5;
-      const s1 = Math.sin(2 * Math.PI * f1 * lt);
-      const s2 = Math.sin(2 * Math.PI * f2 * lt) * 0.45;
-      return (s1 + s2) * env * gain;
-    });
-  };
-
-  const addSubDrop = (startSec, durSec = 0.65, startF = 180, endF = 45, gain = 0.48) => {
+  const addPortalOpen = (startSec, durSec = 0.72, gain = 0.28) => {
+    let phase = 0;
     addSound(startSec, durSec, (lt, d) => {
       const p = lt / d;
-      const env = Math.exp(-lt * 8);
-      const freq = startF * Math.exp(-lt * 12) + endF;
-      return Math.sin(2 * Math.PI * freq * lt) * env * gain;
+      const env = Math.sin(p * Math.PI) * Math.pow(1 - p * 0.4, 0.6);
+      const freq = 140 + p * 320 + Math.sin(lt * 24) * 18;
+      phase += (2 * Math.PI * freq) / sampleRate;
+      return (Math.sin(phase) * 0.65 + Math.sin(phase * 1.5) * 0.35) * env * gain;
     });
   };
 
-  const addOdometerTick = (startSec, gain = 0.16) => {
-    addSound(startSec, 0.035, (lt) => {
-      const env = Math.exp(-lt * 120);
-      const click = Math.sin(2 * Math.PI * 1850 * lt) * 0.6 + nextRand() * 0.4;
-      return click * env * gain;
-    });
-  };
-
-  const addTypewriterClick = (startSec, gain = 0.18) => {
-    addSound(startSec, 0.04, (lt) => {
-      const env = Math.exp(-lt * 90);
-      const mech = Math.sin(2 * Math.PI * 1400 * lt) * 0.5 + nextRand() * 0.5;
-      return mech * env * gain;
-    });
-  };
-
-  const addLaserScanHum = (startSec, durSec = 4.0, gain = 0.20) => {
+  const addFallWhistle = (startSec, durSec = 0.68, gain = 0.20) => {
+    let phase = 0;
     addSound(startSec, durSec, (lt, d) => {
-      const env = Math.sin((lt / d) * Math.PI);
-      const sweep = 440 + Math.sin(lt * 18) * 120;
-      const tone = Math.sin(2 * Math.PI * sweep * lt) * 0.7 + Math.sin(2 * Math.PI * (sweep * 2) * lt) * 0.3;
-      return tone * env * gain;
+      const p = lt / d;
+      const env = Math.min(1, lt / 0.05) * (1 - Math.pow(p, 3));
+      const freq = 920 * Math.pow(0.28, p * p);
+      phase += (2 * Math.PI * freq) / sampleRate;
+      return Math.sin(phase) * env * gain;
     });
   };
 
-  const addIrisShutter = (startSec, gain = 0.35) => {
-    addSound(startSec, 0.08, (lt) => {
-      const env = Math.exp(-lt * 45);
-      const snap = Math.sin(2 * Math.PI * 2200 * lt) * 0.5 + nextRand() * 0.5;
-      return snap * env * gain;
+  const addFaceplantSplat = (startSec, gain = 0.66) => {
+    let phase = 0, lp = 0;
+    addSound(startSec, 0.42, (lt) => {
+      const freq = 52 + 185 * Math.exp(-lt * 32);
+      phase += (2 * Math.PI * freq) / sampleRate;
+      const subBody = Math.sin(phase) * Math.exp(-lt * 11.5) * 0.85;
+      const w = nextRand();
+      lp += 0.32 * (w - lp);
+      const slap = lp * Math.exp(-lt * 95) * 0.52;
+      return (subBody + slap) * gain;
     });
   };
 
-  // --------------------------------------------------------------------------
-  // TIMELINE EFEK SUARA HALAMAN 4 (PRESISI 100% SINKRON DENGAN 10 BAB)
-  // --------------------------------------------------------------------------
-  // Ambient Drone Lembut Sepanjang Video
-  addSound(0, DURATION, (lt) => {
-    const drone = Math.sin(2 * Math.PI * 55 * lt) * 0.04 + Math.sin(2 * Math.PI * 110 * lt) * 0.02;
-    return drone;
-  });
+  const addPopBlip = (startSec, fStart = 420, fEnd = 740, durSec = 0.14, gain = 0.22) => {
+    let phase = 0;
+    addSound(startSec, durSec, (lt, d) => {
+      const p = lt / d;
+      const env = Math.min(1, lt / 0.006) * Math.exp(-lt * 25) * (1 - p * 0.3);
+      const freq = fStart + (fEnd - fStart) * (1 - Math.exp(-lt * 32));
+      phase += (2 * Math.PI * freq) / sampleRate;
+      return (Math.sin(phase) * 0.8 + Math.sin(phase * 2) * 0.2) * env * gain;
+    });
+  };
 
-  // BAB 01 - DETAIL: "Lebih ramai." (0.00s - 6.00s)
-  addAirSwoosh(0.10, 0.70, 1.1, 0.35);
-  // Callout target clicks
-  addScoreChime(0.85, 988, 0.18); // Matahari
-  addScoreChime(1.15, 1174, 0.18); // Lengan Menara
-  addScoreChime(2.25, 1318, 0.20); // Bulan
-  addScoreChime(2.55, 1568, 0.20); // Panel Surya
+  // Crisp UI Tap (klik bar pilihan cepat -> langsung input!)
+  const addQuickTap = (startSec, freq = 640, gain = 0.26) => {
+    let lp = 0;
+    addSound(startSec, 0.09, (lt) => {
+      const w = nextRand();
+      lp += 0.28 * (w - lp);
+      const click = lp * Math.exp(-lt * 260) * 0.45;
+      const pop   = Math.sin(2 * Math.PI * (freq + lt * 1400) * lt) * Math.exp(-lt * 55) * 0.55;
+      return (click + pop) * gain;
+    });
+  };
 
-  // BAB 02 - WARNA: "Hitung warnanya." (6.00s - 12.00s)
-  addAirSwoosh(5.90, 0.60, 1.25, 0.38);
-  // Gemini Odometer rolling rapid ticks (6.2s - 8.2s)
-  for (let t = 6.20; t < 8.20; t += 0.06) {
-    addOdometerTick(t, 0.14);
-  }
-  // Red Alert Chime at 8.25s for +16.442 leak
-  addSubDrop(8.25, 0.50, 220, 75, 0.40);
-  addScoreChime(8.30, 440, 0.30); // Alert A4
+  const addSparkleChime = (startSec, baseFreq = 880.0, durSec = 0.28, gain = 0.16) => {
+    addSound(startSec, durSec, (lt) => {
+      const env = Math.min(1, lt / 0.005) * Math.exp(-lt * 14);
+      return (Math.sin(2 * Math.PI * baseFreq * lt) + Math.sin(2 * Math.PI * baseFreq * 1.5 * lt) * 0.30) * env * gain;
+    });
+  };
 
-  // Claude Odometer rolling ticks (8.6s - 9.8s)
-  for (let t = 8.60; t < 9.80; t += 0.09) {
-    addOdometerTick(t, 0.15);
-  }
-  // Green lock chime at 10.0s for "sesuai batas <= 16"
-  addScoreChime(10.00, 1046.5, 0.28); // C6
+  const addFocusTick = (startSec, freq = 620, gain = 0.44) => {
+    let lp = 0, hp = 0;
+    addSound(startSec, 0.045, (lt) => {
+      const w = nextRand();
+      lp += 0.28 * (w - lp);
+      hp += 0.10 * (lp - hp);
+      return ((lp - hp) * Math.exp(-lt * 320) * 0.45 + Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 140) * 0.18) * gain;
+    });
+  };
 
-  // BAB 03 - BEDAH: "Kenapa beda? - Zoom" (12.00s - 18.00s)
-  addAirSwoosh(11.90, 0.70, 0.95, 0.40);
-  addSubDrop(12.10, 0.60, 160, 50, 0.42);
-  addScoreChime(12.50, 880, 0.22); // Target circle lock
-  addAirSwoosh(13.20, 0.40, 1.4, 0.25); // Code card 1
-  addAirSwoosh(14.20, 0.40, 1.4, 0.25); // Code card 2
+  const addSoftSettle = (startSec, toneHz = 180, gain = 0.72) => {
+    let lp = 0;
+    addSound(startSec, 0.20, (lt) => {
+      const w = nextRand();
+      lp += 0.12 * (w - lp);
+      return (lp * Math.exp(-lt * 95) * 0.34 + Math.sin(2 * Math.PI * toneHz * Math.exp(-lt * 12) * lt) * Math.exp(-lt * 26) * 0.24) * gain;
+    });
+  };
 
-  // BAB 04 - X-RAY SCAN: "Magenta Laser" (18.00s - 23.50s)
-  addAirSwoosh(17.90, 0.55, 1.5, 0.36);
-  addLaserScanHum(18.20, 4.80, 0.24);
+  const addGoldenChord = (startSec, durSec = 2.00, gain = 0.20) => {
+    addSound(startSec, durSec, (lt, d) => {
+      const env = Math.min(1, lt / 0.08) * Math.exp(-lt * 1.9) * Math.min(1, (d - lt) / 0.35);
+      return (
+        Math.sin(2 * Math.PI * 110.00 * lt) * 0.42 +
+        Math.sin(2 * Math.PI * 220.00 * lt) * 0.32 +
+        Math.sin(2 * Math.PI * 277.18 * lt) * 0.22 +
+        Math.sin(2 * Math.PI * 329.63 * lt) * 0.26 +
+        Math.sin(2 * Math.PI * 440.00 * lt) * 0.16
+      ) * env * gain;
+    });
+  };
 
-  // BAB 05 - SIDE-BY-SIDE: Framebuffer vs Canvas2D (23.50s - 29.00s)
-  addAirSwoosh(23.40, 0.60, 1.2, 0.38);
-  addSubDrop(23.60, 0.55, 170, 52, 0.40);
-  addScoreChime(24.20, 784, 0.20);
-  addScoreChime(24.60, 988, 0.20);
+  // BAB 1 (0.00s - 15.50s): LUBANG -> JATUH TENGKURAP -> PUSH-UP -> TENGIL INTRO
+  addPortalOpen(0.40, 0.72, 0.28);
+  addAirSwoosh(0.44, 0.55, 1.15, 0.22);
+  addFallWhistle(1.25, 0.68, 0.20);
+  addFaceplantSplat(1.95, 0.66);
+  addPopBlip(2.28, 320, 190, 0.14, 0.22);
+  addAirSwoosh(2.40, 0.45, 0.80, 0.22);
+  addSparkleChime(2.55, 740, 0.24, 0.11);
+  addAirSwoosh(3.15, 0.65, 0.75, 0.20);
+  addPopBlip(4.12, 440, 320, 0.16, 0.20);
+  addPopBlip(6.52, 580, 920, 0.15, 0.26);
+  addAirSwoosh(6.75, 0.42, 1.25, 0.26);
+  addSoftSettle(7.36, 175, 0.72);
+  addSparkleChime(7.40, 1046.5, 0.30, 0.16);
+  addSparkleChime(9.28, 1174.7, 0.28, 0.16);
+  addFocusTick(11.46, 660, 0.38);
 
-  // BAB 06 - DATA: "Kamu yang nilai." (29.00s - 39.00s)
-  addAirSwoosh(28.90, 0.65, 1.1, 0.40);
-  // Cascade odometer rolling ticks for 7 rows
-  const rowTimes = [30.0, 31.2, 32.4, 33.6, 34.8, 36.0, 37.2];
-  for (const rt of rowTimes) {
-    for (let t = rt; t < rt + 0.45; t += 0.07) {
-      addOdometerTick(t, 0.12);
-    }
-    addScoreChime(rt + 0.48, 880 + Math.random() * 200, 0.16);
-  }
-  addSubDrop(38.00, 0.60, 180, 45, 0.45); // Final data row impact
+  // BAB 2 (15.50s - 25.50s): KOREKSI 01 — GEMINI CARBON · HIGH
+  addAirSwoosh(15.42, 0.65, 1.12, 0.32);
+  addFocusTick(15.90, 620, 0.42);
+  addFocusTick(17.70, 680, 0.42);
+  addSparkleChime(18.60, 783.99, 0.24, 0.13);
+  addFocusTick(20.60, 540, 0.44);
 
-  // BAB 07 - HARGA: "Bayar berapa?" (39.00s - 45.00s)
-  addAirSwoosh(38.90, 0.60, 1.3, 0.38);
-  // Price strike-through sound at 39.8s
-  addAirSwoosh(39.80, 0.35, 1.6, 0.30);
-  // Cash register / Promo reveal chime at 40.2s
-  addScoreChime(40.20, 1318.5, 0.32); // E6
-  addScoreChime(40.28, 1567.9, 0.35); // G6
-  // Claude price chime at 41.5s
-  addScoreChime(41.50, 1046.5, 0.28); // C6
+  // BAB 3 (25.50s - 35.50s): KOREKSI 02 — CLAUDE OPUS 5.5 · EXTRA
+  addAirSwoosh(25.42, 0.65, 0.95, 0.32);
+  addFocusTick(25.90, 600, 0.42);
+  addFocusTick(27.70, 660, 0.42);
+  addSparkleChime(28.60, 880.00, 0.24, 0.13);
+  addFocusTick(30.60, 520, 0.44);
 
-  // BAB 08 - PILIH: "Mana yang worth it buat kamu?" (45.00s - 49.50s)
-  addAirSwoosh(44.90, 0.60, 1.0, 0.36);
-  // 3 Pills pop in sequentially
-  addScoreChime(45.40, 523.25, 0.36); // Pill 1: 1 tes (C5)
-  addScoreChime(46.40, 659.25, 0.38); // Pill 2: 1 tugas (E5)
-  addScoreChime(47.40, 783.99, 0.42); // Pill 3: one shot (G5)
+  // BAB 4 (35.50s - 41.50s): RAPOR HEAD-TO-HEAD OBJEKTIF
+  addAirSwoosh(35.42, 0.65, 1.05, 0.32);
+  [35.75, 36.00, 36.25, 36.50, 36.75].forEach((rt, idx) => addFocusTick(rt, 560 + idx * 36, 0.36));
+  addSparkleChime(36.82, 880.0, 0.28, 0.15);
 
-  // BAB 09 - KODE: "Cek sendiri." (49.50s - 55.50s)
-  addAirSwoosh(49.40, 0.55, 1.2, 0.35);
-  // Typewriter clicks for github.com/rjoulfiand-afk/NrTO (49.7s - 51.9s)
-  for (let t = 49.70; t < 51.90; t += 0.08) {
-    addTypewriterClick(t, 0.16);
-  }
-  // Folder cards pop
-  addScoreChime(52.20, 880, 0.22);
-  // Iris camera shutter lock for prompt focus box (53.0s)
-  addIrisShutter(53.00, 0.42);
-  addScoreChime(53.08, 1760, 0.26);
+  // BAB 5A (41.50s - 44.85s): UNIFIED BOX ("Skor tipis 9.2 vs 9.3" + 2 Kotak)
+  addAirSwoosh(41.42, 0.62, 1.00, 0.30);
+  addSoftSettle(41.68, 175, 0.72);        // "Skor tipis" muncul
+  addSoftSettle(42.45, 220, 0.65);        // Sub-kotak Gemini masuk
+  addSoftSettle(42.65, 195, 0.65);        // Sub-kotak Claude masuk
 
-  // BAB 10 - KOMENTAR: "Tulis di komentar." (55.50s - 62.00s)
-  addAirSwoosh(55.40, 0.60, 1.3, 0.38);
-  addSubDrop(55.60, 0.65, 160, 48, 0.45);
-  // Typewriter clicks for "aku pilih Gemini" (55.8s - 57.2s)
-  for (let t = 55.80; t < 57.20; t += 0.09) {
-    addTypewriterClick(t, 0.15);
-  }
-  // Backspace click & retype for "aku pilih Claude" (57.8s - 59.2s)
-  for (let t = 57.80; t < 59.20; t += 0.09) {
-    addTypewriterClick(t, 0.15);
-  }
-  // Final typing for "mau tes model apa lagi?" (59.7s - 61.2s)
-  for (let t = 59.70; t < 61.20; t += 0.09) {
-    addTypewriterClick(t, 0.15);
-  }
+  // BAB 5B (44.20s - 54.00s): KOTAK SKOR HILANG -> GELEMBUNG ARTO -> SOLO IG SHEET!
+  addAirSwoosh(44.22, 0.58, 1.10, 0.28);  // Swap mulus: Unified Box keluar -> Solo IG Sheet masuk!
+  addPopBlip(44.48, 460, 860, 0.16, 0.24); // Gelembung Arto ("Tulis pilihanmu...") pop!
 
-  // Master Fade In & Out
+  // QUICK-PICK 1: Tap Bar "aku pilih gemini" (46.05s) -> Instant Input (46.20s) -> Send (47.05s) -> Feed (47.32s)
+  addQuickTap(46.06, 680, 0.28);
+  addPopBlip(46.20, 420, 740, 0.12, 0.20); // Teks langsung terinput!
+  addPopBlip(47.06, 580, 960, 0.14, 0.24); // Tombol Send [↑] ditekan!
+  addSparkleChime(47.32, 783.99, 0.24, 0.15); // Komentar 1 masuk feed!
+
+  // QUICK-PICK 2: Tap Bar "kalau aku sih claude" (48.45s) -> Instant Input (48.60s) -> Send (49.45s) -> Feed (49.72s)
+  addQuickTap(48.46, 600, 0.28);
+  addPopBlip(48.60, 400, 700, 0.12, 0.20); // Teks langsung terinput!
+  addPopBlip(49.46, 600, 1020, 0.14, 0.25); // Tombol Send [↑] ditekan!
+  addSparkleChime(49.72, 987.77, 0.26, 0.16); // Komentar 2 masuk feed!
+  addGoldenChord(49.75, 2.00, 0.20);       // Warm Golden Chord penegas!
+  addSparkleChime(50.18, 1174.7, 0.26, 0.15); // Monocle Wink Glint Arto!
+
+  // Smooth handover swoosh menuju Page 5!
+  addAirSwoosh(53.30, 0.65, 0.85, 0.24);
+
+  // Soft-knee Limiter + Master Fade In/Out
+  let peak = 0;
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate;
     let out = samples[i];
     if (t < 0.08) out *= t / 0.08;
-    if (t > DURATION - 0.40) out *= (DURATION - t) / 0.40;
-    samples[i] = Math.max(-0.95, Math.min(0.95, out));
+    if (t > DURATION - 0.50) out *= (DURATION - t) / 0.50;
+    out = Math.tanh(out * 1.02) * 0.92;
+    samples[i] = out;
+    if (Math.abs(out) > peak) peak = Math.abs(out);
   }
 
-  // Format File WAV 16-bit PCM Mono
   const dataSize = numSamples * 2;
   const buffer = Buffer.alloc(44 + dataSize);
   buffer.write("RIFF", 0);
@@ -231,7 +244,7 @@ function generatePage4Audio(wavPath) {
   buffer.write("fmt ", 12);
   buffer.writeUInt32LE(16, 16);
   buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(1, 22); // mono
+  buffer.writeUInt16LE(1, 22);
   buffer.writeUInt32LE(sampleRate, 24);
   buffer.writeUInt32LE(sampleRate * 2, 28);
   buffer.writeUInt16LE(2, 32);
@@ -245,23 +258,31 @@ function generatePage4Audio(wavPath) {
   }
 
   fs.writeFileSync(wavPath, buffer);
-  console.log(`      Audio SFX Halaman 4 siap di: ${wavPath}`);
+  console.log(`      ✓ Audio Page 4 Final siap: ${wavPath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB, peak ${(peak * 100).toFixed(1)}%)`);
 }
 
 // ============================================================================
-// 2. RENDER 1860 FRAME DENGAN PLAYWRIGHT MULTI-WORKER HEADLESS CHROMIUM
+// 2. RENDER 1620 FRAME DENGAN PLAYWRIGHT MULTI-WORKER HEADLESS CHROMIUM
 // ============================================================================
-async function renderPage4Frames() {
-  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame (Supersampled 2x -> 1080x1920) dengan ${NUM_WORKERS} worker...`);
-  
-  // Bersihkan folder frames_page4 agar tidak mencampur frame lama
+async function renderPage4Frames(htmlPath) {
+  const forceRender = process.argv.includes("--force-frames");
+  const lastFramePath = path.join(FRAMES_DIR, `frame_${String(TOTAL_FRAMES - 1).padStart(4, "0")}.png`);
+
+  if (!forceRender && fs.existsSync(lastFramePath)) {
+    const files = fs.readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png"));
+    if (files.length >= TOTAL_FRAMES) {
+      console.log(`[2/3] Seluruh ${TOTAL_FRAMES} frame di frames_page4/ sudah lengkap! (Pakai --force-frames untuk render ulang)`);
+      return;
+    }
+  }
+
+  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame (SSAA 2x -> 1080x1920 @ ${FPS} FPS) dengan ${NUM_WORKERS} worker...`);
   if (fs.existsSync(FRAMES_DIR)) {
     fs.rmSync(FRAMES_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(FRAMES_DIR, { recursive: true });
 
   const browser = await chromium.launch({ headless: true });
-
   const framesPerWorker = Math.ceil(TOTAL_FRAMES / NUM_WORKERS);
   const workerTasks = [];
   let completedCount = 0;
@@ -279,7 +300,7 @@ async function renderPage4Frames() {
       const page = await context.newPage();
       page.on("pageerror", (err) => console.error(`[Worker ${workerId}] Page error:`, err));
 
-      await page.goto(HTML_PATH, { waitUntil: "load" });
+      await page.goto(htmlPath, { waitUntil: "load" });
 
       for (let frame = fromF; frame < toF; frame++) {
         const t = frame / FPS;
@@ -291,7 +312,7 @@ async function renderPage4Frames() {
         completedCount++;
         if (completedCount % 60 === 0 || completedCount === TOTAL_FRAMES) {
           const pct = ((completedCount / TOTAL_FRAMES) * 100).toFixed(0);
-          console.log(`      Progres render Halaman 4: ${completedCount}/${TOTAL_FRAMES} frame (${pct}%)`);
+          console.log(`      Progres render Page 4: ${completedCount}/${TOTAL_FRAMES} frame (${pct}%)`);
         }
       }
 
@@ -301,14 +322,14 @@ async function renderPage4Frames() {
 
   await Promise.all(workerTasks);
   await browser.close();
-  console.log(`      Semua ${TOTAL_FRAMES} frame Halaman 4 berhasil dirender!`);
+  console.log(`      ✓ Semua ${TOTAL_FRAMES} frame Page 4 selesai dirender!`);
 }
 
 // ============================================================================
-// 3. ENCODE KE page4_verdict.mp4 DENGAN FFMPEG (CRF 14 ULTRA-TAJAM)
+// 3. ENCODE KE page4_verdict.mp4 DENGAN FFMPEG (CRF 12 ULTRA-TAJAM)
 // ============================================================================
 function encodePage4Video() {
-  console.log("[3/3] Menggabungkan frame & audio menjadi page4_verdict.mp4 dengan FFmpeg...");
+  console.log("[3/3] Menggabungkan 1620 frame & audio menjadi page4_verdict.mp4 dengan FFmpeg...");
   const ffmpegArgs = [
     "-y",
     "-framerate", String(FPS),
@@ -318,7 +339,7 @@ function encodePage4Video() {
     "-profile:v", "high",
     "-level:v", "4.1",
     "-pix_fmt", "yuv420p",
-    "-crf", "14",
+    "-crf", "12",
     "-preset", "medium",
     "-c:a", "aac",
     "-ar", "44100",
@@ -330,26 +351,21 @@ function encodePage4Video() {
   ];
 
   execFileSync("ffmpeg", ffmpegArgs, { stdio: "inherit" });
-  console.log(`\n===============================================================`);
-  console.log(`SUKSES! Video Halaman 4 selesai dirender:`);
-  console.log(`Path: ${OUTPUT_MP4}`);
-  console.log(`Durasi: ${DURATION.toFixed(2)} detik (${TOTAL_FRAMES} frames @ 30 FPS, 1080x1920)`);
-  console.log(`===============================================================\n`);
+  console.log(`\nSUKSES! Video Page 4 Final selesai di: ${OUTPUT_MP4}`);
 }
 
-// ============================================================================
-// ENTRY POINT UTAMA
-// ============================================================================
 (async () => {
   const startTime = Date.now();
   try {
     generatePage4Audio(AUDIO_PATH);
-    await renderPage4Frames();
-    encodePage4Video();
-    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`Waktu proses total: ${elapsedSec} detik`);
+    if (!process.argv.includes("--audio-only")) {
+      const htmlPath = resolveHtmlPath();
+      await renderPage4Frames(htmlPath);
+      encodePage4Video();
+    }
+    console.log(`Total waktu proses: ${((Date.now() - startTime) / 1000).toFixed(1)} detik`);
   } catch (err) {
-    console.error("Terjadi kesalahan saat rendering Halaman 4:", err);
+    console.error("Terjadi kesalahan saat rendering Page 4 Final:", err);
     process.exit(1);
   }
 })();

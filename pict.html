@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
-  <title>Joulfiand Studio — Gemini vs Claude Showcase</title>
+  <title>Joulfiand Studio — Halaman 3: Gemini vs Claude Showcase (12s)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -27,7 +27,7 @@
       height: calc(100vh - 60px);
       aspect-ratio: 9 / 16;
       display: block;
-      background: #0e0e10;
+      background: #0f0f11;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
     }
     #controls {
@@ -41,6 +41,7 @@
       border-top: 1px solid #242429;
       width: 100%;
       font-size: 12px;
+      flex-wrap: wrap;
     }
     button {
       background: #1e1e24;
@@ -51,20 +52,34 @@
       cursor: pointer;
       font-family: inherit;
       font-size: 12px;
-      transition: background 0.15s;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
     }
     button:hover {
       background: #2b2b33;
+      border-color: #ebb343;
     }
     button.primary {
       background: #ebb343;
       color: #0e0e10;
       border-color: #ebb343;
-      font-weight: 700;
+      font-weight: 800;
+    }
+    button.primary:hover {
+      background: #ffd066;
     }
     input[type="range"] {
-      width: 130px;
+      width: 140px;
       cursor: pointer;
+      accent-color: #ebb343;
+    }
+    #timeLabel {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      color: #ebb343;
+      font-weight: 700;
+      min-width: 112px;
+      text-align: right;
     }
     body.headless {
       width: 1080px;
@@ -82,7 +97,13 @@
   </style>
 </head>
 <body>
-  <!-- Kanvas beresolusi internal 2x (2160x3840) agar teks & garis luar sangat tajam (Supersampled) -->
+  <!--
+    JOULFIAND STUDIO — HALAMAN 3 (SIDE-BY-SIDE SHOWCASE)
+    • Resolusi Master : 1080x1920 (2x SSAA -> 2160x3840) @ 30 FPS · 12.00s (360 frame)
+    • Slot Kiri       : Gemini (Carbon · High)  — Sumber animasi: animation.html  | { x: 48,  y: 464, w: 468, h: 832 }
+    • Slot Kanan      : Claude (Opus 5.5 · Extra) — Sumber animasi: frames_claude / claude_rocket_pixelart.mp4 | { x: 564, y: 464, w: 468, h: 832 }
+    • Global API      : window.drawFrame(t), window.DURATION, window.TOTAL_FRAMES, window.BOX_COORDS, window.PAGE_META
+  -->
   <canvas id="stage" width="2160" height="3840"></canvas>
 
   <div id="controls">
@@ -91,6 +112,7 @@
     <button id="btnOrbit">3 · Orbit (11.97s)</button>
     <button id="btnPlay">Play Timeline</button>
     <input id="slider" type="range" min="0" max="359" value="359" />
+    <span id="timeLabel">11.97 / 12.00 s</span>
     <button id="btnSwap">Urutan: GEMINI vs CLAUDE</button>
     <button id="btnChroma">Layar: Hitam</button>
     <button id="btnDownload" class="primary">Download PNG Tajam</button>
@@ -109,33 +131,58 @@
       const canvas = document.getElementById("stage");
       const ctx = canvas.getContext("2d", { alpha: false });
 
-      // Koordinat desain menggunakan ruang 1080x1920, digambar pada skala 2x (2160x3840)
+      // Koordinat desain 1080x1920, digambar pada skala 2x (2160x3840) agar sangat tajam
       const W = 1080;
       const H = 1920;
       const SSAA = 2;
       const FPS = 30;
       const DURATION = 12.0;
+      const TOTAL_FRAMES = Math.round(FPS * DURATION); // 360 frame
 
-      // Ukuran 2 Layar Pembagi Diperbesar: 468x832 (Rasio Murni 9:16 -> 468/9 = 52, 52*16 = 832)
+      // Ukuran 2 Layar Pembagi: 468x832 (Rasio Murni 9:16 -> 468/9 = 52, 52*16 = 832)
       const LEFT_BOX  = { x: 48,  y: 464, w: 468, h: 832 };
       const RIGHT_BOX = { x: 564, y: 464, w: 468, h: 832 };
+
+      // Metadata terstruktur untuk memudahkan integrasi ke final.html
+      const PAGE_META = {
+        page: 3,
+        id: "page3_showcase",
+        duration: DURATION,
+        fps: FPS,
+        totalFrames: TOTAL_FRAMES,
+        sources: {
+          geminiHtml: "animation.html",
+          geminiFramesDir: "frames",
+          geminiVideo: "rocket_launch_pixelart.mp4",
+          claudeFramesDir: "frames_claude",
+          claudeVideo: "claude_rocket_pixelart.mp4",
+          audio: "audio.wav"
+        },
+        slots: {
+          left: LEFT_BOX,
+          right: RIGHT_BOX
+        }
+      };
 
       let screenFillMode = params.get("screen") === "green" ? "green" : "black";
       // Default: false = GEMINI di Kiri, CLAUDE di Kanan ("GEMINI VS CLAUDE.")
       let swapColumns = params.get("swap") === "1";
 
-      function roundRect(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
+      const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+
+      function roundRect(c, x, y, w, h, r) {
+        const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        c.beginPath();
+        c.moveTo(x + rad, y);
+        c.lineTo(x + w - rad, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + rad);
+        c.lineTo(x + w, y + h - rad);
+        c.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        c.lineTo(x + rad, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - rad);
+        c.lineTo(x, y + rad);
+        c.quadraticCurveTo(x, y, x + rad, y);
+        c.closePath();
       }
 
       // Menggambar tanda crosshair (+) halus ala desain editorial teknis
@@ -168,7 +215,7 @@
         return totalW;
       }
 
-      // Menggambar Kapsul Badge Model (Matte Editorial Style)
+      // Menggambar Kapsul Badge Model (Matte Editorial Style — konsisten dengan Page 1, 2, 4 & 5)
       function drawModelBadge(x, y, w, h, accentHex, brandName, versionText) {
         ctx.save();
         roundRect(ctx, x, y, w, h, 10);
@@ -178,25 +225,36 @@
         ctx.lineWidth = 1.25;
         ctx.strokeStyle = "#26262c";
         ctx.stroke();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+
+        // Top gloss hairline
+        ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
         ctx.fillRect(x + 12, y + 1, w - 24, 1);
+
+        // Titik aksen warna model
         const dotSize = 13;
         const dotX = x + 22;
         const dotY = y + (h - dotSize) / 2;
         roundRect(ctx, dotX, dotY, dotSize, dotSize, 3.5);
         ctx.fillStyle = accentHex;
         ctx.fill();
+
+        // Nama Brand
         ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
         ctx.fillStyle = accentHex;
         ctx.textBaseline = "middle";
         const brandX = dotX + dotSize + 13;
         const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+
+        // Versi Model
         ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.fillStyle = "#8e8d88";
+        ctx.textAlign = "left";
         ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
         ctx.restore();
       }
-      function drawViewportSlot(box, captionLeft, captionRight) {
+
+      // Menggambar Slot Viewport Video 9:16 (468 x 832 px)
+      function drawViewportSlot(box, accentHex, captionLeft, captionRight) {
         ctx.save();
         ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
         ctx.shadowBlur = 24;
@@ -204,13 +262,23 @@
         ctx.fillStyle = screenFillMode === "green" ? "#00ff00" : "#050507";
         ctx.fillRect(box.x, box.y, box.w, box.h);
         ctx.shadowColor = "transparent";
+
+        // Frame border teknis
         ctx.lineWidth = 1.5;
         ctx.strokeStyle = "#292930";
         ctx.strokeRect(box.x - 0.75, box.y - 0.75, box.w + 1.5, box.h + 1.5);
+
+        // Aksen garis tipis warna model di puncak slot
+        ctx.fillStyle = accentHex;
+        ctx.fillRect(box.x + box.w / 2 - 44, box.y - 1.5, 88, 2.5);
+
+        // 4 Corner Crosshair
         drawCrosshair(box.x - 1, box.y - 1, 4, "#4a4a52");
         drawCrosshair(box.x + box.w + 1, box.y - 1, 4, "#4a4a52");
         drawCrosshair(box.x - 1, box.y + box.h + 1, 4, "#4a4a52");
         drawCrosshair(box.x + box.w + 1, box.y + box.h + 1, 4, "#4a4a52");
+
+        // Caption bawah kiri
         ctx.font = "500 21px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.fillStyle = "#969590";
         ctx.textAlign = "left";
@@ -230,8 +298,9 @@
       // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 12.00)
       // =========================================================================
       function drawFrame(t) {
-        const time = Math.max(0, Math.min(DURATION, Number(t) || 0));
+        const time = clamp(Number(t) || 0, 0, DURATION);
 
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.save();
         ctx.scale(SSAA, SSAA);
 
@@ -257,6 +326,11 @@
         ctx.fillRect(24, 122, W - 48, 1);
         ctx.fillRect(24, 1792, W - 48, 1);
 
+        // Garis progres emas tipis di masthead (konsisten dengan Page 4 & Page 5)
+        const progRatio = clamp(time / DURATION, 0, 1);
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(24, 121.5, (W - 48) * progRatio, 1.5);
+
         // Garis vertikal pembagi tengah (x = 540) — TERPUTUS RAPI di area Judul & Timeline!
         ctx.fillStyle = "#1d1d22";
         ctx.fillRect(539.5, 44, 1, 212);    // Segmen atas (Masthead & Badge)
@@ -273,7 +347,6 @@
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
 
-        // Titik aksen emas di kiri masthead
         ctx.fillStyle = "#ebb343";
         ctx.fillRect(48, 80, 6, 6);
 
@@ -284,15 +357,23 @@
         fillTrackedText("03 — HASIL  ·  1 SHOT", W - 48, 83.5, 1.8, "right");
 
         // -----------------------------------------------------------------------
-        // 4. MODEL BADGES & JUDUL UTAMA (SINKRON KIRI & KANAN!)
+        // 4. MODEL BADGES & JUDUL UTAMA (KONSISTEN: Carbon · High vs Opus 5.5 · Extra)
         // -----------------------------------------------------------------------
-        const leftModel = swapColumns
-          ? { accent: "#e07a5f", brand: "CLAUDE", ver: "Opus 5.5 · Extra", cap: "Claude Code  ·  12.0 s" }
-          : { accent: "#6ea8fe", brand: "GEMINI", ver: "4 Argon · High",   cap: "Gemini Code  ·  12.0 s" };
+        const GEMINI_INFO = {
+          accent: "#6ea8fe",
+          brand: "GEMINI",
+          ver: "Carbon · High",
+          cap: "Gemini Code  ·  12.0 s"
+        };
+        const CLAUDE_INFO = {
+          accent: "#e07a5f",
+          brand: "CLAUDE",
+          ver: "Opus 5.5 · Extra",
+          cap: "Claude Code  ·  12.0 s"
+        };
 
-        const rightModel = swapColumns
-          ? { accent: "#6ea8fe", brand: "GEMINI", ver: "4 Argon · High",   cap: "Gemini Code  ·  12.0 s" }
-          : { accent: "#e07a5f", brand: "CLAUDE", ver: "Opus 5.5 · Extra", cap: "Claude Code  ·  12.0 s" };
+        const leftModel  = swapColumns ? CLAUDE_INFO : GEMINI_INFO;
+        const rightModel = swapColumns ? GEMINI_INFO : CLAUDE_INFO;
 
         drawModelBadge(LEFT_BOX.x,  162, LEFT_BOX.w,  56, leftModel.accent,  leftModel.brand,  leftModel.ver);
         drawModelBadge(RIGHT_BOX.x, 162, RIGHT_BOX.w, 56, rightModel.accent, rightModel.brand, rightModel.ver);
@@ -325,14 +406,14 @@
         // -----------------------------------------------------------------------
         // 5. DUA LAYAR PEMBAGI PRESISI (468 x 832 px)
         // -----------------------------------------------------------------------
-        drawViewportSlot(LEFT_BOX,  leftModel.cap,  "270×480 · 4X NN");
-        drawViewportSlot(RIGHT_BOX, rightModel.cap, "270×480 · 4X NN");
+        drawViewportSlot(LEFT_BOX,  leftModel.accent,  leftModel.cap,  "270×480 · 4X NN");
+        drawViewportSlot(RIGHT_BOX, rightModel.accent, rightModel.cap, "270×480 · 4X NN");
 
         // -----------------------------------------------------------------------
         // 6. TIMELINE SINKRON 3 ADEGAN (1 · SENJA | 2 · LEPAS LANDAS | 3 · ORBIT)
         // -----------------------------------------------------------------------
         const tlX = LEFT_BOX.x;                        // 48
-        const tlW = (RIGHT_BOX.x + RIGHT_BOX.w) - tlX; // 984 px (Habis dibagi 3 = 328 px per segmen)
+        const tlW = (RIGHT_BOX.x + RIGHT_BOX.w) - tlX; // 984 px (328 px per segmen)
         const segW = tlW / 3;                          // 328 px
         const tlY = 1382;
 
@@ -341,7 +422,6 @@
         ctx.fillRect(tlX, tlY, tlW, 2);
 
         // Track progres yang sudah berjalan
-        const progRatio = Math.max(0, Math.min(1, time / DURATION));
         const progW = tlW * progRatio;
         ctx.fillStyle = "#787670";
         ctx.fillRect(tlX, tlY, progW, 2);
@@ -392,21 +472,22 @@
         ctx.fillText(" / 12.00 s", tlX + curSecW, timeY);
 
         // Indikator Frame di sisi kanan timeline
-        const frameNum = Math.min(360, Math.floor(time * FPS) + 1);
+        const frameNum = Math.min(TOTAL_FRAMES, Math.floor(time * FPS) + 1);
         ctx.font = "500 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textAlign = "right";
         ctx.fillStyle = "#5c5b57";
-        ctx.fillText(`FRAME ${String(frameNum).padStart(3, "0")} / 360`, tlX + tlW, timeY + 4);
+        ctx.fillText(`FRAME ${String(frameNum).padStart(3, "0")} / ${TOTAL_FRAMES}`, tlX + tlW, timeY + 4);
 
         // -----------------------------------------------------------------------
-        // 7. FOOTER BAWAH
+        // 7. FOOTER BAWAH (TIMECODE DINAMIS — KONSISTEN DENGAN PAGE 4 & PAGE 5!)
         // -----------------------------------------------------------------------
         const footY = 1834;
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
-        ctx.textAlign = "left";
         ctx.fillStyle = "#6e6d68";
-        fillTrackedText("00:12:00", LEFT_BOX.x, footY, 1.2, "left");
+        const ss = String(Math.floor(time)).padStart(2, "0");
+        const ff = String(Math.min(FPS - 1, Math.floor((time % 1) * FPS))).padStart(2, "0");
+        fillTrackedText(`00:${ss}:${ff}`, LEFT_BOX.x, footY, 1.2, "left");
 
         ctx.fillStyle = "#ebb343";
         ctx.fillRect(LEFT_BOX.x + 104, footY - 4, 7, 7);
@@ -419,9 +500,12 @@
         ctx.restore();
       }
 
-      // Ekspos API global untuk Playwright
+      // Ekspos API global standar untuk Playwright & integrasi final.html (Antigravity)
       window.drawFrame = drawFrame;
+      window.DURATION = DURATION;
+      window.TOTAL_FRAMES = TOTAL_FRAMES;
       window.BOX_COORDS = { LEFT_BOX, RIGHT_BOX };
+      window.PAGE_META = PAGE_META;
 
       // Kontrol Interaktif Browser
       let currentTime = Number(params.get("t") ?? 11.97);
@@ -430,15 +514,19 @@
       let startStamp = 0;
 
       const slider = document.getElementById("slider");
+      const timeLabel = document.getElementById("timeLabel");
       const btnPlay = document.getElementById("btnPlay");
       const btnChroma = document.getElementById("btnChroma");
       const btnSwap = document.getElementById("btnSwap");
 
       function updateView(sec) {
-        currentTime = Math.max(0, Math.min(DURATION, sec));
+        currentTime = clamp(sec, 0, DURATION);
         drawFrame(currentTime);
         if (slider) {
-          slider.value = Math.min(359, Math.floor(currentTime * FPS));
+          slider.value = Math.min(TOTAL_FRAMES - 1, Math.floor(currentTime * FPS));
+        }
+        if (timeLabel) {
+          timeLabel.textContent = `${currentTime.toFixed(2).padStart(5, "0")} / ${DURATION.toFixed(2)} s`;
         }
       }
 
@@ -459,6 +547,7 @@
           updateView(11.97);
         };
 
+        slider.max = TOTAL_FRAMES - 1;
         slider.oninput = () => {
           isPlaying = false;
           btnPlay.textContent = "Play Timeline";

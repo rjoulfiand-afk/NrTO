@@ -1,0 +1,2927 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
+  <title>Joulfiand Studio — Halaman 5 v2 (Finale): Orbital Dropship & Kinetic Boarding! (28s)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #09090b;
+      color: #f4f3ef;
+      font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #stage {
+      height: calc(100vh - 64px);
+      aspect-ratio: 9 / 16;
+      display: block;
+      background: #0f0f11;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
+    }
+    #controls {
+      height: 58px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      background: #141417;
+      border-top: 1px solid #242429;
+      width: 100%;
+      font-size: 11px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    button {
+      background: #1e1e24;
+      color: #e6e5e0;
+      border: 1px solid #32323a;
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover {
+      background: #2b2b33;
+      border-color: #ebb343;
+    }
+    button.primary {
+      background: #ebb343;
+      color: #0e0e10;
+      border-color: #ebb343;
+      font-weight: 800;
+    }
+    button.primary:hover {
+      background: #ffd066;
+    }
+    input[type="range"] {
+      width: 155px;
+      cursor: pointer;
+      accent-color: #ebb343;
+    }
+    #timeLabel {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      color: #ebb343;
+      font-weight: 700;
+      min-width: 122px;
+      text-align: right;
+    }
+    body.headless {
+      width: 1080px;
+      height: 1920px;
+      display: block;
+    }
+    body.headless #stage {
+      width: 1080px !important;
+      height: 1920px !important;
+      box-shadow: none;
+    }
+    body.headless #controls {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Kanvas 2x Supersampled (2160x3840 -> 1080x1920) Identik dengan Intro, Page 1, Page 2 & Page 4 -->
+  <canvas id="stage" width="2160" height="3840"></canvas>
+
+  <div id="controls">
+    <button id="btnPlay" class="primary">Play / Pause</button>
+    <button id="b1">1. Follow (3.5s)</button>
+    <button id="b2">2. Klik! (5.2s)</button>
+    <button id="b3">3. GitHub (8.0s)</button>
+    <button id="b4">4. Nunduk (10.8s)</button>
+    <button id="b5">5. Boss Roket! (15.0s)</button>
+    <button id="b6">6. Merry Board (17.5s)</button>
+    <button id="b7">7. Roger Board (19.9s)</button>
+    <button id="b8">8. Arto Hang (22.6s)</button>
+    <button id="b9">9. Blast Off (26.0s)</button>
+    <input id="slider" type="range" min="0" max="839" value="0" />
+    <span id="timeLabel">00.00 / 28.00 s</span>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const params = new URLSearchParams(window.location.search);
+      const isHeadless = params.has("headless") || params.has("render");
+      if (isHeadless) document.body.classList.add("headless");
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const W = 1080;
+      const H = 1920;
+      const SSAA = 2;
+      const FPS = 30;
+      const DURATION = 28.00; // 28.00 Detik (840 Frame @ 30 FPS)
+      const TOTAL_FRAMES = Math.round(FPS * DURATION);
+
+      const ARTO_SHIRT = { name: "Royal Plum", main: "#6c36a3", dark: "#4b2275", accent: "#ebb343" };
+
+      // Load foto profil IG dari profile.jpeg (di folder yang sama!)
+      const profilePhoto = new Image();
+      let profilePhotoReady = false;
+      profilePhoto.onload = () => {
+        profilePhotoReady = true;
+        if (!isPlaying) drawFrame(currentTime);
+      };
+      profilePhoto.onerror = () => {
+        profilePhotoReady = false;
+      };
+      profilePhoto.src = "profile.jpeg";
+
+      // =======================================================================
+      // 1. MATEMATIKA, EASING, LIP-SYNC & HELPER VISUAL
+      // =======================================================================
+      const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * (3 - 2 * k);
+      };
+      const smootherstep = (a, b, x) => {
+        const k = clamp((x - a) / (b - a), 0, 1);
+        return k * k * k * (k * (k * 6 - 15) + 10);
+      };
+      const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+      const easeOutQuart = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 4);
+      const easeInQuad = (x) => { const k = clamp(x, 0, 1); return k * k; };
+      const easeInCubic = (x) => { const k = clamp(x, 0, 1); return k * k * k; };
+      const easeInOutCubic = (x) => {
+        const k = clamp(x, 0, 1);
+        return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      };
+      function softSpringOut(x, overshoot = 0.85) {
+        const k = clamp(x, 0, 1);
+        const c1 = overshoot, c3 = c1 + 1;
+        return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+      }
+      function bellCurve(time, a, peakIn, peakOut, b) {
+        return smootherstep(a, peakIn, time) * (1 - smootherstep(peakOut, b, time));
+      }
+      function quadBezier(p0, p1, p2, t) {
+        const u = 1 - t;
+        return u * u * p0 + 2 * u * t * p1 + t * t * p2;
+      }
+
+      function getLipSyncOpen(time, activeWeight) {
+        if (activeWeight <= 0.02) return 0;
+        const syl1 = Math.max(0, Math.sin(time * 17.5));
+        const syl2 = Math.max(0, Math.sin(time * 25.0 + 1.1));
+        const cad  = 0.58 + 0.42 * Math.sin(time * 6.5 + 0.3);
+        return clamp((syl1 * 0.65 + syl2 * 0.55) * cad, 0, 1) * activeWeight;
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        c.beginPath();
+        c.moveTo(x + rad, y);
+        c.lineTo(x + w - rad, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + rad);
+        c.lineTo(x + w, y + h - rad);
+        c.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        c.lineTo(x + rad, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - rad);
+        c.lineTo(x, y + rad);
+        c.quadraticCurveTo(x, y, x + rad, y);
+        c.closePath();
+      }
+
+      function drawCrosshair(x, y, size, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - size, y - 0.5, size * 2 + 1, 1);
+        ctx.fillRect(x - 0.5, y - size, 1, size * 2 + 1);
+      }
+
+      function fillTrackedText(text, x, y, tracking, align = "left") {
+        const chars = String(text).split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += tracking * Math.max(0, chars.length - 1);
+        let curX = x;
+        if (align === "right") curX = x - totalW;
+        else if (align === "center") curX = x - totalW / 2;
+        ctx.textAlign = "left";
+        for (let i = 0; i < chars.length; i++) {
+          ctx.fillText(chars[i], curX, y);
+          curX += widths[i] + tracking;
+        }
+        return totalW;
+      }
+
+      function hexToRgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      }
+
+      function shadeRgb(rgb, factor, rimRgb, rimWeight) {
+        let r = rgb[0] * factor, g = rgb[1] * factor, b = rgb[2] * factor;
+        if (rimRgb && rimWeight > 0) {
+          r += rimRgb[0] * rimWeight;
+          g += rimRgb[1] * rimWeight;
+          b += rimRgb[2] * rimWeight;
+        }
+        return `rgb(${clamp(Math.round(r), 0, 255)},${clamp(Math.round(g), 0, 255)},${clamp(Math.round(b), 0, 255)})`;
+      }
+
+      function normalize3(v) {
+        const len = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / len, v[1] / len, v[2] / len];
+      }
+      function cross3(a, b) {
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      }
+      function dot3(a, b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      }
+
+
+      // =======================================================================
+      // 2. 3D POLYHEDRON ENGINE (BOX + OFFSET TAPERED PRISM)
+      // =======================================================================
+      const KEY_LIGHT  = normalize3([-0.38, 0.72, 0.58]);
+      const FILL_LIGHT = normalize3([ 0.55, 0.25, 0.45]);
+
+      function transformPoint(p, tf) {
+        let x = p[0] * tf.sx, y = p[1] * tf.sy, z = p[2] * tf.sz;
+        if (tf.rz) {
+          const c = Math.cos(tf.rz), s = Math.sin(tf.rz);
+          const nx = x * c - y * s, ny = x * s + y * c;
+          x = nx; y = ny;
+        }
+        if (tf.rx) {
+          const c = Math.cos(tf.rx), s = Math.sin(tf.rx);
+          const ny = y * c - z * s, nz = y * s + z * c;
+          y = ny; z = nz;
+        }
+        if (tf.ry) {
+          const c = Math.cos(tf.ry), s = Math.sin(tf.ry);
+          const nx = x * c + z * s, nz = -x * s + z * c;
+          x = nx; z = nz;
+        }
+        return [x + tf.tx, y + tf.ty, z + tf.tz];
+      }
+
+      function applyChain(p, chain) {
+        let cur = p;
+        for (let i = 0; i < chain.length; i++) {
+          if (chain[i]) cur = transformPoint(cur, chain[i]);
+        }
+        return cur;
+      }
+
+      function pushPolyFace(quadList, verts, rgb, opts = {}) {
+        const v0 = verts[0], v1 = verts[1], v2 = verts[2];
+        const n = normalize3(cross3(
+          [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]],
+          [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]]
+        ));
+        let cx = 0, cy = 0, cz = 0;
+        for (let i = 0; i < verts.length; i++) {
+          cx += verts[i][0]; cy += verts[i][1]; cz += verts[i][2];
+        }
+        const inv = 1 / verts.length;
+        quadList.push({
+          verts, normal: n, center: [cx * inv, cy * inv, cz * inv], rgb,
+          ao: opts.ao !== undefined ? opts.ao : 1.0,
+          rimRgb: opts.rimRgb || null,
+          rimDir: opts.rimDir || [0, 0, 0],
+          dimFactor: opts.dimFactor !== undefined ? opts.dimFactor : 1.0,
+          layer: opts.layer !== undefined ? opts.layer : 2,
+          unlit: opts.unlit === true,
+          alpha: opts.alpha !== undefined ? opts.alpha : 1.0,
+          strokeSame: opts.strokeSame !== false
+        });
+      }
+
+      function pushBox(quadList, cx, cy, cz, w, h, d, rgb, tfChain, opts = {}) {
+        const hw = w / 2, hh = h / 2, hd = d / 2;
+        const raw = [
+          [cx - hw, cy - hh, cz + hd], [cx + hw, cy - hh, cz + hd],
+          [cx + hw, cy + hh, cz + hd], [cx - hw, cy + hh, cz + hd],
+          [cx - hw, cy - hh, cz - hd], [cx + hw, cy - hh, cz - hd],
+          [cx + hw, cy + hh, cz - hd], [cx - hw, cy + hh, cz - hd]
+        ];
+        const v = raw.map((p) => applyChain(p, tfChain));
+        const defs = [
+          { idx: [0, 1, 2, 3], ao: 1.00 }, { idx: [5, 4, 7, 6], ao: 0.80 },
+          { idx: [1, 5, 6, 2], ao: 0.90 }, { idx: [4, 0, 3, 7], ao: 0.93 },
+          { idx: [3, 2, 6, 7], ao: 1.06 }, { idx: [4, 5, 1, 0], ao: 0.68 }
+        ];
+        const mask = opts.faceMask || [1, 1, 1, 1, 1, 1];
+        for (let f = 0; f < 6; f++) {
+          if (!mask[f]) continue;
+          const fd = defs[f];
+          pushPolyFace(quadList, [v[fd.idx[0]], v[fd.idx[1]], v[fd.idx[2]], v[fd.idx[3]]], rgb, { ...opts, ao: fd.ao });
+        }
+      }
+
+
+      function pushBoxQuads(quadList, cx, cy, cz, w, h, d, rgb, localTf, worldTf, opts = {}) {
+        pushBox(quadList, cx, cy, cz, w, h, d, rgb, localTf ? [localTf, worldTf] : [worldTf], opts);
+      }
+
+      function pushTaperedPrism(quadList, cx, cy, cz, rxBot, rzBot, rxTop, rzTop, h, sides, rgb, tfChain, opts = {}) {
+        const y0 = cy - h / 2, y1 = cy + h / 2;
+        const dxBot = opts.dxBot || 0, dzBot = opts.dzBot || 0;
+        const dxTop = opts.dxTop || 0, dzTop = opts.dzTop || 0;
+        const botRing = [], topRing = [];
+        for (let i = 0; i < sides; i++) {
+          const a = (i / sides) * Math.PI * 2;
+          const ca = Math.cos(a), sa = -Math.sin(a);
+          botRing.push(applyChain([cx + dxBot + ca * rxBot, y0, cz + dzBot + sa * rzBot], tfChain));
+          topRing.push(applyChain([cx + dxTop + ca * rxTop, y1, cz + dzTop + sa * rzTop], tfChain));
+        }
+        for (let i = 0; i < sides; i++) {
+          const j = (i + 1) % sides;
+          pushPolyFace(quadList, [botRing[i], botRing[j], topRing[j], topRing[i]], rgb, { ...opts, ao: 0.94 });
+        }
+        if (opts.capTop !== false && rxTop > 0.04) {
+          pushPolyFace(quadList, topRing.slice(), rgb, { ...opts, ao: 1.07 });
+        }
+        if (opts.capBot !== false && rxBot > 0.04) {
+          pushPolyFace(quadList, botRing.slice().reverse(), rgb, { ...opts, ao: 0.68 });
+        }
+      }
+
+      function renderSceneQuads(quadList, originX, originY, camDist, fov, actorAlpha = 1.0) {
+        if (actorAlpha <= 0.01 || quadList.length === 0) return;
+        const camPos = [0, 1.0, camDist];
+        const visible = [];
+
+        for (let i = 0; i < quadList.length; i++) {
+          const q = quadList[i];
+          const dx = camPos[0] - q.center[0];
+          const dy = camPos[1] - q.center[1];
+          const dz = camPos[2] - q.center[2];
+          if (dot3(q.normal, [dx, dy, dz]) <= 0.0005 || dz < 2.0) continue;
+
+          let fill;
+          if (q.unlit) {
+            fill = shadeRgb(q.rgb, q.dimFactor, null, 0);
+          } else {
+            const ndl = Math.max(0, dot3(q.normal, KEY_LIGHT));
+            const ndf = Math.max(0, dot3(q.normal, FILL_LIGHT));
+            const shade = (0.50 + 0.42 * ndl + 0.14 * ndf) * q.ao * q.dimFactor;
+            const rimHit = q.rimRgb ? Math.max(0, dot3(q.normal, q.rimDir)) * 0.24 * q.dimFactor : 0;
+            fill = shadeRgb(q.rgb, shade, q.rimRgb, rimHit);
+          }
+
+          const proj = q.verts.map((v) => {
+            const sc = fov / Math.max(1.5, camPos[2] - v[2]);
+            return [originX + (v[0] - camPos[0]) * sc, originY - (v[1] - camPos[1]) * sc];
+          });
+
+          visible.push({
+            layer: q.layer,
+            distSq: dx * dx + dy * dy + dz * dz,
+            proj, fill, alpha: q.alpha * actorAlpha, strokeSame: q.strokeSame
+          });
+        }
+
+        visible.sort((a, b) => (a.layer !== b.layer ? a.layer - b.layer : b.distSq - a.distSq));
+
+        for (let i = 0; i < visible.length; i++) {
+          const item = visible[i], p = item.proj;
+          ctx.save();
+          if (item.alpha < 1) ctx.globalAlpha *= item.alpha;
+          ctx.beginPath();
+          ctx.moveTo(p[0][0], p[0][1]);
+          for (let k = 1; k < p.length; k++) ctx.lineTo(p[k][0], p[k][1]);
+          ctx.closePath();
+          ctx.fillStyle = item.fill;
+          ctx.fill();
+          if (item.strokeSame) {
+            ctx.strokeStyle = item.fill;
+            ctx.lineWidth = 0.75;
+            ctx.lineJoin = "round";
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      function project3DPoint(wx, wy, wz, originX, originY, camDist, fov) {
+        const sc = fov / Math.max(1.5, camDist - wz);
+        return { x: originX + wx * sc, y: originY - (wy - 1.0) * sc, sc };
+      }
+
+      // =======================================================================
+      // 3. SCULPTED 3D ARTIST PAINTBRUSH (SUDAH ACC!)
+      // =======================================================================
+      const WOOD_RICH    = hexToRgb("#a86234");
+      const WOOD_TAIL    = hexToRgb("#6e3a1c");
+      const SILVER_METAL = hexToRgb("#d6dce6");
+      const SILVER_CRIMP = hexToRgb("#7f899c");
+      const SABLE_HAIR   = hexToRgb("#29201d");
+      const SABLE_MID    = hexToRgb("#47352d");
+      const GOLD_PAINT   = hexToRgb("#ebb343");
+      const GOLD_WET     = hexToRgb("#ffe89c");
+
+      function pushSculptedPaintbrush(quadList, brushChain, baseOpts) {
+        const sides = 10;
+        const pOpts = { ...baseOpts, layer: 2 };
+        pushTaperedPrism(quadList, 0, -3.175, 0, 0.08, 0.08, 0.25, 0.25, 2.15, sides, WOOD_TAIL, brushChain, { ...pOpts, capTop: false });
+        pushTaperedPrism(quadList, 0, -0.875, 0, 0.25, 0.25, 0.42, 0.42, 2.45, sides, WOOD_RICH, brushChain, { ...pOpts, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  0.95,  0, 0.42, 0.42, 0.36, 0.36, 1.20, sides, WOOD_RICH, brushChain, { ...pOpts, capBot: false, capTop: false });
+
+        pushTaperedPrism(quadList, 0,  1.72,  0, 0.37, 0.37, 0.38, 0.38, 0.34, sides, SILVER_METAL, brushChain, { ...pOpts, capTop: false });
+        pushTaperedPrism(quadList, 0,  1.95,  0, 0.41, 0.41, 0.41, 0.41, 0.12, sides, SILVER_CRIMP, brushChain, { ...pOpts, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  2.14,  0, 0.38, 0.38, 0.39, 0.39, 0.26, sides, SILVER_METAL, brushChain, { ...pOpts, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  2.33,  0, 0.42, 0.42, 0.42, 0.42, 0.12, sides, SILVER_CRIMP, brushChain, { ...pOpts, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  2.62,  0, 0.39, 0.39, 0.42, 0.38, 0.46, sides, SILVER_METAL, brushChain, { ...pOpts, capBot: false });
+
+        pushTaperedPrism(quadList, 0,  3.15,  0, 0.40, 0.36, 0.80, 0.66, 0.60, sides, SABLE_HAIR, brushChain, { ...pOpts, dxBot: 0, dxTop: 0.04, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  3.75,  0, 0.80, 0.66, 0.68, 0.56, 0.60, sides, SABLE_MID,  brushChain, { ...pOpts, dxBot: 0.04, dxTop: 0.12, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  4.385, 0, 0.68, 0.56, 0.28, 0.24, 0.67, sides, GOLD_PAINT, brushChain, { ...pOpts, dxBot: 0.12, dxTop: 0.26, capBot: false, capTop: false });
+        pushTaperedPrism(quadList, 0,  5.01,  0, 0.28, 0.24, 0.03, 0.03, 0.58, sides, GOLD_WET,   brushChain, { ...pOpts, dxBot: 0.26, dxTop: 0.44, capBot: false, capTop: false, unlit: true });
+      }
+
+      // =======================================================================
+      // 4. MASKOT 3D "ARTO" — FACEPLANT -> PUSH-UP DUDUK -> KESAKITAN -> SUPER TENGIL + LIP-SYNC!
+      // =======================================================================
+      const SKIN_WHITE   = hexToRgb("#f5f2ea");
+      const SKIN_LID     = hexToRgb("#e8e4da"); // Kelopak mata miring untuk tatapan tengil!
+      const SKIN_BLUSH   = hexToRgb("#ff9a94");
+      const BERET_RED    = hexToRgb("#d63238");
+      const BERET_DARK   = hexToRgb("#8a1b22");
+      const LEG_CHARCOAL = hexToRgb("#1f212a");
+      const SHOE_SLATE   = hexToRgb("#2e313f");
+      const EYE_DARK     = hexToRgb("#121318");
+      const BROW_DARK    = hexToRgb("#26242a");
+      const MOUTH_CAVITY = hexToRgb("#1f1014");
+      const TONGUE_PINK  = hexToRgb("#ef6c82");
+      const TEETH_WHITE  = hexToRgb("#ffffff");
+      const SHINE_WHITE  = hexToRgb("#ffffff");
+      const GOLD_BRIGHT  = hexToRgb("#ebb343");
+      const GOLD_LIGHT   = hexToRgb("#ffe28a");
+      const RIM_WARM     = hexToRgb("#ffe8b0");
+      const RIM_DIR      = normalize3([0.65, 0.45, -0.35]);
+
+      const ORBIT_RELICS = [
+        { type: "star",    ang: 0.3,  rad: 7.4, yOff:  4.8, col: hexToRgb("#ebb343") },
+        { type: "frame",   ang: 1.55, rad: 7.2, yOff:  2.0, col: hexToRgb("#ffe07d") },
+        { type: "palette", ang: 2.85, rad: 7.6, yOff: -0.6, col: hexToRgb("#f5f2ea") },
+        { type: "check",   ang: 4.10, rad: 7.1, yOff:  3.5, col: hexToRgb("#5ce6a0") },
+        { type: "diamond", ang: 5.30, rad: 7.4, yOff: -1.5, col: hexToRgb("#6ea8fe") }
+      ];
+
+
+      function buildArtoQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale, squashX = 1, squashY = 1,
+          expr,
+          sitAmt = 0, pushUpBlend = 0, beretLiftY = 0, beretTiltExtra = 0,
+          mouthOpen = 0, blinkAmount = 0, monocleOn = true, orbitScale = 0,
+          shirtTheme, camDist = 36
+        } = pose;
+
+        const SHIRT_MAIN = hexToRgb(shirtTheme.main);
+        const SHIRT_DARK = hexToRgb(shirtTheme.dark);
+        const SHIRT_ACC  = hexToRgb(shirtTheme.accent);
+
+        const isPanic     = expr === "panic";
+        const isFaceplant = expr === "faceplant";
+        const isPushUp    = expr === "pushup";
+        const isPain      = expr === "pain";
+        const isAlert     = expr === "alert";
+        const isTengil    = expr === "tengil";
+        const isAmazed    = expr === "amazed";
+        const isThink     = expr === "hmm_think";
+        const isDilemma   = expr === "dilemma";
+        const isHappyHost = expr === "happy_host";
+        const isGoofyKiss = expr === "goofy_kiss";
+
+        const jitter = isPain ? Math.sin(time * 26.0) * 0.06
+                     : isPushUp ? Math.sin(time * 32.0) * 0.09
+                     : 0;
+        const breathe = Math.sin(time * 2.6) * 0.014;
+        const energyBounce = isAmazed    ? Math.abs(Math.sin(time * 8.2)) * (0.26 + mouthOpen * 0.24)
+                           : isHappyHost ? Math.abs(Math.sin(time * 6.8)) * (0.18 + mouthOpen * 0.22)
+                           : isTengil    ? Math.abs(Math.sin(time * 6.4)) * (0.14 + mouthOpen * 0.22)
+                           : isDilemma   ? Math.abs(Math.sin(time * 4.5)) * 0.10
+                           : 0;
+
+        const worldTf = {
+          tx: x + jitter,
+          ty: y + energyBounce + (isFaceplant ? 0 : Math.sin(time * 2.6) * 0.06),
+          tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * squashX * (1 + energyBounce * 0.032 - breathe * 0.35),
+          sy: scale * squashY * (1 - energyBounce * 0.024 + breathe),
+          sz: scale * (1 + energyBounce * 0.02)
+        };
+        const baseOpts = { rimRgb: RIM_WARM, rimDir: RIM_DIR, layer: 2 };
+
+        // 1. KAKI & SEPATU
+        const legXs = [-1.52, 1.52];
+        for (let i = 0; i < 2; i++) {
+          let legRx = 0, legRz = 0;
+          if (isPanic) {
+            legRx = Math.sin(time * 26.0 + i * Math.PI) * 0.85;
+            legRz = i === 0 ? -0.18 : 0.18;
+          } else if (isFaceplant) {
+            const kickWave = Math.sin(time * 13.0 + i * Math.PI) * 0.34;
+            legRx = 0.26 + Math.max(0, kickWave);
+            legRz = i === 0 ? -0.16 : 0.16;
+          } else if (isPushUp) {
+            legRx = lerp(0.18, -1.32, sitAmt);
+            legRz = i === 0 ? -0.16 : 0.16;
+          } else if (sitAmt > 0.01) {
+            legRx = sitAmt * -1.32;
+            legRz = sitAmt * (i === 0 ? -0.18 : 0.18);
+          } else if (isTengil || isHappyHost) {
+            legRz = i === 0 ? -0.09 : 0.09;
+            legRx = Math.sin(time * 6.4 + i * Math.PI) * 0.08;
+          } else if (isAmazed) {
+            legRx = Math.sin(time * 8.2 + i * Math.PI) * 0.14;
+            legRz = i === 0 ? -0.10 : 0.10;
+          }
+
+          const legPivot = { tx: legXs[i], ty: -3.15, tz: 0, rx: legRx, ry: 0, rz: legRz, sx: 1, sy: 1, sz: 1 };
+          pushBox(quads, 0, -1.40, 0, 1.95, 2.75, 2.20, LEG_CHARCOAL, [legPivot, worldTf], baseOpts);
+          pushBox(quads, 0, -2.63, 0.26, 2.05, 0.62, 2.75, SHOE_SLATE, [legPivot, worldTf], baseOpts);
+        }
+
+        // 2. BADAN / BAJU PELUKIS
+        pushBox(quads, 0, -1.05, 0, 6.40, 4.55, 3.90, SHIRT_MAIN, [worldTf], baseOpts);
+        pushBox(quads, 0,  1.05, 0.08, 6.62, 0.58, 4.12, SHIRT_DARK, [worldTf], baseOpts);
+        pushBox(quads, -1.85, -0.05, 2.02, 0.82, 0.42, 0.16, SHIRT_ACC, [worldTf], baseOpts);
+        pushBox(quads, 0, -3.15, 0, 6.52, 0.38, 4.02, SHIRT_DARK, [worldTf], baseOpts);
+
+        // 3. TANGAN KIRI (10 Gestur Unik Sesuai Ekspresi!)
+        let lArmRx = -0.25, lArmRz = -0.14;
+        if (isPanic) {
+          lArmRx = -1.75 + Math.sin(time * 28.0) * 0.42;
+          lArmRz = -0.88 - Math.sin(time * 22.0) * 0.25;
+        } else if (isFaceplant) {
+          lArmRx = -0.35; lArmRz = -1.22 + Math.sin(time * 9.0) * 0.05;
+        } else if (isPushUp) {
+          lArmRx = lerp(-1.42, -0.45, sitAmt); lArmRz = lerp(-0.22, -0.16, sitAmt);
+        } else if (isPain) {
+          lArmRx = -2.28; lArmRz = 0.50 + Math.sin(time * 9.5) * 0.14;
+        } else if (isAlert) {
+          lArmRx = -0.95; lArmRz = -0.48;
+        } else if (isTengil) {
+          const pridePhase = (time > 15.0) ? 1.0 : smoothstep(9.05, 9.65, time);
+          lArmRx = lerp(-1.42, -1.35 + Math.sin(time * 6.4) * 0.12, pridePhase);
+          lArmRz = lerp(-0.62 - Math.sin(time * 14.0) * 0.28, 0.62, pridePhase);
+        } else if (isAmazed) {
+          // Terkesima: tangan kiri mengarah antusias menunjuk ke viewport roket di sebelah kiri!
+          lArmRx = -1.25 + Math.sin(time * 7.5) * 0.16;
+          lArmRz = -0.76 - Math.sin(time * 5.0) * 0.14;
+        } else if (isThink) {
+          // Mikir kritis: tangan kiri terangkat menopang dagu ala kurator!
+          lArmRx = -1.72;
+          lArmRz =  0.56 + Math.sin(time * 2.6) * 0.05;
+        } else if (isDilemma) {
+          // Menimbang 2 pilihan seperti timbangan kiri-kanan!
+          lArmRx = -1.12 + Math.sin(time * 3.8) * 0.34;
+          lArmRz = -0.44;
+        } else if (isHappyHost || isGoofyKiss) {
+          // Host ceria: melambai hangat & mengarah ke kolom komentar IG di bawah!
+          lArmRx = -1.38;
+          lArmRz = -0.62 - Math.sin(time * 11.5) * 0.26;
+        }
+
+        const leftShoulderTf = { tx: -4.02, ty: 0.45, tz: 0.10, rx: lArmRx, ry: 0, rz: lArmRz, sx: 1, sy: 1, sz: 1 };
+        pushBox(quads, 0, -1.10, 0, 1.62, 2.45, 1.85, SHIRT_MAIN, [leftShoulderTf, worldTf], baseOpts);
+        pushBox(quads, 0, -2.28, 0, 1.68, 0.32, 1.92, SHIRT_DARK, [leftShoulderTf, worldTf], baseOpts);
+        pushBox(quads, 0, -2.85, 0, 1.38, 1.05, 1.52, SKIN_WHITE, [leftShoulderTf, worldTf], baseOpts);
+
+        // 4. TANGAN KANAN + KUAS PELUKIS 3D
+        let rArmRx = -0.88, rArmRz = 0.22;
+        let brushTiltX = 1.04, brushTiltZ = -0.22, brushSpinY = 0;
+        if (isPanic) {
+          rArmRx = -1.75 - Math.sin(time * 28.0) * 0.42; rArmRz = 0.88 + Math.sin(time * 22.0) * 0.25;
+          brushTiltX = 0.75; brushTiltZ = 0.35;
+        } else if (isFaceplant) {
+          rArmRx = -0.35; rArmRz = 1.22; brushTiltX = 0.35; brushTiltZ = -0.45;
+        } else if (isPushUp) {
+          rArmRx = lerp(-1.42, -0.45, sitAmt); rArmRz = lerp(0.22, 0.18, sitAmt);
+          brushTiltX = 0.60; brushTiltZ = -0.65;
+        } else if (isPain) {
+          rArmRx = -0.48; rArmRz = 0.22; brushTiltX = 0.65; brushTiltZ = -0.52;
+        } else if (isAlert) {
+          rArmRx = -1.05; rArmRz = 0.28; brushTiltX = 1.15; brushTiltZ = -0.22;
+        } else if (isTengil) {
+          rArmRx = -1.24 + Math.sin(time * 5.2) * 0.14; rArmRz = 0.38 + Math.sin(time * 3.4) * 0.18;
+          brushTiltX = 1.24; brushTiltZ = -0.28 + Math.sin(time * 6.5) * 0.24; brushSpinY = Math.sin(time * 4.0) * 0.6;
+        } else if (isAmazed) {
+          // Mengangkat kuas tinggi kagum!
+          rArmRx = -1.52 + Math.sin(time * 8.2) * 0.16; rArmRz = 0.48;
+          brushTiltX = 1.38; brushTiltZ = -0.20;
+        } else if (isThink) {
+          // Kuas mengetuk-ngetuk pelan di samping sambil berpikir kritis!
+          rArmRx = -0.78 + Math.sin(time * 7.5) * 0.12; rArmRz = 0.20;
+          brushTiltX = 0.96; brushTiltZ = -0.18;
+        } else if (isDilemma) {
+          // Berlawanan fasa dengan tangan kiri -> gestur timbangan kiri vs kanan!
+          rArmRx = -1.12 - Math.sin(time * 3.8) * 0.34; rArmRz = 0.44;
+          brushTiltX = 1.16; brushTiltZ = -0.22;
+        } else if (isHappyHost || isGoofyKiss) {
+          // Mengayun kuas penuh semangat mengajak penonton komen!
+          rArmRx = -1.26 + Math.sin(time * 6.0) * 0.16; rArmRz = 0.42 + Math.sin(time * 4.0) * 0.14;
+          brushTiltX = 1.22; brushTiltZ = -0.26;
+        }
+
+        const rightShoulderTf = { tx: 4.02, ty: 0.45, tz: 0.10, rx: rArmRx, ry: 0, rz: rArmRz, sx: 1, sy: 1, sz: 1 };
+        pushBox(quads, 0, -1.10, 0, 1.62, 2.45, 1.85, SHIRT_MAIN, [rightShoulderTf, worldTf], baseOpts);
+        pushBox(quads, 0, -2.28, 0, 1.68, 0.32, 1.92, SHIRT_DARK, [rightShoulderTf, worldTf], baseOpts);
+        pushBox(quads, 0, -2.85, 0, 1.38, 1.05, 1.52, SKIN_WHITE, [rightShoulderTf, worldTf], baseOpts);
+
+        const brushTf = { tx: 0.18, ty: -2.95, tz: 0.42, rx: brushTiltX, ry: brushSpinY, rz: brushTiltZ, sx: 1, sy: 1, sz: 1 };
+        pushSculptedPaintbrush(quads, [brushTf, rightShoulderTf, worldTf], baseOpts);
+
+        // 5. KEPALA KOTAK PUTIH + TOPI BERET MERAH + 10 EKSPRESI WAJAH & LIP-SYNC!
+        let headYaw = 0, headPitch = 0, headRoll = 0;
+        if (isPanic)          { headPitch = -0.22; headYaw = Math.sin(time * 18.0) * 0.18; }
+        else if (isFaceplant) { headPitch = 0.08; }
+        else if (isPushUp)    { headPitch = lerp(0.10, -0.18, pushUpBlend); }
+        else if (isPain)      { headPitch = 0.16; headRoll = -0.14 + Math.sin(time * 4.5) * 0.04; headYaw = Math.sin(time * 3.8) * 0.07; }
+        else if (isTengil)    { headPitch = -0.11 + Math.sin(time * 6.4) * 0.05; headRoll = 0.15 + Math.sin(time * 3.2) * 0.07; headYaw = -0.14 + Math.sin(time * 2.4) * 0.10; }
+        else if (isAmazed)    { headPitch = -0.10 + Math.sin(time * 6.0) * 0.04; headRoll = -0.08; headYaw = -0.12 + Math.sin(time * 2.5) * 0.08; }
+        else if (isThink)     { headPitch =  0.10; headRoll = 0.14 + Math.sin(time * 1.8) * 0.04; headYaw = -0.10 + Math.sin(time * 1.5) * 0.06; }
+        else if (isDilemma)   { headPitch =  0.04; headRoll = Math.sin(time * 3.8) * 0.14; headYaw = Math.sin(time * 3.8) * 0.28; }
+        else if (isHappyHost || isGoofyKiss) { headPitch = -0.05 + Math.sin(time * 5.0) * 0.04; headRoll = Math.sin(time * 3.0) * 0.09; headYaw = Math.sin(time * 2.2) * 0.12; }
+
+        const headTf = { tx: 0, ty: 1.30, tz: 0, rx: headPitch, ry: headYaw, rz: headRoll, sx: 1, sy: 1, sz: 1 };
+        const headChain = [headTf, worldTf];
+
+        pushBox(quads, 0, 3.00, 0, 7.35, 5.95, 5.95, SKIN_WHITE, headChain, baseOpts);
+
+        const beretTf = { tx: 0.45, ty: 6.18 + beretLiftY, tz: -0.10, rx: 0.10 + beretTiltExtra * 0.5, ry: 0, rz: -0.16 + beretTiltExtra, sx: 1, sy: 1, sz: 1 };
+        const beretChain = [beretTf, headTf, worldTf];
+        pushTaperedPrism(quads, 0, -0.15, 0, 3.65, 3.35, 4.95, 4.45, 0.65, 12, BERET_DARK, beretChain, baseOpts);
+        pushTaperedPrism(quads, 0,  0.58, 0, 4.95, 4.45, 4.45, 3.95, 0.88, 12, BERET_RED,  beretChain, baseOpts);
+        pushTaperedPrism(quads, 0,  1.12, 0, 4.45, 3.95, 2.35, 2.05, 0.28, 12, BERET_RED,  beretChain, baseOpts);
+        pushBox(quads, 0, 1.54, 0, 0.56, 0.72, 0.56, BERET_DARK, beretChain, baseOpts);
+
+        const frontCenter = applyChain([0, 3.0, 3.0], headChain);
+        const frontOuter  = applyChain([0, 3.0, 4.0], headChain);
+        const headFrontDir = normalize3([frontOuter[0] - frontCenter[0], frontOuter[1] - frontCenter[1], frontOuter[2] - frontCenter[2]]);
+        const camVec = normalize3([-frontCenter[0], 1.0 - frontCenter[1], camDist - frontCenter[2]]);
+        const faceFacingCam = dot3(headFrontDir, camVec) > 0.08;
+
+        if (faceFacingCam) {
+          const eyeZ = 3.06, eyeY = 3.08;
+          const shiftX = isTengil  ? 0.24 + Math.sin(time * 2.4) * 0.10
+                       : isDilemma ? Math.sin(time * 3.8) * 0.36
+                       : isThink   ? -0.26
+                       : isAmazed  ? -0.18
+                       : 0;
+          const shiftY = isThink ? 0.24 : 0;
+
+          for (const side of [-1, 1]) {
+            const ex = side * 1.62;
+
+            if (isPain || isPushUp || isFaceplant) {
+              const topBar = { tx: ex, ty: eyeY + 0.22, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: side === -1 ? -0.44 :  0.44, sx: 1, sy: 1, sz: 1 };
+              const botBar = { tx: ex, ty: eyeY - 0.22, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: side === -1 ?  0.44 : -0.44, sx: 1, sy: 1, sz: 1 };
+              pushBox(quads, 0, 0, 0, 1.04, 0.30, 0.22, EYE_DARK, [topBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+              pushBox(quads, 0, 0, 0, 1.04, 0.30, 0.22, EYE_DARK, [botBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+            } else if (isPanic) {
+              pushBox(quads, ex, eyeY, eyeZ, 1.56, 1.96, 0.24, SHINE_WHITE, headChain, { ...baseOpts, layer: 3, unlit: true });
+              pushBox(quads, ex + Math.sin(time * 42 + side) * 0.12, eyeY + Math.cos(time * 38) * 0.10, eyeZ + 0.14, 0.46, 0.52, 0.06, EYE_DARK, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+            } else if (isHappyHost) {
+              // Mata senyum ceria hangat (^ ^) mengajak penonton komen!
+              const lBar = { tx: ex - 0.30, ty: eyeY + 0.10, tz: eyeZ + 0.05, rx: 0, ry: 0, rz:  0.44, sx: 1, sy: 1, sz: 1 };
+              const rBar = { tx: ex + 0.30, ty: eyeY + 0.10, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: -0.44, sx: 1, sy: 1, sz: 1 };
+              pushBox(quads, 0, 0, 0, 0.80, 0.34, 0.22, EYE_DARK, [lBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+              pushBox(quads, 0, 0, 0, 0.80, 0.34, 0.22, EYE_DARK, [rBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+            } else if (isAmazed) {
+              // Mata berbinar lebar kagum + DOBEL KILAU BINTANG PUTIH!
+              const eyeH = lerp(2.04, 0.18, blinkAmount);
+              pushBox(quads, ex + shiftX * 0.5, eyeY, eyeZ, 1.28, eyeH, 0.22, EYE_DARK, headChain, { ...baseOpts, layer: 3, unlit: true });
+              if (blinkAmount < 0.40) {
+                const sp = 0.44 + Math.sin(time * 12) * 0.05;
+                pushBox(quads, ex - 0.24 + shiftX * 0.6, eyeY + 0.42, eyeZ + 0.14, sp, sp, 0.04, SHINE_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+                pushBox(quads, ex + 0.26 + shiftX * 0.6, eyeY - 0.36, eyeZ + 0.14, 0.26, 0.26, 0.04, GOLD_LIGHT,  headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+              }
+            } else if (isGoofyKiss) {
+              if (side === -1) {
+                const lBar = { tx: ex - 0.28, ty: eyeY + 0.08, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: 0.42, sx: 1, sy: 1, sz: 1 };
+                const rBar = { tx: ex + 0.28, ty: eyeY + 0.08, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: -0.42, sx: 1, sy: 1, sz: 1 };
+                pushBox(quads, 0, 0, 0, 0.78, 0.32, 0.22, EYE_DARK, [lBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+                pushBox(quads, 0, 0, 0, 0.78, 0.32, 0.22, EYE_DARK, [rBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+              } else {
+                pushBox(quads, ex, eyeY, eyeZ, 1.32, 1.98, 0.22, EYE_DARK, headChain, { ...baseOpts, layer: 3, unlit: true });
+                pushBox(quads, ex - 0.22, eyeY + 0.42, eyeZ + 0.14, 0.44, 0.44, 0.04, SHINE_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+                pushBox(quads, ex + 0.24, eyeY - 0.34, eyeZ + 0.14, 0.28, 0.28, 0.04, GOLD_LIGHT,  headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+              }
+            } else if (isTengil && side === -1 && Math.sin(time * 2.2) > 0.78) {
+              // Wink genit tengil!
+              const lBar = { tx: ex - 0.28, ty: eyeY + 0.08, tz: eyeZ + 0.05, rx: 0, ry: 0, rz:  0.40, sx: 1, sy: 1, sz: 1 };
+              const rBar = { tx: ex + 0.28, ty: eyeY + 0.08, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: -0.40, sx: 1, sy: 1, sz: 1 };
+              pushBox(quads, 0, 0, 0, 0.76, 0.30, 0.22, EYE_DARK, [lBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+              pushBox(quads, 0, 0, 0, 0.76, 0.30, 0.22, EYE_DARK, [rBar, headTf, worldTf], { ...baseOpts, layer: 3, unlit: true });
+            } else if (isTengil || isThink) {
+              // Half-lidded smug (tengil) atau 1-mata menyipit tajam (hmm_think)!
+              const eyeH = lerp(isThink && side === -1 ? 1.24 : 1.62, 0.18, blinkAmount);
+              pushBox(quads, ex + shiftX * 0.55, eyeY - 0.10 + shiftY * 0.4, eyeZ, 1.16, eyeH, 0.22, EYE_DARK, headChain, { ...baseOpts, layer: 3, unlit: true });
+              if (blinkAmount < 0.40) {
+                pushBox(quads, ex - 0.20 + shiftX * 0.65, eyeY - 0.04 + shiftY * 0.45, eyeZ + 0.14, 0.30, 0.30, 0.04, SHINE_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+                if (isTengil || side === -1) {
+                  const lidTilt = isTengil ? (side === -1 ? -0.14 : 0.06) : -0.22;
+                  const lidDrop = isTengil ? 0.52 : 0.46;
+                  const lidTf = { tx: ex + shiftX * 0.35, ty: eyeY + lidDrop, tz: eyeZ + 0.16, rx: 0, ry: 0, rz: lidTilt, sx: 1, sy: 1, sz: 1 };
+                  pushBox(quads, 0, 0, 0, 1.48, 0.72, 0.08, SKIN_LID, [lidTf, headTf, worldTf], { ...baseOpts, layer: 3.55 });
+                }
+              }
+            } else {
+              // Alert / Dilemma: mata fokus melirik kiri-kanan!
+              const eyeH = lerp(isAlert ? 1.94 : 1.76, 0.18, blinkAmount);
+              pushBox(quads, ex + shiftX * 0.60, eyeY, eyeZ, 1.14, eyeH, 0.22, EYE_DARK, headChain, { ...baseOpts, layer: 3, unlit: true });
+              if (blinkAmount < 0.40) {
+                pushBox(quads, ex - 0.20 + shiftX * 0.70, eyeY + 0.36, eyeZ + 0.14, 0.34, 0.34, 0.04, SHINE_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+              }
+            }
+
+            // ALIS EKSPRESIF (10 variasi)
+            let bLift = 0.18, bTilt = 0;
+            if (isPanic)               { bLift =  0.66; bTilt = side === -1 ?  0.24 : -0.24; }
+            else if (isPain||isPushUp) { bLift = -0.12; bTilt = side === -1 ?  0.38 : -0.38; }
+            else if (isAlert)          { bLift =  0.56; bTilt = side === -1 ?  0.16 : -0.16; }
+            else if (isAmazed)         { bLift =  0.58; bTilt = side === -1 ?  0.18 : -0.18; }
+            else if (isHappyHost || isGoofyKiss) { bLift =  0.48; bTilt = side === -1 ?  0.16 : -0.16; }
+            else if (isThink)          { bLift = side === -1 ? -0.22 : 0.48; bTilt = side === -1 ? -0.30 : 0.16; }
+            else if (isDilemma)        { bLift = side === -1 ? 0.30 + Math.sin(time * 3.8) * 0.22 : 0.30 - Math.sin(time * 3.8) * 0.22; bTilt = side === -1 ? 0.20 : -0.20; }
+            else if (isTengil)         { bLift = side === -1 ? 0.02 : 0.62 + Math.sin(time * 4.5) * 0.10; bTilt = side === -1 ? -0.22 : -0.18; }
+
+            const browTf = { tx: ex, ty: eyeY + 1.24 + bLift, tz: eyeZ + 0.12, rx: 0, ry: 0, rz: bTilt, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, 1.46, 0.28, 0.24, BROW_DARK, [browTf, headTf, worldTf], { ...baseOpts, layer: 3.65 });
+          }
+
+          // MULUT 3D ANIMATED LIP-SYNC (Buka-Tutup Natural + Gigi Putih + Lidah Pink!)
+          const mY = 1.46;
+          if (isPanic) {
+            const screamH = 1.10 + Math.sin(time * 24.0) * 0.20;
+            pushBox(quads, 0, mY, eyeZ + 0.04, 1.08, screamH, 0.16, MOUTH_CAVITY, headChain, { ...baseOpts, layer: 3.2, unlit: true });
+            pushBox(quads, 0, mY - screamH * 0.26, eyeZ + 0.13, 0.68, 0.34, 0.04, TONGUE_PINK, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.3, unlit: true });
+          } else if (isPain || isPushUp) {
+            const mH = lerp(0.24, 0.88, mouthOpen), mW = lerp(1.26, 1.06, mouthOpen * 0.6);
+            const mTf = { tx: 0, ty: mY, tz: eyeZ + 0.04, rx: 0, ry: 0, rz: -0.06 + Math.sin(time * 16.0) * 0.05, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, mW, mH, 0.14, MOUTH_CAVITY, [mTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+            if (mouthOpen > 0.22) pushBox(quads, 0, -mH * 0.24, 0.08, mW * 0.62, mH * 0.38, 0.04, TONGUE_PINK, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.3, unlit: true });
+          } else if (isAlert) {
+            pushBox(quads, 0, mY, eyeZ + 0.04, 0.62, 0.68, 0.14, MOUTH_CAVITY, headChain, { ...baseOpts, layer: 3.2, unlit: true });
+          } else if (isAmazed || isHappyHost) {
+            // Mulut ceria / kagum lebar (gigi putih + lidah pink saat bicara!)
+            const mH = lerp(0.32, 1.06, mouthOpen), mW = lerp(1.52, 1.44, mouthOpen * 0.2);
+            const mTf = { tx: 0, ty: mY + 0.02, tz: eyeZ + 0.04, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, mW, mH, 0.14, MOUTH_CAVITY, [mTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+            if (mouthOpen > 0.15) pushBox(quads, 0, mH * 0.30, 0.08, mW * 0.86, Math.min(0.24, mH * 0.30), 0.04, TEETH_WHITE, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.35, unlit: true });
+            if (mouthOpen > 0.28) pushBox(quads, 0, -mH * 0.24, 0.08, mW * 0.62, mH * 0.38, 0.04, TONGUE_PINK, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.32, unlit: true });
+          } else if (isThink || isDilemma) {
+            // Mulut miring berpikir ("hmm...") yang tetap buka-tutup berbicara!
+            const mH = lerp(0.22, 0.78, mouthOpen), mW = lerp(1.12, 1.02, mouthOpen * 0.3);
+            const mTf = { tx: isThink ? -0.22 : 0.0, ty: mY, tz: eyeZ + 0.04, rx: 0, ry: 0, rz: isThink ? -0.10 : Math.sin(time * 3.8) * 0.08, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, mW, mH, 0.14, MOUTH_CAVITY, [mTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+            if (mouthOpen > 0.28) pushBox(quads, 0, -mH * 0.24, 0.08, mW * 0.56, mH * 0.34, 0.04, TONGUE_PINK, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.32, unlit: true });
+          } else {
+            // Smirk Tengil + Lip-Sync Gigi & Lidah!
+            const mH = lerp(0.26, 0.96, mouthOpen), mW = lerp(1.56, 1.38, mouthOpen * 0.35);
+            const mTf = { tx: 0.18, ty: mY + 0.04, tz: eyeZ + 0.04, rx: 0, ry: 0, rz: 0.16, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, mW, mH, 0.14, MOUTH_CAVITY, [mTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+            const cornerTf = { tx: 0.18 + mW * 0.52, ty: mY + 0.22, tz: eyeZ + 0.05, rx: 0, ry: 0, rz: 0.42, sx: 1, sy: 1, sz: 1 };
+            pushBox(quads, 0, 0, 0, 0.44, 0.22, 0.10, MOUTH_CAVITY, [cornerTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+            if (mouthOpen > 0.15) pushBox(quads, 0, mH * 0.30, 0.08, mW * 0.84, Math.min(0.24, mH * 0.32), 0.04, TEETH_WHITE, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.35, unlit: true });
+            if (mouthOpen > 0.32) pushBox(quads, 0, -mH * 0.24, 0.08, mW * 0.58, mH * 0.36, 0.04, TONGUE_PINK, [mTf, headTf, worldTf], { faceMask: [1,0,0,0,0,0], layer: 3.32, unlit: true });
+          }
+
+          // Pipi Merona saat Tengil, Terkesima, atau Happy Host
+          if (isTengil || isAmazed || isHappyHost || isGoofyKiss) {
+            pushBox(quads, -2.55, 1.78, eyeZ - 0.02, 0.82, 0.36, 0.08, SKIN_BLUSH, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.1, unlit: true });
+            pushBox(quads,  2.55, 1.78, eyeZ - 0.02, 0.82, 0.36, 0.08, SKIN_BLUSH, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.1, unlit: true });
+          }
+
+          // MONOCLE EMAS KURATOR
+          if (monocleOn) {
+            const monTilt = (isPain || isPushUp) ? 0.26 : (isPanic ? -0.22 : (isTengil ? -0.05 : 0));
+            const monTf = { tx: 1.62, ty: eyeY, tz: eyeZ + 0.24, rx: 0, ry: 0, rz: monTilt, sx: 1, sy: 1, sz: 1 };
+            const mChain = [monTf, headTf, worldTf];
+            const mw = 1.78, mh = 2.26, th = 0.16;
+            const mOpts = { ...baseOpts, layer: 3.8 };
+            pushBox(quads, 0,  mh / 2, 0, mw + th, th, 0.18, GOLD_BRIGHT, mChain, mOpts);
+            pushBox(quads, 0, -mh / 2, 0, mw + th, th, 0.18, GOLD_BRIGHT, mChain, mOpts);
+            pushBox(quads, -mw / 2, 0, 0, th, mh, 0.18, GOLD_BRIGHT, mChain, mOpts);
+            pushBox(quads,  mw / 2, 0, 0, th, mh, 0.18, GOLD_BRIGHT, mChain, mOpts);
+            pushBox(quads, 0, 0, -0.04, mw - 0.12, mh - 0.12, 0.04, hexToRgb("#a8d4ff"), mChain, { faceMask: [1,0,0,0,0,0], layer: 3.7, unlit: true, alpha: 0.16, strokeSame: false });
+            pushBox(quads, mw / 2 + 0.16, -1.35, -0.05, 0.11, 2.25, 0.11, GOLD_BRIGHT, mChain, mOpts);
+          }
+        }
+
+        // 6. 5 IKON SENI & PENILAIAN 3D MENGORBIT (Radius sedikit lebih lega agar tidak pernah nutup muka!)
+        if (orbitScale > 0.02) {
+          const orbitSpeed = isAmazed ? 1.05 : (isHappyHost ? 0.85 : 0.65);
+          for (let i = 0; i < ORBIT_RELICS.length; i++) {
+            const r = ORBIT_RELICS[i];
+            const a = r.ang + time * orbitSpeed;
+            const rad = (r.rad + 0.6) * orbitScale;
+            const ox = x + Math.cos(a) * rad * scale;
+            const oz = z + Math.sin(a) * (rad * 0.50) * scale;
+            const oy = y + (r.yOff + Math.sin(time * 2.8 + i * 1.4) * 0.42) * scale;
+            const relicLayer = oz < z ? 0 : 5;
+
+            const rTf = {
+              tx: ox, ty: oy, tz: oz,
+              rx: Math.sin(time * 1.3 + i) * 0.35,
+              ry: time * 1.45 + i,
+              rz: Math.cos(time * 1.1 + i) * 0.20,
+              sx: scale * orbitScale * 0.92, sy: scale * orbitScale * 0.92, sz: scale * orbitScale * 0.92
+            };
+            const rOpts = { rimRgb: RIM_WARM, rimDir: RIM_DIR, layer: relicLayer };
+
+            if (r.type === "star") {
+              pushBox(quads, 0, 0, 0, 1.55, 0.44, 0.44, r.col, [rTf], rOpts);
+              pushBox(quads, 0, 0, 0, 0.44, 1.55, 0.44, r.col, [rTf], rOpts);
+              pushBox(quads, 0, 0, 0, 0.72, 0.72, 0.72, GOLD_LIGHT, [rTf], rOpts);
+            } else if (r.type === "frame") {
+              const s = 1.25, t = 0.24;
+              pushBox(quads, 0,  s / 2, 0, s + t, t, 0.32, r.col, [rTf], rOpts);
+              pushBox(quads, 0, -s / 2, 0, s + t, t, 0.32, r.col, [rTf], rOpts);
+              pushBox(quads, -s / 2, 0, 0, t, s, 0.32, r.col, [rTf], rOpts);
+              pushBox(quads,  s / 2, 0, 0, t, s, 0.32, r.col, [rTf], rOpts);
+            } else if (r.type === "palette") {
+              pushBox(quads, 0, 0, 0, 1.48, 1.15, 0.32, r.col, [rTf], rOpts);
+              pushBox(quads, -0.38,  0.18, 0.20, 0.34, 0.34, 0.14, hexToRgb("#6ea8fe"), [rTf], rOpts);
+              pushBox(quads,  0.38,  0.18, 0.20, 0.34, 0.34, 0.14, hexToRgb("#e07a5f"), [rTf], rOpts);
+              pushBox(quads,  0.00, -0.24, 0.20, 0.34, 0.34, 0.14, GOLD_BRIGHT,         [rTf], rOpts);
+            } else if (r.type === "check") {
+              pushBox(quads, 0, 0, 0, 1.24, 1.24, 0.34, hexToRgb("#18221e"), [rTf], rOpts);
+              const c1 = { tx: -0.20, ty: -0.06, tz: 0.22, rx: 0, ry: 0, rz: -0.75, sx: 1, sy: 1, sz: 1 };
+              const c2 = { tx:  0.16, ty:  0.04, tz: 0.22, rx: 0, ry: 0, rz:  0.75, sx: 1, sy: 1, sz: 1 };
+              pushBox(quads, 0, 0, 0, 0.52, 0.22, 0.16, r.col, [c1, rTf], rOpts);
+              pushBox(quads, 0, 0, 0, 0.86, 0.22, 0.16, r.col, [c2, rTf], rOpts);
+            } else {
+              const dTf = { tx: 0, ty: 0, tz: 0, rx: 0.78, ry: 0, rz: 0.78, sx: 1, sy: 1, sz: 1 };
+              pushBox(quads, 0, 0, 0, 0.84, 0.84, 0.84, r.col, [dTf, rTf], rOpts);
+            }
+          }
+        }
+
+        return quads;
+      }
+
+
+
+      // --- MODEL 3D ROGER (CLAUDE CODE · KANAN) ---
+      const ROGER_ORANGE = hexToRgb("#ea7444");
+      const ROGER_EYE    = hexToRgb("#141419");
+      const ROGER_BROW   = hexToRgb("#261a16");
+      const ROGER_SHINE  = hexToRgb("#ffffff");
+      const ROGER_BLUSH  = hexToRgb("#ff8a80");
+      const ROGER_RIM    = hexToRgb("#ffb088");
+      const ROGER_RIMDIR = normalize3([0.75, 0.35, -0.30]);
+
+      function buildRogerQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale, squashX = 1, squashY = 1,
+          speakEnergy = 0, waveLeft = 0, waveRight = 0, blinkAmount = 0,
+          happyAmount = 0, excitedAmount = 0, shockAmount = 0, goofyAmount = 0, lookX = 0, blushAmount = 0, dimFactor = 1
+        } = pose;
+
+        const bounce = Math.abs(Math.sin(time * 7.2)) * speakEnergy;
+        const breathe = Math.sin(time * 2.8) * 0.015;
+        const worldTf = {
+          tx: x, ty: y + bounce * 0.38 + Math.sin(time * 2.8) * 0.08, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * squashX * (1 + bounce * 0.05 - breathe * 0.4),
+          sy: scale * squashY * (1 - bounce * 0.04 + breathe),
+          sz: scale * (1 + bounce * 0.03)
+        };
+        const baseOpts = { rimRgb: ROGER_RIM, rimDir: ROGER_RIMDIR, dimFactor };
+
+        const legXs = [-3.35, -1.20, 1.20, 3.35];
+        for (let i = 0; i < 4; i++) {
+          const stepLift = Math.max(0, Math.sin(time * 8.4 + i * 1.55)) * 0.25 * speakEnergy + Math.max(0, Math.sin(time * 22.0 + i * 1.6)) * 0.65 * Math.max(shockAmount, goofyAmount);
+          pushBoxQuads(quads, legXs[i], -2.25 + stepLift, 0, 1.38, 2.50, 1.85, ROGER_ORANGE, null, worldTf, { ...baseOpts, layer: 0 });
+        }
+
+        const leftArmLayer = yaw < 0 ? 1 : 4;
+        const rightArmLayer = yaw < 0 ? 4 : 1;
+
+        let leftArmAng = -0.08 + Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveLeft > 0.01) leftArmAng = lerp(leftArmAng, -0.82 - Math.sin(time * 14.5) * 0.32, waveLeft);
+        pushBoxQuads(quads, -0.82, 0, 0, 1.75, 2.05, 1.95, ROGER_ORANGE,
+          { tx: -4.8, ty: 1.55, tz: 0, rx: 0, ry: 0, rz: leftArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: leftArmLayer });
+
+        let rightArmAng = 0.08 - Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveRight > 0.01) rightArmAng = lerp(rightArmAng, 0.85 + Math.sin(time * 14.5) * 0.34, waveRight);
+        pushBoxQuads(quads, 0.82, 0, 0, 1.75, 2.05, 1.95, ROGER_ORANGE,
+          { tx: 4.8, ty: 1.55, tz: 0, rx: 0, ry: 0, rz: rightArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: rightArmLayer });
+
+        pushBoxQuads(quads, 0, 1.85, 0, 9.6, 6.2, 4.1, ROGER_ORANGE, null, worldTf, { ...baseOpts, layer: 2 });
+
+        const eyeZ = 2.26, eyeBaseY = 2.55, shiftX = clamp(lookX, -1, 1) * 0.45;
+        for (const side of [-1, 1]) {
+          const ex = side * 2.55 + shiftX;
+          if (goofyAmount > 0.45) {
+            // Mata konyol melotot tidak simetris (1 besar, 1 kecil + pupil miring kocak!)
+            const gW = side === -1 ? 1.85 : 1.38;
+            const gH = side === -1 ? 2.05 : 1.48;
+            pushBoxQuads(quads, ex, eyeBaseY + (side === -1 ? 0.18 : -0.10), eyeZ, gW, gH, 0.60, ROGER_SHINE, null, worldTf, { ...baseOpts, layer: 3 });
+            const pxOff = side === -1 ? 0.35 : -0.32;
+            const pyOff = side === -1 ? -0.22 : 0.25;
+            pushBoxQuads(quads, ex + pxOff, eyeBaseY + pyOff, eyeZ + 0.33, 0.58, 0.62, 0.10, ROGER_EYE, null, worldTf, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true, dimFactor });
+          } else if (shockAmount > 0.45) {
+            pushBoxQuads(quads, ex, eyeBaseY + 0.10, eyeZ, 1.78, 1.95, 0.60, ROGER_SHINE, null, worldTf, { ...baseOpts, layer: 3 });
+            pushBoxQuads(quads, ex, eyeBaseY + 0.10, eyeZ + 0.33, 0.58, 0.64, 0.10, ROGER_EYE, null, worldTf, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true, dimFactor });
+          } else if (happyAmount > 0.55) {
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex - 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: 0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex + 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: -0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+          } else {
+            const eyeH = lerp(1.54 * (1 + excitedAmount * 0.14), 0.22, blinkAmount);
+            pushBoxQuads(quads, ex, eyeBaseY, eyeZ, 1.52, eyeH, 0.58, ROGER_EYE, null, worldTf, { ...baseOpts, layer: 3 });
+            if (blinkAmount < 0.40) {
+              const ss = 1 + excitedAmount * 0.22;
+              pushBoxQuads(quads, ex - 0.32 + shiftX * 0.24, eyeBaseY + 0.32, eyeZ + 0.31, 0.40 * ss, 0.40 * ss, 0.08, ROGER_SHINE, null, worldTf,
+                { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+              pushBoxQuads(quads, ex + 0.28 + shiftX * 0.16, eyeBaseY - 0.26, eyeZ + 0.31, 0.22, 0.22, 0.08, ROGER_SHINE, null, worldTf,
+                { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+            }
+          }
+          const browLift = happyAmount * 0.42 + excitedAmount * 0.48;
+          const browTilt = side === -1 ? (happyAmount * 0.16 + excitedAmount * 0.18) : (-happyAmount * 0.16 - excitedAmount * 0.18);
+          pushBoxQuads(quads, 0, 0, 0, 1.72, 0.30, 0.34, ROGER_BROW,
+            { tx: ex, ty: eyeBaseY + 1.24 + browLift, tz: eyeZ + 0.08, rx: 0, ry: 0, rz: browTilt, sx: 1, sy: 1, sz: 1 },
+            worldTf, { ...baseOpts, layer: 3.6 });
+        }
+
+        if (blushAmount > 0.08) {
+          pushBoxQuads(quads, -3.45 + shiftX * 0.35, 1.22, 2.14, 1.15 * blushAmount, 0.46 * blushAmount, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+          pushBoxQuads(quads,  3.45 + shiftX * 0.35, 1.22, 2.14, 1.15 * blushAmount, 0.46 * blushAmount, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+        }
+        return quads;
+      }
+
+      // --- MODEL 3D MERRY (GEMINI AGENT · KIRI) ---
+      const MERRY_GRID = [
+        ".....KKKKKK.....", "...KKGGYYRRKK...", "..KGGGYYORRRRK..", "..KGGCCCCRRRRK..",
+        ".KGGCCCCCCCCRRK.", ".KGBBCCCCCCBBBK.", ".KBBWEBBBBWEBBK.", ".KBBEEBBBBEEBBK.",
+        "KBBPPBBMMBBPPBBK", "KBBBBBMTTMBBBBBK", "KBBBBBKKKKBBBBBK", "KBBBBK....KBBBBK",
+        "KBBBK......KBBBK", "KBBBK......KBBBK", ".KKK........KKK."
+      ];
+      const MERRY_COLORS = {
+        K: hexToRgb("#0c1328"), B: hexToRgb("#1d63ff"), C: hexToRgb("#38bdf8"),
+        G: hexToRgb("#22c55e"), Y: hexToRgb("#facc15"), O: hexToRgb("#fb923c"),
+        R: hexToRgb("#ef4444"), E: hexToRgb("#090d1c"), W: hexToRgb("#ffffff"),
+        P: hexToRgb("#f472b6"), M: hexToRgb("#0a0e1d"), T: hexToRgb("#fb7185")
+      };
+      const MERRY_RIM    = hexToRgb("#93c5fd");
+      const MERRY_RIMDIR = normalize3([-0.75, 0.38, -0.30]);
+      const MERRY_ROWS = MERRY_GRID.length, MERRY_COLS = MERRY_GRID[0].length;
+      const MERRY_VOXEL_META = [];
+      for (let r = 0; r < MERRY_ROWS; r++) {
+        for (let c = 0; c < MERRY_COLS; c++) {
+          const ch = MERRY_GRID[r][c];
+          if (ch === ".") continue;
+          const solid = (rr, cc) => rr >= 0 && rr < MERRY_ROWS && cc >= 0 && cc < MERRY_COLS && MERRY_GRID[rr][cc] !== ".";
+          MERRY_VOXEL_META.push({
+            r, c, ch,
+            faceMask: [1, 1, solid(r, c + 1) ? 0 : 1, solid(r, c - 1) ? 0 : 1, solid(r - 1, c) ? 0 : 1, solid(r + 1, c) ? 0 : 1]
+          });
+        }
+      }
+      const MERRY_SPARKLES = [
+        { ang: 0.4, rad: 6.0, yOff:  3.4, size: 0.65, col: hexToRgb("#facc15"), isPlus: true  },
+        { ang: 1.8, rad: 5.4, yOff:  4.0, size: 0.50, col: hexToRgb("#38bdf8"), isPlus: false },
+        { ang: 3.1, rad: 5.8, yOff:  0.8, size: 0.52, col: hexToRgb("#22c55e"), isPlus: false },
+        { ang: 4.5, rad: 5.6, yOff: -1.4, size: 0.54, col: hexToRgb("#ef4444"), isPlus: false },
+        { ang: 5.6, rad: 5.7, yOff:  2.0, size: 0.48, col: hexToRgb("#f472b6"), isPlus: false }
+      ];
+
+      function buildMerryQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale, squashX = 1, squashY = 1,
+          speakEnergy = 0, wavePhase = 0, blinkAmount = 0,
+          happyEyes = 0, shockMode = 0, goofyMode = 0, lookRight = 0, excitedHop = 0, dimFactor = 1
+        } = pose;
+
+        const hop = Math.abs(Math.sin(time * 8.2)) * speakEnergy + excitedHop * Math.abs(Math.sin(time * 11.5)) * 0.55;
+        const breathe = Math.sin(time * 3.1 + 1.0) * 0.015;
+        const worldTf = {
+          tx: x, ty: y + hop * 0.44 + Math.sin(time * 3.0 + 0.8) * 0.10, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * squashX * (1 + hop * 0.05 - breathe * 0.4),
+          sy: scale * squashY * (1 - hop * 0.04 + breathe),
+          sz: scale * (1 + hop * 0.03)
+        };
+
+        const vSize = 0.62, vDepth = 2.60;
+        const mouthOpen = (shockMode > 0.4 || goofyMode > 0.4) ? true : (speakEnergy > 0.10 ? (Math.sin(time * 18.0) > -0.22) : (happyEyes > 0.5));
+        const eyesClosed = blinkAmount > 0.55;
+
+        for (let i = 0; i < MERRY_VOXEL_META.length; i++) {
+          const vm = MERRY_VOXEL_META[i];
+          let ch = vm.ch;
+          const isL = (vm.r === 6 || vm.r === 7) && (vm.c === 4 || vm.c === 5);
+          const isR = (vm.r === 6 || vm.r === 7) && (vm.c === 10 || vm.c === 11);
+          if (isL || isR) {
+            if (eyesClosed) ch = (vm.r === 7) ? "E" : "B";
+            else if (goofyMode > 0.45) {
+              // Mata derpy konyol (kiri melirik kanan, kanan melirik kiri = juling lucu!)
+              if (isL)  ch = (vm.r === 6 && vm.c === 4) ? "W" : ((vm.r === 7 && vm.c === 5) ? "E" : "W");
+              if (isR) ch = (vm.r === 6 && vm.c === 11) ? "W" : ((vm.r === 7 && vm.c === 10) ? "E" : "W");
+            } else if (shockMode > 0.45) {
+              // Mata melotot kaget (O_O)
+              ch = ((vm.r === 6 && (vm.c === 4 || vm.c === 10)) || (vm.r === 7 && (vm.c === 5 || vm.c === 11))) ? "W" : "E";
+            } else if (happyEyes > 0.55) {
+              if (isL) ch = (vm.r === 6 && vm.c === 5) || (vm.r === 7 && vm.c === 4) ? "E" : "B";
+              if (isR) ch = (vm.r === 6 && vm.c === 10) || (vm.r === 7 && vm.c === 11) ? "E" : "B";
+            } else if (lookRight > 0.50) {
+              ch = (vm.r === 6 && (vm.c === 5 || vm.c === 11)) ? "W" : "E";
+            }
+          }
+          if (!mouthOpen && (ch === "M" || ch === "T")) ch = (vm.r === 8 && (vm.c === 7 || vm.c === 8)) ? "M" : "B";
+
+          const vx = (vm.c - (MERRY_COLS - 1) / 2) * vSize;
+          const vy = ((MERRY_ROWS - 1) / 2 - vm.r) * vSize + 1.15;
+          pushBoxQuads(quads, vx, vy, 0, vSize, vSize, vDepth, MERRY_COLORS[ch], null, worldTf, {
+            faceMask: vm.faceMask, rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: 1, strokeSame: true
+          });
+        }
+
+        let armAng = 0.10 + Math.sin(time * 3.8) * 0.10;
+        if (wavePhase > 0.01) armAng = lerp(armAng, 0.65 + Math.sin(time * 16.5) * 0.40, wavePhase);
+        const handTf = { tx: 4.32, ty: 1.25, tz: 0, rx: 0, ry: 0, rz: armAng, sx: 1, sy: 1, sz: 1 };
+        const handLayer = yaw > 0.45 ? 0 : 2;
+        pushBoxQuads(quads, 0.45, 0.0, 0, 0.70, 0.70, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 0.96, 0.54, 0, 0.70, 0.70, 1.30, MERRY_COLORS.W, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 1.36, 1.02, 0, 0.66, 0.66, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+
+        const orbitSpeed = 0.75 + speakEnergy * 1.15 + excitedHop * 0.90;
+        for (let i = 0; i < MERRY_SPARKLES.length; i++) {
+          const sp = MERRY_SPARKLES[i];
+          const a = sp.ang + time * orbitSpeed;
+          const spZ = z + Math.sin(a) * (sp.rad * 0.50) * scale;
+          const spLayer = spZ < z ? 0 : 3;
+          const spTf = {
+            tx: x + Math.cos(a) * sp.rad * scale,
+            ty: y + (sp.yOff + Math.sin(time * 4.0 + i * 1.3) * 0.38) * scale + 1.0,
+            tz: spZ, rx: time * 1.5 + i, ry: time * 1.9 + i, rz: 0,
+            sx: scale, sy: scale, sz: scale
+          };
+          if (sp.isPlus) {
+            pushBoxQuads(quads, 0, 0, 0, sp.size * 2.1, sp.size * 0.66, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+            pushBoxQuads(quads, 0, 0, 0, sp.size * 0.66, sp.size * 2.1, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+          } else {
+            pushBoxQuads(quads, 0, 0, 0, sp.size, sp.size, sp.size, sp.col, null, spTf, { dimFactor, layer: spLayer });
+          }
+        }
+        return quads;
+      }
+
+
+      // =======================================================================
+      // 5. MASKOT 3D BARU: "THE BOSS (JULL)" — PIXEL/VOXEL ART MIRIP FOTO ASLI!
+      //    - Rambut keriting afro-taper hitam tebal bertekstur (24 cluster curls!)
+      //    - Kulit sawo matang hangat (#c78d63) + alis tebal + telinga
+      //    - Kaos oversized putih-krim (#edece5) + Kalung Rantai Silver & Liontin Salib/Bintang!
+      //    - Tangan kiri pegang HP biru-slate 3 kamera (Easter Egg foto asli!)
+      //    - Tangan kanan menunjuk/memanggil dari palka roket ("WOI KALIAN, CEPET BALIK!")
+      // =======================================================================
+      const BOSS_SKIN       = hexToRgb("#c78d63");
+      const BOSS_SKIN_SHAD  = hexToRgb("#a86e47");
+      const BOSS_HAIR_DARK  = hexToRgb("#16151b");
+      const BOSS_HAIR_CURL  = hexToRgb("#25232e");
+      const BOSS_HAIR_HI    = hexToRgb("#322f3d");
+      const BOSS_SHIRT      = hexToRgb("#edece5");
+      const BOSS_SHIRT_RIB  = hexToRgb("#d6d4ca");
+      const BOSS_CHAIN      = hexToRgb("#cfd7e3");
+      const BOSS_PENDANT    = hexToRgb("#f7faff");
+      const BOSS_PHONE_CASE = hexToRgb("#5b6b84");
+      const BOSS_PHONE_CAM  = hexToRgb("#262b36");
+      const BOSS_RIM        = hexToRgb("#ffe3b3");
+      const BOSS_RIM_DIR    = normalize3([0.60, 0.50, -0.35]);
+
+      // Cluster 3D Voxel Curls untuk membentuk rambut afro-taper khas Jull!
+      const BOSS_HAIR_TUFTS = [
+        // Barisan depan-atas (volume penuh di atas kening!)
+        { x: -2.9, y: 6.1, z:  2.2, s: 1.55, c: 0 },
+        { x: -1.5, y: 6.5, z:  2.3, s: 1.70, c: 1 },
+        { x:  0.0, y: 6.6, z:  2.4, s: 1.78, c: 0 },
+        { x:  1.5, y: 6.5, z:  2.3, s: 1.70, c: 1 },
+        { x:  2.9, y: 6.1, z:  2.1, s: 1.55, c: 0 },
+        // Puncak tengah tebal bergelombang
+        { x: -3.2, y: 6.5, z:  0.5, s: 1.75, c: 1 },
+        { x: -1.6, y: 7.0, z:  0.6, s: 1.95, c: 2 },
+        { x:  0.1, y: 7.1, z:  0.5, s: 2.00, c: 1 },
+        { x:  1.7, y: 6.9, z:  0.6, s: 1.90, c: 0 },
+        { x:  3.2, y: 6.4, z:  0.4, s: 1.75, c: 1 },
+        // Barisan belakang atas
+        { x: -2.8, y: 6.2, z: -1.4, s: 1.70, c: 0 },
+        { x: -1.1, y: 6.6, z: -1.6, s: 1.85, c: 1 },
+        { x:  0.8, y: 6.6, z: -1.6, s: 1.85, c: 0 },
+        { x:  2.6, y: 6.1, z: -1.4, s: 1.70, c: 1 },
+        // Samping kiri-kanan atas (tapered curly sides!)
+        { x: -3.85, y: 5.0, z:  1.1, s: 1.38, c: 1 },
+        { x: -3.95, y: 4.8, z: -0.5, s: 1.45, c: 0 },
+        { x: -3.65, y: 3.7, z: -0.8, s: 1.15, c: 1 },
+        { x:  3.85, y: 5.0, z:  1.1, s: 1.38, c: 1 },
+        { x:  3.95, y: 4.8, z: -0.5, s: 1.45, c: 0 },
+        { x:  3.65, y: 3.7, z: -0.8, s: 1.15, c: 1 },
+        // Bagian belakang leher / tengkuk
+        { x: -1.8, y: 4.2, z: -2.8, s: 1.65, c: 0 },
+        { x:  0.0, y: 4.4, z: -2.9, s: 1.75, c: 1 },
+        { x:  1.8, y: 4.2, z: -2.8, s: 1.65, c: 0 }
+      ];
+
+      function buildBossJullQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale,
+          shoutAmt = 0, mouthOpen = 0, waveRight = 0, coolSmirk = 0, nodBump = 0
+        } = pose;
+
+        const shoutShake = shoutAmt * Math.sin(time * 34.0) * 0.08;
+        const bob = Math.sin(time * 3.4) * 0.12 + shoutAmt * Math.abs(Math.sin(time * 10.0)) * 0.22 + nodBump * 0.45;
+
+        const worldTf = {
+          tx: x + shoutShake, ty: y + bob, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale, sy: scale, sz: scale
+        };
+        const baseOpts = { rimRgb: BOSS_RIM, rimDir: BOSS_RIM_DIR, layer: 2 };
+
+        // 1. BADAN — KAOS OVERSIZED PUTIH-KRIM + KERAH + KALUNG RANTAI SILVER & LIONTIN!
+        pushBox(quads, 0, -1.10, 0, 7.20, 4.80, 4.10, BOSS_SHIRT, [worldTf], baseOpts);
+        // Kerah crewneck
+        pushBox(quads, 0,  1.18, 0.14, 4.20, 0.56, 3.60, BOSS_SHIRT_RIB, [worldTf], baseOpts);
+        // Leher sawo matang
+        pushBox(quads, 0,  1.58, 0.05, 2.75, 0.90, 2.50, BOSS_SKIN_SHAD, [worldTf], baseOpts);
+
+        // Kalung Rantai Silver (U-shape) + Liontin Salib/Bintang khas foto Jull!
+        const chainOpts = { ...baseOpts, layer: 2.5, unlit: true };
+        pushBox(quads, -1.25, 0.52, 2.12, 0.18, 1.35, 0.10, BOSS_CHAIN, [{ tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0.34, sx: 1, sy: 1, sz: 1 }, worldTf], chainOpts);
+        pushBox(quads,  1.25, 0.52, 2.12, 0.18, 1.35, 0.10, BOSS_CHAIN, [{ tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: -0.34, sx: 1, sy: 1, sz: 1 }, worldTf], chainOpts);
+        pushBox(quads,  0.00, -0.20, 2.14, 1.65, 0.18, 0.10, BOSS_CHAIN, [worldTf], chainOpts);
+        // Liontin silver kecil (cross/star)
+        pushBox(quads,  0.00, -0.78, 2.18, 0.24, 0.92, 0.12, BOSS_PENDANT, [worldTf], chainOpts);
+        pushBox(quads,  0.00, -0.68, 2.18, 0.66, 0.22, 0.12, BOSS_PENDANT, [worldTf], chainOpts);
+
+        // 2. TANGAN KIRI — Lengan Oversized Putih + Memegang iPhone Biru-Slate 3 Kamera!
+        const lArmRx = -0.95 + Math.sin(time * 3.0) * 0.06;
+        const lArmRz =  0.22;
+        const lSh = { tx: -4.45, ty: 0.45, tz: 0.20, rx: lArmRx, ry: 0, rz: lArmRz, sx: 1, sy: 1, sz: 1 };
+        pushBox(quads, 0, -1.05, 0, 2.05, 2.35, 2.10, BOSS_SHIRT, [lSh, worldTf], baseOpts);
+        pushBox(quads, 0, -2.65, 0, 1.35, 1.45, 1.35, BOSS_SKIN,  [lSh, worldTf], baseOpts);
+        // iPhone Biru-Slate 3 Kamera di tangan kiri!
+        const phTf = { tx: 0.25, ty: -3.20, tz: 0.55, rx: 1.05, ry: 0.20, rz: -0.18, sx: 1, sy: 1, sz: 1 };
+        pushBox(quads, 0, 0, 0, 1.65, 2.85, 0.28, BOSS_PHONE_CASE, [phTf, lSh, worldTf], { ...baseOpts, layer: 2.6 });
+        pushBox(quads, -0.34, 0.85, 0.16, 0.72, 0.78, 0.08, BOSS_PHONE_CAM, [phTf, lSh, worldTf], { ...baseOpts, layer: 2.7 });
+
+        // 3. TANGAN KANAN — Menunjuk/Melambai Memanggil Trio ("WOI CEPET BALIK!")
+        const rArmRx = shoutAmt > 0.2
+          ? (-1.28 - Math.sin(time * 14.0) * 0.22)
+          : lerp(-0.55, -1.35 - Math.sin(time * 11.0) * 0.20, waveRight);
+        const rArmRz = shoutAmt > 0.2 ? 0.36 : lerp(0.18, 0.48, waveRight);
+        const rSh = { tx: 4.45, ty: 0.45, tz: 0.20, rx: rArmRx, ry: 0, rz: rArmRz, sx: 1, sy: 1, sz: 1 };
+        pushBox(quads, 0, -1.05, 0, 2.05, 2.35, 2.10, BOSS_SHIRT, [rSh, worldTf], baseOpts);
+        pushBox(quads, 0, -2.65, 0, 1.35, 1.45, 1.35, BOSS_SKIN,  [rSh, worldTf], baseOpts);
+
+        // 4. KEPALA + TELINGA + RAMBUT KERITING AFRO-TAPER + WAJAH BOSS JULL
+        const headTf = {
+          tx: 0, ty: 1.45, tz: 0,
+          rx: shoutAmt * 0.14 - coolSmirk * 0.06,
+          ry: Math.sin(time * 2.2) * 0.08,
+          rz: shoutAmt * Math.sin(time * 14.0) * 0.05 + coolSmirk * 0.06,
+          sx: 1, sy: 1, sz: 1
+        };
+        const headChain = [headTf, worldTf];
+
+        // Kubus kepala sawo matang
+        pushBox(quads, 0, 3.00, 0, 6.90, 5.75, 5.65, BOSS_SKIN, headChain, baseOpts);
+        // Telinga kiri & kanan
+        pushBox(quads, -3.62, 2.65, -0.10, 0.52, 1.38, 0.92, BOSS_SKIN_SHAD, headChain, baseOpts);
+        pushBox(quads,  3.62, 2.65, -0.10, 0.52, 1.38, 0.92, BOSS_SKIN_SHAD, headChain, baseOpts);
+
+        // Basis rambut gelap atas-belakang + 23 Cluster Keriting Afro-Taper 3D!
+        pushBox(quads, 0, 5.75, -0.15, 7.10, 1.35, 5.95, BOSS_HAIR_DARK, headChain, baseOpts);
+        const hairCols = [BOSS_HAIR_DARK, BOSS_HAIR_CURL, BOSS_HAIR_HI];
+        for (let i = 0; i < BOSS_HAIR_TUFTS.length; i++) {
+          const t = BOSS_HAIR_TUFTS[i];
+          pushBox(quads, t.x, t.y, t.z, t.s, t.s * 0.92, t.s, hairCols[t.c], headChain, baseOpts);
+        }
+
+        // WAJAH BOSS JULL (Layer 3+)
+        const eyeZ = 2.92, eyeY = 3.02;
+        for (const side of [-1, 1]) {
+          const ex = side * 1.56;
+          // Mata tegas & cool
+          const eyeH = shoutAmt > 0.3 ? 1.58 : 1.42;
+          pushBox(quads, ex, eyeY, eyeZ, 1.12, eyeH, 0.22, EYE_DARK, headChain, { ...baseOpts, layer: 3, unlit: true });
+          pushBox(quads, ex - 0.18, eyeY + 0.30, eyeZ + 0.14, 0.30, 0.30, 0.04, SHINE_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.5, unlit: true });
+
+          // Alis tebal khas foto Jull (menukik tegas saat teriak "WOI!", santai miring saat cool smirk!)
+          const bLift = shoutAmt > 0.3 ? -0.10 : (side === 1 ? 0.28 : 0.12);
+          const bTilt = shoutAmt > 0.3 ? (side === -1 ? -0.34 : 0.34) : (side === -1 ? -0.08 : -0.12);
+          const browTf = { tx: ex, ty: eyeY + 1.12 + bLift, tz: eyeZ + 0.12, rx: 0, ry: 0, rz: bTilt, sx: 1, sy: 1, sz: 1 };
+          pushBox(quads, 0, 0, 0, 1.54, 0.34, 0.24, BOSS_HAIR_DARK, [browTf, headTf, worldTf], { ...baseOpts, layer: 3.6 });
+        }
+
+        // Hidung mungil berbayang hangat
+        pushBox(quads, 0, 2.22, eyeZ + 0.10, 0.62, 0.56, 0.26, BOSS_SKIN_SHAD, headChain, { ...baseOpts, layer: 3.1 });
+
+        // Mulut Lip-Sync (Teriak lebar dengan gigi & lidah saat memanggil Trio -> Smirk cool setelahnya!)
+        const mY = 1.30;
+        if (shoutAmt > 0.2) {
+          const mH = lerp(0.32, 1.24, Math.max(0.35, mouthOpen));
+          const mW = lerp(1.52, 1.75, mouthOpen);
+          pushBox(quads, 0, mY, eyeZ + 0.04, mW, mH, 0.16, MOUTH_CAVITY, headChain, { ...baseOpts, layer: 3.2, unlit: true });
+          pushBox(quads, 0, mY + mH * 0.32, eyeZ + 0.13, mW * 0.86, 0.26, 0.04, TEETH_WHITE, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.35, unlit: true });
+          pushBox(quads, 0, mY - mH * 0.26, eyeZ + 0.13, mW * 0.62, mH * 0.36, 0.04, TONGUE_PINK, headChain, { faceMask: [1,0,0,0,0,0], layer: 3.32, unlit: true });
+        } else {
+          // Cool confident smirk khas Jull
+          const smTf = { tx: 0.14, ty: mY + 0.05, tz: eyeZ + 0.04, rx: 0, ry: 0, rz: 0.12, sx: 1, sy: 1, sz: 1 };
+          pushBox(quads, 0, 0, 0, 1.38, 0.26, 0.12, BROW_DARK, [smTf, headTf, worldTf], { ...baseOpts, layer: 3.2, unlit: true });
+        }
+
+        return quads;
+      }
+
+      // =======================================================================
+      // 6. INSTAGRAM PROFILE CARD (REFERENSI image_188ffc.jpg · TANPA "Followed by")
+      //    - Header `< julljhaa ...`
+      //    - Foto profil `profile.jpeg` dalam ring pelangi IG
+      //    - `jull` · 5 posts · 10,1K followers · 492 following
+      //    - `Personal blog`, 🎸🎸, `🔗 github.com/rjoulfiand-afk` (bisa di-highlight!)
+      //    - Tombol biru **`Follow`** -> auto-klik -> **`Following ✓`**!
+      // =======================================================================
+      function drawIGProfileCard(time, alpha, followClickP, isFollowing, githubHighlight, cursorPt, cursorAlpha) {
+        if (alpha <= 0.01) return;
+        const x = 64, y = 342, w = 952, h = 496;
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+
+        // Card putih bersih IG (elevated shadow)
+        ctx.shadowColor = "rgba(0, 0, 0, 0.68)"; ctx.shadowBlur = 44; ctx.shadowOffsetY = 16;
+        roundRect(ctx, x, y, w, h, 26);
+        ctx.fillStyle = "#ffffff"; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = isFollowing ? "#ebb343" : "rgba(255, 255, 255, 0.25)";
+        ctx.stroke();
+
+        // 1. Top Nav Bar (`<  julljhaa  ...`)
+        const navY = y + 38;
+        ctx.strokeStyle = "#111114"; ctx.lineWidth = 3.4; ctx.lineCap = "round"; ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(x + 42, navY - 12); ctx.lineTo(x + 28, navY); ctx.lineTo(x + 42, navY + 12);
+        ctx.stroke();
+
+        ctx.font = "800 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#111114"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText("julljhaa", x + 76, navY + 1);
+
+        // Titik tiga `...` di kanan
+        ctx.fillStyle = "#111114";
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath(); ctx.arc(x + w - 58 + i * 11, navY, 3.2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // 2. Profile Picture (`profile.jpeg` + Rainbow IG Story Ring!)
+        const avX = x + 114, avY = y + 162, avR = 72;
+        const ringGrad = ctx.createLinearGradient(avX - avR, avY + avR, avX + avR, avY - avR);
+        ringGrad.addColorStop(0.0, "#feda75");
+        ringGrad.addColorStop(0.28, "#fa7e1e");
+        ringGrad.addColorStop(0.55, "#d62976");
+        ringGrad.addColorStop(0.82, "#962fbf");
+        ringGrad.addColorStop(1.0, "#4f5bd5");
+
+        ctx.beginPath(); ctx.arc(avX, avY, avR + 9, 0, Math.PI * 2);
+        ctx.strokeStyle = ringGrad; ctx.lineWidth = 5.5; ctx.stroke();
+
+        ctx.beginPath(); ctx.arc(avX, avY, avR + 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff"; ctx.fill();
+
+        ctx.save();
+        ctx.beginPath(); ctx.arc(avX, avY, avR, 0, Math.PI * 2); ctx.clip();
+        if (profilePhotoReady && profilePhoto.naturalWidth > 0) {
+          const iw = profilePhoto.naturalWidth, ih = profilePhoto.naturalHeight;
+          const sz = Math.min(iw, ih);
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(profilePhoto, (iw - sz) / 2, (ih - sz) * 0.16, sz, sz, avX - avR, avY - avR, avR * 2, avR * 2);
+        } else {
+          // Fallback keren bergaya warna foto Jull jika file profile.jpeg belum ditaruh
+          const fg = ctx.createLinearGradient(avX - avR, avY - avR, avX + avR, avY + avR);
+          fg.addColorStop(0, "#23252f"); fg.addColorStop(1, "#3b3530");
+          ctx.fillStyle = fg; ctx.fillRect(avX - avR, avY - avR, avR * 2, avR * 2);
+          ctx.fillStyle = "#c78d63"; ctx.beginPath(); ctx.arc(avX, avY - 12, 24, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#17161b"; ctx.beginPath(); ctx.arc(avX, avY - 26, 25, Math.PI, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#edece5"; ctx.beginPath(); ctx.arc(avX, avY + 56, 44, Math.PI, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        // 3. Name "jull" + 3 Stats (5 posts | 10,1K followers | 492 following)
+        const stX = x + 236;
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.font = "800 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#111114";
+        ctx.fillText("jull", stX, y + 114);
+
+        const stats = [
+          { num: "5",     lbl: "posts",     dx: 0   },
+          { num: "10,1K", lbl: "followers", dx: 190 },
+          { num: "492",   lbl: "following", dx: 416 }
+        ];
+        for (let i = 0; i < stats.length; i++) {
+          const sx = stX + stats[i].dx;
+          const bump = (i === 1 && followClickP > 0.35 && followClickP < 1.0)
+            ? 1 + Math.sin(((followClickP - 0.35) / 0.65) * Math.PI) * 0.14 : 1.0;
+          ctx.save();
+          ctx.translate(sx, y + 162);
+          ctx.scale(bump, bump);
+          ctx.font = "800 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = (i === 1 && isFollowing) ? "#4a5df9" : "#111114";
+          ctx.fillText(stats[i].num, 0, 0);
+          ctx.font = "500 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#3a3a42";
+          ctx.fillText(stats[i].lbl, 0, 32);
+          ctx.restore();
+        }
+
+        // 4. Bio ("Personal blog", 🎸🎸, 🔗 github.com/rjoulfiand-afk — TANPA "Followed by"!)
+        const bioX = x + 40;
+        ctx.font = "500 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#73737a";
+        ctx.fillText("Personal blog", bioX, y + 278);
+
+        ctx.font = "24px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+        ctx.fillText("🎸🎸", bioX, y + 314);
+
+        // Link GitHub dengan highlight golden glow saat Beat 3 ("Link GitHub juga ada di bio-nya")!
+        const linkY = y + 356;
+        if (githubHighlight > 0.02) {
+          ctx.save();
+          ctx.globalAlpha *= githubHighlight;
+          roundRect(ctx, bioX - 14, linkY - 24, 470, 48, 12);
+          ctx.fillStyle = "rgba(235, 179, 67, 0.22)"; ctx.fill();
+          ctx.lineWidth = 2.4; ctx.strokeStyle = "#d99b1e"; ctx.stroke();
+          ctx.restore();
+        }
+
+        // Ikon Link + URL GitHub
+        ctx.save();
+        ctx.translate(bioX + 12, linkY);
+        ctx.rotate(-Math.PI / 4);
+        ctx.strokeStyle = "#1d4ed8"; ctx.lineWidth = 2.6;
+        roundRect(ctx, -11, -5, 14, 10, 5); ctx.stroke();
+        roundRect(ctx, -3, -5, 14, 10, 5); ctx.stroke();
+        ctx.restore();
+
+        ctx.font = "700 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#1d4ed8";
+        ctx.fillText("github.com/rjoulfiand-afk", bioX + 36, linkY + 1);
+
+        // 5. BUTTONS ROW (`Follow` -> `Following ✓`, `Message`, `[+👤]`)
+        const btnY = y + 402, btnH = 68;
+        const fX = x + 36, fW = 398;
+        const pressSc = (followClickP > 0 && followClickP < 0.7)
+          ? 1 - Math.sin((followClickP / 0.7) * Math.PI) * 0.075 : 1.0;
+
+        // Tombol FOLLOW / FOLLOWING
+        ctx.save();
+        ctx.translate(fX + fW / 2, btnY + btnH / 2);
+        ctx.scale(pressSc, pressSc);
+        if (!isFollowing) {
+          ctx.shadowColor = "rgba(74, 93, 249, 0.35)"; ctx.shadowBlur = 18;
+        }
+        roundRect(ctx, -fW / 2, -btnH / 2, fW, btnH, 14);
+        ctx.fillStyle = isFollowing ? "#eef0f5" : "#4a5df9";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (isFollowing) {
+          ctx.lineWidth = 1.6; ctx.strokeStyle = "#cbd2e0"; ctx.stroke();
+        }
+        ctx.font = "800 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = isFollowing ? "#111114" : "#ffffff";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(isFollowing ? "Following ✓" : "Follow", 0, 1);
+        ctx.restore();
+
+        // Click Ripple & Confetti Sparkles saat tombol Follow terklik!
+        if (followClickP > 0.15 && followClickP < 0.98) {
+          const rp = (followClickP - 0.15) / 0.83;
+          ctx.save();
+          ctx.globalAlpha = (1 - rp) * 0.85;
+          ctx.beginPath();
+          ctx.arc(fX + fW / 2, btnY + btnH / 2, 24 + easeOutCubic(rp) * 110, 0, Math.PI * 2);
+          ctx.strokeStyle = "#4a5df9"; ctx.lineWidth = 3.2; ctx.stroke();
+
+          for (let i = 0; i < 8; i++) {
+            const ang = (i / 8) * Math.PI * 2 + 0.25;
+            const d = 30 + easeOutCubic(rp) * 95;
+            const px = fX + fW / 2 + Math.cos(ang) * d;
+            const py = btnY + btnH / 2 + Math.sin(ang) * d * 0.6;
+            ctx.fillStyle = i % 3 === 0 ? "#ebb343" : (i % 3 === 1 ? "#4a5df9" : "#e07a5f");
+            roundRect(ctx, px - 5, py - 5, 10, 10, 3); ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Tombol Message
+        const mX = fX + fW + 14, mW = 390;
+        roundRect(ctx, mX, btnY, mW, btnH, 14);
+        ctx.fillStyle = "#efefef"; ctx.fill();
+        ctx.font = "700 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#111114"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("Message", mX + mW / 2, btnY + btnH / 2 + 1);
+
+        // Tombol Add-Friend `[+👤]`
+        const aX = mX + mW + 14, aW = 64;
+        roundRect(ctx, aX, btnY, aW, btnH, 14);
+        ctx.fillStyle = "#efefef"; ctx.fill();
+        ctx.strokeStyle = "#111114"; ctx.lineWidth = 2.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(aX + 35, btnY + 26, 7.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(aX + 35, btnY + 47, 13, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(aX + 14, btnY + 34); ctx.lineTo(aX + 24, btnY + 34);
+        ctx.moveTo(aX + 19, btnY + 29); ctx.lineTo(aX + 19, btnY + 39);
+        ctx.stroke();
+
+        // Pointer Kursor Halus yang mengklik tombol Follow!
+        if (cursorAlpha > 0.02 && cursorPt) {
+          ctx.save();
+          ctx.globalAlpha *= cursorAlpha;
+          ctx.translate(cursorPt.x, cursorPt.y);
+          const tapS = 1 - Math.sin(clamp(followClickP / 0.5, 0, 1) * Math.PI) * 0.16;
+          ctx.scale(tapS, tapS);
+          ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.lineTo(0, 38); ctx.lineTo(11, 28); ctx.lineTo(20, 44);
+          ctx.lineTo(27, 40); ctx.lineTo(18, 24); ctx.lineTo(31, 24); ctx.closePath();
+          ctx.fillStyle = "#ffffff"; ctx.fill();
+          ctx.strokeStyle = "#111114"; ctx.lineWidth = 2.6; ctx.lineJoin = "round"; ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // 7. PREMIUM EXECUTIVE ORBITAL DROPSHIP (ZERO TINY TEXT · ZERO CARTOON OUTLINES!)
+      //    Siluet Aerospace Modern-Sleek: Pearl Ceramic Titanium + Deep Carbon Slate +
+      //    Brushed Champagne Gold + Blended Delta Wings + Flush Nacelle Boosters +
+      //    3-LED Crew Boarding Bar + Panoramic Energy Airlock + Plasma Shock Diamonds!
+      // =======================================================================
+      function drawOrbitalDropshipBack(rx, ry, time, thrustPower, hatchOpen, joltY, crewBoarded, absorbFlash) {
+        const cx = rx, cy = ry + joltY;
+        ctx.save();
+
+        // ---------------------------------------------------------------------
+        // 1. VOLUMETRIC TRIPLE PLASMA THRUSTERS + MACH SHOCK DIAMONDS + SPARKS
+        // ---------------------------------------------------------------------
+        if (thrustPower > 0.05) {
+          const drawPlasmaJet = (px, py, baseW, baseLen, isMain) => {
+            const f1 = Math.sin(time * 66.0 + px * 0.12) * 14;
+            const f2 = Math.cos(time * 47.0 - px * 0.08) * 7;
+            const len = (baseLen + f1 + f2) * thrustPower;
+            const w   = baseW * (0.84 + 0.26 * thrustPower);
+
+            // Soft volumetric exhaust bloom
+            const bg = ctx.createRadialGradient(px, py + 16, 4, px, py + len * 0.45, len * 1.25);
+            if (isMain) {
+              bg.addColorStop(0.0, "rgba(255, 232, 160, 0.56)");
+              bg.addColorStop(0.45, "rgba(235, 134, 52, 0.22)");
+              bg.addColorStop(1.0, "rgba(0, 0, 0, 0)");
+            } else {
+              bg.addColorStop(0.0, "rgba(125, 211, 252, 0.52)");
+              bg.addColorStop(0.45, "rgba(59, 130, 246, 0.20)");
+              bg.addColorStop(1.0, "rgba(0, 0, 0, 0)");
+            }
+            ctx.fillStyle = bg;
+            ctx.fillRect(px - len * 1.3, py - 14, len * 2.6, len * 1.7);
+
+            const drawCone = (cw, cl, col, alpha = 1) => {
+              ctx.save();
+              ctx.globalAlpha *= alpha;
+              ctx.fillStyle = col;
+              ctx.beginPath();
+              ctx.moveTo(px - cw, py);
+              ctx.bezierCurveTo(px - cw * 0.85, py + cl * 0.42, px - cw * 0.28, py + cl * 0.82, px, py + cl);
+              ctx.bezierCurveTo(px + cw * 0.28, py + cl * 0.82, px + cw * 0.85, py + cl * 0.42, px + cw, py);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            };
+
+            if (isMain) {
+              drawCone(w * 1.12, len * 1.06, "#d9462f", 0.72);
+              drawCone(w * 0.82, len * 0.86, "#f58232", 0.92);
+              drawCone(w * 0.52, len * 0.62, "#ffd15c", 0.98);
+              drawCone(w * 0.27, len * 0.36, "#ffffff", 1.00);
+              // Mach shock diamonds
+              for (let d = 0; d < 3; d++) {
+                const dy = py + 20 + d * 24 + ((time * 130) % 12);
+                if (dy < py + len * 0.72) {
+                  ctx.fillStyle = `rgba(255, 252, 235, ${(0.78 - d * 0.20).toFixed(2)})`;
+                  ctx.beginPath();
+                  ctx.ellipse(px, dy, w * (0.28 - d * 0.06), 3.2, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              }
+            } else {
+              drawCone(w * 1.06, len * 1.04, "#2563eb", 0.68);
+              drawCone(w * 0.74, len * 0.82, "#38bdf8", 0.92);
+              drawCone(w * 0.38, len * 0.48, "#f0f9ff", 1.00);
+            }
+
+            // Drifting glowing embers/sparks
+            for (let s = 0; s < (isMain ? 7 : 3); s++) {
+              const sp = ((time * (2.6 + (s % 3) * 0.4) + s * 0.27) % 1);
+              const sx = px + Math.sin(s * 5.1 + sp * 7.0) * (w * 0.75 + sp * 18);
+              const sy = py + 12 + sp * (len * 1.25);
+              ctx.fillStyle = isMain ? (s % 2 === 0 ? "#ffe07d" : "#ff8c42") : "#bae6fd";
+              ctx.globalAlpha = (1 - sp) * 0.85;
+              const sz = lerp(4.2, 1.4, sp);
+              ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+            }
+            ctx.globalAlpha = 1;
+          };
+
+          drawPlasmaJet(cx - 122, cy + 194, 18, 62, false);
+          drawPlasmaJet(cx + 122, cy + 194, 18, 62, false);
+          drawPlasmaJet(cx,       cy + 206, 44, 108, true);
+        }
+
+        // ---------------------------------------------------------------------
+        // 2. BLENDED AERODYNAMIC DELTA WINGS (Smooth Curved Sweep, Zero Flat Outlines!)
+        // ---------------------------------------------------------------------
+        const drawSleekWing = (dir) => {
+          ctx.beginPath();
+          ctx.moveTo(cx + dir * 94, cy - 18);
+          ctx.bezierCurveTo(cx + dir * 138, cy + 48, cx + dir * 194, cy + 108, cx + dir * 210, cy + 174);
+          ctx.quadraticCurveTo(cx + dir * 212, cy + 196, cx + dir * 192, cy + 194);
+          ctx.lineTo(cx + dir * 116, cy + 168);
+          ctx.lineTo(cx + dir * 92,  cy + 166);
+          ctx.closePath();
+
+          const wg = ctx.createLinearGradient(cx + dir * 94, cy - 18, cx + dir * 210, cy + 194);
+          if (dir === -1) {
+            wg.addColorStop(0.0, "#3b4257");
+            wg.addColorStop(0.55, "#232838");
+            wg.addColorStop(1.0, "#131620");
+          } else {
+            wg.addColorStop(0.0, "#262b3b");
+            wg.addColorStop(0.55, "#191c28");
+            wg.addColorStop(1.0, "#0e1017");
+          }
+          ctx.fillStyle = wg; ctx.fill();
+
+          // Specular leading-edge brushed gold pinstripe
+          ctx.strokeStyle = dir === -1 ? "rgba(235, 179, 67, 0.72)" : "rgba(235, 179, 67, 0.42)";
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(cx + dir * 102, cy + 4);
+          ctx.bezierCurveTo(cx + dir * 144, cy + 62, cx + dir * 192, cy + 114, cx + dir * 206, cy + 170);
+          ctx.stroke();
+
+          // Subtle recessed titanium panel on wing
+          ctx.beginPath();
+          ctx.moveTo(cx + dir * 136, cy + 88);
+          ctx.lineTo(cx + dir * 184, cy + 158);
+          ctx.lineTo(cx + dir * 142, cy + 150);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255, 255, 255, 0.045)";
+          ctx.fill();
+
+          // Wingtip nav strobe LED
+          const blink = 0.55 + 0.45 * Math.sin(time * 8.0 + dir * 1.4);
+          ctx.save();
+          ctx.fillStyle = dir === -1 ? "#ff6b6b" : "#5ce6a0";
+          ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14 * blink;
+          ctx.beginPath(); ctx.arc(cx + dir * 203, cy + 183, 4.2, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        };
+        drawSleekWing(-1);
+        drawSleekWing(1);
+
+        // ---------------------------------------------------------------------
+        // 3. FLUSH-MOUNTED TEARDROP SIDE BOOSTER NACELLES (Tucked Cleanly into Hull!)
+        // ---------------------------------------------------------------------
+        const drawFlushNacelle = (dir) => {
+          const nx = cx + dir * 122;
+
+          // Engine bell
+          ctx.beginPath();
+          ctx.moveTo(nx - 16, cy + 174); ctx.lineTo(nx + 16, cy + 174);
+          ctx.lineTo(nx + 22, cy + 196); ctx.lineTo(nx - 22, cy + 196);
+          ctx.closePath();
+          const ng = ctx.createLinearGradient(nx - 22, 0, nx + 22, 0);
+          ng.addColorStop(0, "#1d212d"); ng.addColorStop(0.38, "#565f78"); ng.addColorStop(1, "#12141c");
+          ctx.fillStyle = ng; ctx.fill();
+
+          // Teardrop metallic pod
+          const tracePod = () => {
+            ctx.beginPath();
+            ctx.moveTo(nx, cy - 8);
+            ctx.bezierCurveTo(nx + 24, cy + 20, nx + 26, cy + 72, nx + 24, cy + 166);
+            ctx.quadraticCurveTo(nx + 24, cy + 180, nx + 14, cy + 180);
+            ctx.lineTo(nx - 14, cy + 180);
+            ctx.quadraticCurveTo(nx - 24, cy + 180, nx - 24, cy + 166);
+            ctx.bezierCurveTo(nx - 26, cy + 72, nx - 24, cy + 20, nx, cy - 8);
+            ctx.closePath();
+          };
+          ctx.save();
+          tracePod(); ctx.clip();
+          const pg = ctx.createLinearGradient(nx - 25, 0, nx + 25, 0);
+          pg.addColorStop(0.0, "#7c869e");
+          pg.addColorStop(0.30, "#eef1f8");
+          pg.addColorStop(0.68, "#b7c0d4");
+          pg.addColorStop(1.0, "#3d4457");
+          ctx.fillStyle = pg; ctx.fillRect(nx - 28, cy - 12, 56, 198);
+
+          // Carbon nose tip on pod (curved!)
+          ctx.fillStyle = "#1c202c";
+          ctx.beginPath(); ctx.arc(nx, cy - 12, 34, 0, Math.PI * 2); ctx.fill();
+          // Gold collar ring on pod
+          ctx.fillStyle = "#ebb343"; ctx.fillRect(nx - 26, cy + 36, 52, 4);
+          // Carbon base collar
+          ctx.fillStyle = "#1a1e29"; ctx.fillRect(nx - 26, cy + 150, 52, 34);
+          ctx.restore();
+
+          // Subtle luminous cyan intake vent strip
+          ctx.save();
+          ctx.fillStyle = "#38bdf8";
+          ctx.shadowColor = "#38bdf8"; ctx.shadowBlur = 10;
+          roundRect(ctx, nx - 3, cy + 58, 6, 36, 3); ctx.fill();
+          ctx.restore();
+
+          // Soft specular edge rim (NO harsh black outline!)
+          tracePod();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.14)"; ctx.lineWidth = 1.2; ctx.stroke();
+        };
+        drawFlushNacelle(-1);
+        drawFlushNacelle(1);
+
+        // ---------------------------------------------------------------------
+        // 4. MAIN VECTOR ENGINE BELL (Sculpted Titanium Bell + Gold Heat Ring)
+        // ---------------------------------------------------------------------
+        ctx.beginPath();
+        ctx.moveTo(cx - 48, cy + 168); ctx.lineTo(cx + 48, cy + 168);
+        ctx.lineTo(cx + 66, cy + 208); ctx.lineTo(cx - 66, cy + 208);
+        ctx.closePath();
+        const bellG = ctx.createLinearGradient(cx - 66, 0, cx + 66, 0);
+        bellG.addColorStop(0.0, "#1c202b");
+        bellG.addColorStop(0.32, "#626b84");
+        bellG.addColorStop(0.55, "#3a4052");
+        bellG.addColorStop(1.0, "#11131a");
+        ctx.fillStyle = bellG; ctx.fill();
+        // Glowing heated engine throat rim
+        ctx.strokeStyle = "rgba(255, 198, 92, 0.72)"; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(cx - 62, cy + 204); ctx.lineTo(cx + 62, cy + 204); ctx.stroke();
+
+        // ---------------------------------------------------------------------
+        // 5. MAIN FUSELAGE — PEARL CERAMIC TITANIUM + CURVED CARBON NOSE + GOLD TRIM
+        //    (ZERO TINY TEXT! ZERO UGLY BLACK CARTOON STROKE!)
+        // ---------------------------------------------------------------------
+        const traceHull = () => {
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - 332);
+          ctx.bezierCurveTo(cx + 62, cy - 270, cx + 114, cy - 178, cx + 122, cy - 78);
+          ctx.lineTo(cx + 122, cy + 114);
+          ctx.bezierCurveTo(cx + 122, cy + 158, cx + 98, cy + 178, cx + 68, cy + 180);
+          ctx.lineTo(cx - 68, cy + 180);
+          ctx.bezierCurveTo(cx - 98, cy + 178, cx - 122, cy + 158, cx - 122, cy + 114);
+          ctx.lineTo(cx - 122, cy - 78);
+          ctx.bezierCurveTo(cx - 114, cy - 178, cx - 62, cy - 270, cx, cy - 332);
+          ctx.closePath();
+        };
+
+        ctx.save();
+        traceHull();
+        ctx.clip();
+
+        // Rich 3D cylindrical pearl-ceramic metallic shading
+        const bodyG = ctx.createLinearGradient(cx - 122, 0, cx + 122, 0);
+        bodyG.addColorStop(0.00, "#757f96");
+        bodyG.addColorStop(0.14, "#d2d8e6");
+        bodyG.addColorStop(0.32, "#ffffff");
+        bodyG.addColorStop(0.58, "#dfe4f0");
+        bodyG.addColorStop(0.84, "#8590a8");
+        bodyG.addColorStop(1.00, "#41485c");
+        ctx.fillStyle = bodyG;
+        ctx.fillRect(cx - 128, cy - 338, 256, 524);
+
+        // Warm bounced flame glow illuminating the lower fuselage!
+        const bounceG = ctx.createRadialGradient(cx, cy + 215, 10, cx, cy + 180, 170);
+        bounceG.addColorStop(0.0, "rgba(255, 185, 76, 0.34)");
+        bounceG.addColorStop(1.0, "rgba(255, 185, 76, 0)");
+        ctx.fillStyle = bounceG;
+        ctx.fillRect(cx - 128, cy + 20, 256, 170);
+
+        // Curved Carbon-Slate Nose Cowl (aerodynamic curved seam, NOT a flat box cut!)
+        ctx.beginPath();
+        ctx.moveTo(cx - 130, cy - 340);
+        ctx.lineTo(cx + 130, cy - 340);
+        ctx.lineTo(cx + 130, cy - 178);
+        ctx.quadraticCurveTo(cx, cy - 148, cx - 130, cy - 178);
+        ctx.closePath();
+        const noseG = ctx.createLinearGradient(cx - 105, 0, cx + 105, 0);
+        noseG.addColorStop(0.00, "#1c202d");
+        noseG.addColorStop(0.34, "#404861");
+        noseG.addColorStop(0.68, "#222736");
+        noseG.addColorStop(1.00, "#0f1119");
+        ctx.fillStyle = noseG; ctx.fill();
+
+        // Curved Brushed Champagne Gold Chevron Trim along the nose seam!
+        ctx.strokeStyle = "#ebb343"; ctx.lineWidth = 5.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 126, cy - 178);
+        ctx.quadraticCurveTo(cx, cy - 148, cx + 126, cy - 178);
+        ctx.stroke();
+
+        // Luminous minimalist diamond emblem on carbon nose (clean geometric, ZERO text!)
+        ctx.save();
+        ctx.translate(cx, cy - 224);
+        ctx.fillStyle = "#ebb343";
+        ctx.shadowColor = "rgba(235, 179, 67, 0.55)"; ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(0, -14); ctx.lineTo(10, 0); ctx.lineTo(0, 14); ctx.lineTo(-10, 0); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fff5d6";
+        ctx.beginPath();
+        ctx.moveTo(0, -6); ctx.lineTo(4.5, 0); ctx.lineTo(0, 6); ctx.lineTo(-4.5, 0); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Subtle curved fuselage seam lines (aerospace micro-craft)
+        ctx.strokeStyle = "rgba(28, 32, 46, 0.16)"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 56, cy - 160); ctx.lineTo(cx - 56, cy + 132);
+        ctx.moveTo(cx + 56, cy - 160); ctx.lineTo(cx + 56, cy + 132);
+        ctx.stroke();
+
+        // Curved Carbon Heatshield Skirt at base + Champagne Gold Rim
+        ctx.beginPath();
+        ctx.moveTo(cx - 128, cy + 126);
+        ctx.quadraticCurveTo(cx, cy + 144, cx + 128, cy + 126);
+        ctx.lineTo(cx + 128, cy + 186);
+        ctx.lineTo(cx - 128, cy + 186);
+        ctx.closePath();
+        const skirtG = ctx.createLinearGradient(cx - 120, 0, cx + 120, 0);
+        skirtG.addColorStop(0.0, "#151822"); skirtG.addColorStop(0.35, "#2c3244"); skirtG.addColorStop(1.0, "#0c0e14");
+        ctx.fillStyle = skirtG; ctx.fill();
+
+        ctx.strokeStyle = "#ebb343"; ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 126, cy + 126);
+        ctx.quadraticCurveTo(cx, cy + 144, cx + 126, cy + 126);
+        ctx.stroke();
+
+        // Crisp vertical specular reflection streak
+        const specG = ctx.createLinearGradient(cx - 64, 0, cx - 22, 0);
+        specG.addColorStop(0, "rgba(255,255,255,0)");
+        specG.addColorStop(0.5, "rgba(255,255,255,0.44)");
+        specG.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = specG;
+        ctx.fillRect(cx - 68, cy - 320, 50, 495);
+
+        ctx.restore();
+
+        // Soft luminous rim edge around fuselage (high-craft, no heavy cartoon ink!)
+        traceHull();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.22)"; ctx.lineWidth = 1.6; ctx.stroke();
+
+        // Sleek Telemetry Spire + Pulsing Gold Beacon
+        ctx.strokeStyle = "#cfd6e6"; ctx.lineWidth = 2.6; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(cx, cy - 330); ctx.lineTo(cx, cy - 352); ctx.stroke();
+        const bGlow = 0.55 + 0.45 * Math.sin(time * 9.5);
+        ctx.save();
+        ctx.fillStyle = "#ffe28a";
+        ctx.shadowColor = "#ebb343"; ctx.shadowBlur = 16 * bGlow;
+        ctx.beginPath(); ctx.arc(cx, cy - 354, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        // ---------------------------------------------------------------------
+        // 6. MINIMALIST 3-LED CREW STATUS CAPSULE (Replaces tiny text! Lights up as Trio boards!)
+        // ---------------------------------------------------------------------
+        const ledY = cy - 128;
+        roundRect(ctx, cx - 54, ledY - 11, 108, 22, 11);
+        ctx.fillStyle = "#151822"; ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.14)"; ctx.lineWidth = 1.2; ctx.stroke();
+
+        const ledCols = ["#6ea8fe", "#e07a5f", "#ebb343"];
+        for (let i = 0; i < 3; i++) {
+          const lx = cx - 28 + i * 28;
+          const on = crewBoarded[i];
+          ctx.save();
+          if (on) {
+            ctx.fillStyle = ledCols[i];
+            ctx.shadowColor = ledCols[i]; ctx.shadowBlur = 12;
+          } else {
+            ctx.fillStyle = "#2b3040";
+          }
+          ctx.beginPath(); ctx.arc(lx, ledY, 5.5, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. PANORAMIC ENERGY AIRLOCK BAY (Recessed Interior + Holographic Guidance Beam!)
+        // ---------------------------------------------------------------------
+        const hx = cx, hy = cy + 8, hr = 96;
+
+        // Soft volumetric golden-cyan guidance light cone & upward drifting motes!
+        if (hatchOpen > 0.35 && thrustPower < 1.15) {
+          ctx.save();
+          const coneG = ctx.createLinearGradient(hx, hy + hr - 12, hx, hy + hr + 360);
+          coneG.addColorStop(0.0, `rgba(235, 179, 67, ${(0.17 * hatchOpen).toFixed(3)})`);
+          coneG.addColorStop(0.5, `rgba(110, 168, 254, ${(0.07 * hatchOpen).toFixed(3)})`);
+          coneG.addColorStop(1.0, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = coneG;
+          ctx.beginPath();
+          ctx.moveTo(hx - 68, hy + hr - 10);
+          ctx.lineTo(hx + 68, hy + hr - 10);
+          ctx.lineTo(hx + 205, hy + hr + 360);
+          ctx.lineTo(hx - 205, hy + hr + 360);
+          ctx.closePath();
+          ctx.fill();
+
+          // Floating energy motes rising gently toward the open bay
+          for (let m = 0; m < 10; m++) {
+            const mp = ((time * 0.75 + m * 0.19) % 1);
+            const my = hy + hr + 300 * (1 - mp);
+            const spread = lerp(140, 42, mp);
+            const mx = hx + Math.sin(m * 3.7 + mp * 4.0) * spread;
+            ctx.fillStyle = m % 2 === 0 ? "#ffe07d" : "#93c5fd";
+            ctx.globalAlpha = Math.sin(mp * Math.PI) * 0.60 * hatchOpen;
+            ctx.beginPath(); ctx.arc(mx, my, 2.8, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Deeply beveled metallic airlock outer housing
+        ctx.beginPath(); ctx.arc(hx, hy, hr + 16, 0, Math.PI * 2);
+        const hRimG = ctx.createLinearGradient(hx - hr, hy - hr, hx + hr, hy + hr);
+        hRimG.addColorStop(0.0, "#4f5870");
+        hRimG.addColorStop(0.45, "#232836");
+        hRimG.addColorStop(1.0, "#10121a");
+        ctx.fillStyle = hRimG; ctx.fill();
+
+        // Dark recessed cabin interior
+        const cabG = ctx.createRadialGradient(hx, hy - 18, 12, hx, hy, hr);
+        cabG.addColorStop(0.0, "#372a4f");
+        cabG.addColorStop(0.55, "#161322");
+        cabG.addColorStop(1.0, "#07070c");
+        ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+        ctx.fillStyle = cabG; ctx.fill();
+
+        // Cabin interior glow flash when a mascot dives inside!
+        if (absorbFlash && absorbFlash.val > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = absorbFlash.val * 0.65;
+          const fg = ctx.createRadialGradient(hx, hy, 8, hx, hy, hr);
+          fg.addColorStop(0.0, "#ffffff");
+          fg.addColorStop(0.45, absorbFlash.col);
+          fg.addColorStop(1.0, "rgba(0,0,0,0)");
+          ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+          ctx.fillStyle = fg; ctx.fill();
+          ctx.restore();
+        }
+
+        // Subtle console HUD lights on cabin back wall + Dual Armored Sliding Doors
+        ctx.save();
+        ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = "rgba(92, 230, 160, 0.28)"; ctx.fillRect(hx - 68, hy - 58, 28, 5);
+        ctx.fillStyle = "rgba(235, 179, 67, 0.34)"; ctx.fillRect(hx + 40, hy - 58, 28, 5);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.06)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(hx - hr, hy - 34); ctx.lineTo(hx + hr, hy - 34); ctx.stroke();
+
+        if (hatchOpen < 0.99) {
+          const slide = easeInOutCubic(hatchOpen) * (hr + 8);
+          const dL = ctx.createLinearGradient(hx - hr - slide, 0, hx - slide, 0);
+          dL.addColorStop(0, "#1d212e"); dL.addColorStop(1, "#3c4459");
+          ctx.fillStyle = dL; ctx.fillRect(hx - hr - slide, hy - hr, hr, hr * 2);
+
+          const dR = ctx.createLinearGradient(hx + slide, 0, hx + hr + slide, 0);
+          dR.addColorStop(0, "#3c4459"); dR.addColorStop(1, "#1a1e29");
+          ctx.fillStyle = dR; ctx.fillRect(hx + slide, hy - hr, hr, hr * 2);
+
+          ctx.strokeStyle = "#ebb343"; ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(hx - slide, hy - hr); ctx.lineTo(hx - slide, hy + hr);
+          ctx.moveTo(hx + slide, hy - hr); ctx.lineTo(hx + slide, hy + hr);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.restore();
+        return { hx, hy, hr };
+      }
+
+      // Front Airlock Bezel + Rotating Holographic Portal Ring + Absorption Burst Overlay!
+      function drawOrbitalDropshipFrontRim(hx, hy, hr, hatchOpen, time, absorbFlash) {
+        ctx.save();
+        // Lower armored sill (characters diving inside pass BEHIND this lip!)
+        ctx.beginPath();
+        ctx.arc(hx, hy, hr + 8, 0.06 * Math.PI, 0.94 * Math.PI);
+        ctx.strokeStyle = "#2d3345"; ctx.lineWidth = 17; ctx.lineCap = "round"; ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(hx, hy, hr + 8, 0.10 * Math.PI, 0.90 * Math.PI);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.16)"; ctx.lineWidth = 2.0; ctx.stroke();
+
+        // Outer metallic ring
+        ctx.beginPath();
+        ctx.arc(hx, hy, hr + 16, 0, Math.PI * 2);
+        ctx.strokeStyle = hatchOpen > 0.2 ? "rgba(235, 179, 67, 0.85)" : "rgba(255,255,255,0.14)";
+        ctx.lineWidth = 2.4; ctx.stroke();
+
+        // Rotating Holographic Boarding Ring when airlock is open!
+        if (hatchOpen > 0.25) {
+          const ringCol = (absorbFlash && absorbFlash.val > 0.05) ? absorbFlash.col : "#ebb343";
+          ctx.save();
+          ctx.translate(hx, hy);
+          ctx.rotate(time * 1.1);
+          ctx.strokeStyle = ringCol;
+          ctx.shadowColor = ringCol; ctx.shadowBlur = 12 + (absorbFlash ? absorbFlash.val * 20 : 0);
+          ctx.lineWidth = 2.6;
+          ctx.setLineDash([28, 22]);
+          ctx.globalAlpha = hatchOpen * 0.78;
+          ctx.beginPath(); ctx.arc(0, 0, hr + 24, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
+        // 12 recessed titanium bolts
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          ctx.fillStyle = "#b8c2d8";
+          ctx.beginPath();
+          ctx.arc(hx + Math.cos(a) * (hr + 8), hy + Math.sin(a) * (hr + 8), 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // 7B. KINETIC BOARDING VFX: GROUND SHOCKWAVE + COMET RIBBON + AIRLOCK WARP BURST!
+      // =======================================================================
+      function drawGroundLaunchFX(fx, fy, time, launchT, anticStart, colMain, colLight) {
+        // 1. Charge-up ring during anticipation crouch
+        if (time >= anticStart && time < launchT) {
+          const cp = clamp((time - anticStart) / (launchT - anticStart), 0, 1);
+          ctx.save();
+          ctx.globalAlpha = Math.sin(cp * Math.PI) * 0.85;
+          ctx.strokeStyle = colMain; ctx.lineWidth = 3.2;
+          ctx.shadowColor = colMain; ctx.shadowBlur = 14;
+          const rad = lerp(96, 48, easeOutCubic(cp));
+          ctx.beginPath(); ctx.ellipse(fx, fy, rad, rad * 0.25, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
+
+        // 2. Explosive launch shockwave + voxel sparks + vertical speed lines!
+        if (time >= launchT && time <= launchT + 0.85) {
+          const p = (time - launchT) / 0.85;
+          ctx.save();
+
+          // Expanding kinetic floor shockwave
+          if (p < 0.65) {
+            const rp = p / 0.65;
+            ctx.globalAlpha = Math.pow(1 - rp, 1.4) * 0.92;
+            ctx.strokeStyle = colMain; ctx.lineWidth = lerp(5.5, 1.2, rp);
+            ctx.shadowColor = colMain; ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.ellipse(fx, fy, lerp(44, 185, easeOutQuart(rp)), lerp(12, 46, easeOutQuart(rp)), 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+
+          // 12 radial voxel sparks bursting up & outward
+          for (let i = 0; i < 12; i++) {
+            const ang = (i / 12) * Math.PI * 2 + 0.15;
+            const d = easeOutCubic(p) * (75 + (i % 3) * 35);
+            const px = fx + Math.cos(ang) * d;
+            const py = fy + Math.sin(ang) * d * 0.28 - easeOutCubic(p) * (70 + (i % 4) * 45);
+            const sz = lerp(11, 2.5, p);
+            ctx.globalAlpha = (1 - p) * 0.92;
+            ctx.fillStyle = i % 2 === 0 ? colMain : colLight;
+            roundRect(ctx, px - sz / 2, py - sz / 2, sz, sz, 2.5);
+            ctx.fill();
+          }
+
+          // 5 vertical launch speed lines
+          if (p < 0.55) {
+            const lp = p / 0.55;
+            ctx.globalAlpha = (1 - lp) * 0.72;
+            ctx.strokeStyle = colLight; ctx.lineWidth = 2.6; ctx.lineCap = "round";
+            for (let k = -2; k <= 2; k++) {
+              const lx = fx + k * 24;
+              const ly = fy - 25 - lp * 220 - Math.abs(k) * 18;
+              ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 68 * (1 - lp * 0.4)); ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+      }
+
+      // Luminous curved comet ribbon + sparkling trail behind jumping mascot!
+      function drawJumpCometTrail(sampleFn, curTime, launchT, enterEndT, colMain, colLight, originX, originY, camDist, fov) {
+        if (curTime <= launchT + 0.02 || curTime > enterEndT + 0.28) return;
+        const steps = 16;
+        const trailSpan = 0.34;
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+          const st = curTime - (i / steps) * trailSpan;
+          if (st < launchT || st > enterEndT) continue;
+          const pos = sampleFn(st);
+          if (!pos || pos.state === "stand" || pos.state === "gone") continue;
+          const pt = project3DPoint(pos.wx, pos.wy + 1.0, pos.wz, originX, originY, camDist, fov);
+          pts.push({ x: pt.x, y: pt.y, frac: 1 - i / steps });
+        }
+        if (pts.length < 2) return;
+
+        ctx.save();
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = pts[i], b = pts[i + 1];
+          const w = a.frac * 26;
+          // Outer colored energy ribbon
+          ctx.globalAlpha = a.frac * 0.42;
+          ctx.strokeStyle = colMain; ctx.lineWidth = w;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          // Bright inner core ribbon
+          ctx.globalAlpha = a.frac * 0.75;
+          ctx.strokeStyle = colLight; ctx.lineWidth = w * 0.36;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+
+        // Sparkling pixel motes along the trail
+        for (let i = 1; i < pts.length; i += 2) {
+          const p = pts[i];
+          const ox = Math.sin(curTime * 18 + i * 2.1) * (16 * (1 - p.frac) + 6);
+          const oy = Math.cos(curTime * 16 + i * 1.7) * 10;
+          const sz = 4 + p.frac * 7;
+          ctx.globalAlpha = p.frac * 0.90;
+          ctx.fillStyle = i % 4 === 1 ? "#ffffff" : colLight;
+          roundRect(ctx, p.x + ox - sz / 2, p.y + oy - sz / 2, sz, sz, 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Crisp Energy Absorption Portal Ring + Radial Sparks when a mascot enters the airlock!
+      function drawHatchAbsorptionFX(hx, hy, hr, time, hitT, colMain, colLight) {
+        if (time < hitT || time > hitT + 0.72) return;
+        const p = (time - hitT) / 0.72;
+        ctx.save();
+
+        // Dual expanding energy rings around the hatch rim
+        ctx.globalAlpha = Math.pow(1 - p, 1.3) * 0.95;
+        ctx.strokeStyle = colMain; ctx.lineWidth = lerp(6.0, 1.2, p);
+        ctx.shadowColor = colMain; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(hx, hy, hr + easeOutCubic(p) * 78, 0, Math.PI * 2); ctx.stroke();
+
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = lerp(3.2, 0.8, p);
+        ctx.beginPath(); ctx.arc(hx, hy, hr - 10 + easeOutQuart(p) * 52, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // 14 radial energy star sparks bursting out of the airlock rim
+        for (let i = 0; i < 14; i++) {
+          const ang = (i / 14) * Math.PI * 2 + 0.12;
+          const dist = hr + 6 + easeOutCubic(p) * (65 + (i % 3) * 32);
+          const sx = hx + Math.cos(ang) * dist;
+          const sy = hy + Math.sin(ang) * dist;
+          const sz = lerp(12, 2.5, p);
+          ctx.globalAlpha = (1 - p) * 0.95;
+          ctx.fillStyle = i % 2 === 0 ? colLight : colMain;
+          ctx.save();
+          ctx.translate(sx, sy); ctx.rotate(ang + p * 3.0);
+          roundRect(ctx, -sz / 2, -sz / 2, sz, sz, 2.5); ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      // Sonic Boom Pressure Ring & Warp Speed Streaks on Blast-Off!
+      function drawBlastOffFX(cx, rocketBaseY, time) {
+        if (time < 24.85 || time > 26.60) return;
+        const p = clamp((time - 24.85) / 1.10, 0, 1);
+        ctx.save();
+        if (p < 0.85) {
+          const rp = p / 0.85;
+          ctx.globalAlpha = Math.pow(1 - rp, 1.4) * 0.88;
+          ctx.strokeStyle = "#ffe07d"; ctx.lineWidth = lerp(7.0, 1.5, rp);
+          ctx.shadowColor = "#ebb343"; ctx.shadowBlur = 24;
+          ctx.beginPath();
+          ctx.ellipse(cx, 895, lerp(65, 480, easeOutQuart(rp)), lerp(18, 92, easeOutQuart(rp)), 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+        // Vertical warp speed streaks rushing downward
+        const sp = bellCurve(time, 24.90, 25.25, 25.85, 26.40);
+        if (sp > 0.02) {
+          ctx.globalAlpha = sp * 0.55;
+          ctx.lineCap = "round";
+          for (let i = 0; i < 16; i++) {
+            const lx = 70 + ((i * 193) % (W - 140));
+            const ly = ((time * 1850 + i * 240) % (H + 260)) - 200;
+            ctx.strokeStyle = i % 3 === 0 ? "#ffe07d" : (i % 3 === 1 ? "#93c5fd" : "#ffffff");
+            ctx.lineWidth = i % 2 === 0 ? 2.6 : 1.6;
+            ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 150); ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      // Shout Callout Banner (Tanpa menabrak roket / maskot!)
+      function drawShoutCallout(opts) {
+        const { tag, text1, text2, accentHex, yCenter, alpha, typeProg, time, shakeAmp = 0 } = opts;
+        if (alpha <= 0.01) return;
+        const bw = 920, bh = text2 ? 156 : 114;
+        const sx = shakeAmp > 0 ? Math.sin(time * 52.0) * shakeAmp : 0;
+        const sy = shakeAmp > 0 ? Math.cos(time * 44.0) * (shakeAmp * 0.5) : 0;
+        const bx = (W - bw) / 2 + sx;
+        const by = yCenter - bh / 2 + sy;
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.72)"; ctx.shadowBlur = 32; ctx.shadowOffsetY = 10;
+        roundRect(ctx, bx, by, bw, bh, 16);
+        ctx.fillStyle = "#14141a"; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        ctx.lineWidth = 2.0; ctx.strokeStyle = accentHex; ctx.stroke();
+
+        ctx.font = "800 14.5px ui-monospace, Consolas, monospace";
+        const tagW = ctx.measureText(tag).width + 32;
+        roundRect(ctx, W / 2 - tagW / 2 + sx, by - 16, tagW, 30, 15);
+        ctx.fillStyle = accentHex; ctx.fill();
+        ctx.fillStyle = "#0e0e10"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(tag, W / 2 + sx, by - 0.5);
+
+        const full = text2 ? (text1 + "\n" + text2) : text1;
+        const shown = full.slice(0, Math.floor(clamp(typeProg, 0, 1) * full.length)).split("\n");
+        ctx.font = "900 35px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#f5f4f0"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        if (text2) {
+          ctx.fillText(shown[0] || "", W / 2 + sx, by + 62);
+          ctx.fillStyle = accentHex;
+          ctx.fillText(shown[1] || "", W / 2 + sx, by + 112);
+        } else {
+          ctx.fillText(shown[0] || "", W / 2 + sx, by + 64);
+        }
+        ctx.restore();
+      }
+
+      function drawEmotePop(x, y, txt, accent, alpha, time) {
+        if (alpha <= 0.02) return;
+        const sc = softSpringOut(clamp(alpha * 1.35, 0, 1), 1.0);
+        ctx.save();
+        ctx.globalAlpha *= clamp(alpha, 0, 1);
+        ctx.translate(x, y + Math.sin(time * 9.0) * 5);
+        ctx.scale(sc, sc);
+        ctx.shadowColor = accent; ctx.shadowBlur = 16;
+        roundRect(ctx, -25, -25, 50, 50, 12);
+        ctx.fillStyle = "#16161d"; ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2; ctx.strokeStyle = accent; ctx.stroke();
+        ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accent; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(txt, 0, 2);
+        ctx.restore();
+      }
+
+      function drawStageFloor(floorY, alpha, rocketHoverGlow = 0) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        const glow = ctx.createRadialGradient(W / 2, floorY, 30, W / 2, floorY, 440);
+        glow.addColorStop(0, `rgba(235, 179, 67, ${(0.12 + rocketHoverGlow * 0.14).toFixed(3)})`);
+        glow.addColorStop(0.55, "rgba(110, 168, 254, 0.06)");
+        glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(48, floorY - 160, W - 96, 320);
+
+        ctx.beginPath(); ctx.rect(48, floorY - 72, W - 96, 200); ctx.clip();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.048)"; ctx.lineWidth = 1;
+        for (let i = -5; i <= 5; i++) {
+          ctx.beginPath(); ctx.moveTo(W / 2 + i * 42, floorY - 68); ctx.lineTo(W / 2 + i * 175, floorY + 135); ctx.stroke();
+        }
+        for (const hy of [floorY - 60, floorY - 26, floorY + 12, floorY + 56, floorY + 104]) {
+          ctx.beginPath(); ctx.moveTo(48, hy); ctx.lineTo(W - 48, hy); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawFloorShadow(cx, cy, rx, ry, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.translate(cx, cy); ctx.scale(1, ry / rx);
+        const g = ctx.createRadialGradient(0, 0, rx * 0.1, 0, 0, rx);
+        g.addColorStop(0, `rgba(0, 0, 0, ${(0.72 * alpha).toFixed(3)})`);
+        g.addColorStop(0.65, `rgba(0, 0, 0, ${(0.26 * alpha).toFixed(3)})`);
+        g.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // 8. KINETIC JUMP TRAJECTORY CALCULATORS (SQUASH-LAUNCH + APEX + TRUE AIRLOCK DIVE!)
+      // =======================================================================
+      // Standard kinetic side-arc boarding (Merry & Roger)
+      function sampleSideBoarding(tVal, anticStart, launchT, diveStart, endT, startWX) {
+        if (tVal < anticStart) {
+          return { state: "stand", wx: startWX, wy: 0, wz: 0, sc: 1.0, sqX: 1, sqY: 1, spin: 0, alpha: 1.0, clipHatch: false };
+        }
+        if (tVal < launchT) {
+          const ap = (tVal - anticStart) / (launchT - anticStart);
+          const s = Math.sin(ap * Math.PI);
+          return {
+            state: "antic", wx: startWX, wy: -s * 0.72, wz: 0,
+            sc: 1.0, sqX: 1 + s * 0.28, sqY: 1 - s * 0.28,
+            spin: 0, alpha: 1.0, clipHatch: false
+          };
+        }
+        if (tVal < diveStart) {
+          // High-speed snappy launch curve up to apex right in front of open airlock!
+          const jp = clamp((tVal - launchT) / (diveStart - launchT), 0, 1);
+          const e = easeOutQuart(jp);
+          const stretch = Math.sin(clamp(jp * 1.4, 0, 1) * Math.PI);
+          const wx = quadBezier(startWX, startWX * 0.72, 0, e);
+          const wy = quadBezier(0, 23.5, 27.6, e);
+          const wz = Math.sin(jp * Math.PI) * 3.8;
+          return {
+            state: "air", wx, wy, wz,
+            sc: lerp(1.0, 0.56, smoothstep(0.45, 1.0, jp)),
+            sqX: 1 - stretch * 0.20, sqY: 1 + stretch * 0.26,
+            spin: easeOutCubic(jp) * Math.PI * 2.0 * (startWX < 0 ? 1 : -1),
+            alpha: 1.0, clipHatch: false
+          };
+        }
+        if (tVal <= endT) {
+          // True dive INTO the open airlock cabin (clipped cleanly inside hatch!)
+          const dp = clamp((tVal - diveStart) / (endT - diveStart), 0, 1);
+          const e = easeInQuad(dp);
+          return {
+            state: "enter",
+            wx: 0,
+            wy: lerp(27.6, 28.9, e),
+            wz: lerp(0, -10.5, e),
+            sc: lerp(0.56, 0.28, e),
+            sqX: lerp(1.0, 0.88, e), sqY: lerp(1.0, 1.12, e),
+            spin: Math.PI * 2.0 * (startWX < 0 ? 1 : -1),
+            alpha: 1 - smoothstep(0.62, 1.0, dp),
+            clipHatch: true
+          };
+        }
+        return { state: "gone", wx: 0, wy: 29.0, wz: -12, sc: 0, sqX: 1, sqY: 1, spin: 0, alpha: 0, clipHatch: true };
+      }
+
+      // Arto's Dramatic Slow-Mo Hero Hang-Time + Golden Paint-Zip Boarding!
+      function sampleArtoBoarding(tVal) {
+        const anticStart = 21.30, launchT = 21.66, hangStart = 22.15, zipStart = 23.02, diveStart = 23.46, endT = 23.82;
+        if (tVal < anticStart) {
+          return { state: "stand", wx: 0, wy: 0, wz: 0.4, sc: 1.0, sqX: 1, sqY: 1, spin: 0, alpha: 1.0, clipHatch: false, hangAmt: 0 };
+        }
+        if (tVal < launchT) {
+          const ap = (tVal - anticStart) / (launchT - anticStart);
+          const s = Math.sin(ap * Math.PI);
+          return {
+            state: "antic", wx: 0, wy: -s * 0.78, wz: 0.4,
+            sc: 1.0, sqX: 1 + s * 0.26, sqY: 1 - s * 0.26,
+            spin: 0, alpha: 1.0, clipHatch: false, hangAmt: 0
+          };
+        }
+        if (tVal < hangStart) {
+          const jp = (tVal - launchT) / (hangStart - launchT);
+          const e = easeOutQuart(jp);
+          const stretch = Math.sin(jp * Math.PI);
+          return {
+            state: "air", wx: 0, wy: lerp(0, 13.5, e), wz: lerp(0.4, 4.2, e),
+            sc: lerp(1.0, 1.08, e), sqX: 1 - stretch * 0.18, sqY: 1 + stretch * 0.24,
+            spin: 0, alpha: 1.0, clipHatch: false, hangAmt: e
+          };
+        }
+        if (tVal < zipStart) {
+          // Dramatic floating spotlight pose for "LOVE U PARA PENONTON, SAMPAI JUMPA!!"
+          const hp = (tVal - hangStart) / (zipStart - hangStart);
+          return {
+            state: "hang", wx: Math.sin(hp * Math.PI * 2) * 0.4, wy: 13.5 + Math.sin(hp * Math.PI) * 1.1, wz: 4.2,
+            sc: 1.08, sqX: 1, sqY: 1,
+            spin: Math.sin(hp * Math.PI) * 0.18, alpha: 1.0, clipHatch: false, hangAmt: 1.0
+          };
+        }
+        if (tVal < diveStart) {
+          // Blazing golden paint-zip straight up to the open airlock!
+          const zp = (tVal - zipStart) / (diveStart - zipStart);
+          const e = easeInOutCubic(zp);
+          const stretch = Math.sin(zp * Math.PI);
+          return {
+            state: "air", wx: 0, wy: lerp(13.5, 27.6, e), wz: lerp(4.2, 0.5, e),
+            sc: lerp(1.08, 0.52, e), sqX: 1 - stretch * 0.22, sqY: 1 + stretch * 0.30,
+            spin: e * Math.PI * 2.0, alpha: 1.0, clipHatch: false, hangAmt: 1 - e
+          };
+        }
+        if (tVal <= endT) {
+          const dp = (tVal - diveStart) / (endT - diveStart);
+          const e = easeInQuad(dp);
+          return {
+            state: "enter", wx: 0, wy: lerp(27.6, 28.9, e), wz: lerp(0.5, -10.5, e),
+            sc: lerp(0.52, 0.26, e), sqX: lerp(1.0, 0.88, e), sqY: lerp(1.0, 1.12, e),
+            spin: Math.PI * 2.0, alpha: 1 - smoothstep(0.60, 1.0, dp), clipHatch: true, hangAmt: 0
+          };
+        }
+        return { state: "gone", wx: 0, wy: 29.0, wz: -12, sc: 0, sqX: 1, sqY: 1, spin: 0, alpha: 0, clipHatch: true, hangAmt: 0 };
+      }
+
+      // =======================================================================
+      // 9. FUNGSI UTAMA: drawFrame(t) — PAGE 5 v2 FINALE (28.00 DETIK · 840 FRAME)
+      // =======================================================================
+      function drawFrame(t) {
+        const time = clamp(Number(t) || 0, 0, DURATION);
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(SSAA, SSAA);
+
+        // Camera Rumble (Boss teriak 14.15..15.10s & Mega Blast-Off 24.80..26.25s)
+        let shX = 0, shY = 0;
+        if (time >= 14.15 && time <= 15.10) {
+          const a = bellCurve(time, 14.15, 14.30, 14.70, 15.10) * 6.5;
+          shX = Math.sin(time * 78) * a; shY = Math.cos(time * 66) * a * 0.6;
+        } else if (time >= 24.80 && time <= 26.25) {
+          const a = bellCurve(time, 24.80, 25.15, 25.75, 26.25) * 10.5;
+          shX = Math.sin(time * 92) * a; shY = Math.cos(time * 98) * a;
+        }
+
+        // 1. Latar Warm Obsidian (#0f0f11) + Ambient Lighting
+        ctx.fillStyle = "#0f0f11";
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.save();
+        ctx.translate(shX, shY);
+
+        const rocketPhase = smootherstep(12.20, 13.00, time);
+        const wash = ctx.createRadialGradient(W / 2, 780, 40, W / 2, 780, 820);
+        wash.addColorStop(0, "rgba(235, 179, 67, 0.055)");
+        wash.addColorStop(0.55, "rgba(110, 168, 254, 0.028)");
+        wash.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = wash; ctx.fillRect(0, 0, W, H);
+
+        // Starfield halus saat fase roket
+        if (rocketPhase > 0.05) {
+          ctx.save();
+          for (let i = 0; i < 42; i++) {
+            const sx = 54 + ((i * 197) % (W - 108));
+            const sy = 144 + ((i * 131) % 920);
+            const tw = 0.35 + 0.65 * Math.abs(Math.sin(time * 2.6 + i));
+            ctx.fillStyle = i % 3 === 0 ? "#ffe07d" : (i % 3 === 1 ? "#bae6fd" : "#e5e4df");
+            ctx.globalAlpha = rocketPhase * tw * 0.55;
+            const sz = i % 5 === 0 ? 3 : 2;
+            ctx.fillRect(sx, sy, sz, sz);
+          }
+          ctx.restore();
+        }
+
+        // 2. Frame Editorial Hairline (1px)
+        ctx.strokeStyle = "#1e1e23"; ctx.lineWidth = 1;
+        ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
+        ctx.fillStyle = "#1e1e23";
+        ctx.fillRect(24, 122, W - 48, 1);
+        ctx.fillRect(24, 1792, W - 48, 1);
+
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(24, 121.5, (W - 48) * (time / DURATION), 1.5);
+        drawCrosshair(540, 122, 4, "#36363f");
+        drawCrosshair(540, 1792, 4, "#36363f");
+
+        // Masthead
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#ebb343"; ctx.fillRect(48, 80, 6, 6);
+        ctx.fillStyle = "#7c7b76"; fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.5, "left");
+        ctx.fillStyle = "#969590"; fillTrackedText(time >= 12.6 ? "05 — FINALE  ·  BACK TO BASE" : "05 — OUTRO  ·  FOLLOW @JULLJHAA", W - 48, 83.5, 1.5, "right");
+
+        // =====================================================================
+        // PHASE A (0.00s - 12.80s): EDITORIAL HEADLINES + IG PROFILE CARD (NO GELEMBUNG!)
+        // =====================================================================
+        const igCardAlpha = smootherstep(0.15, 0.85, time) * (1 - smootherstep(12.15, 12.85, time));
+        if (igCardAlpha > 0.01) {
+          const drawPhaseHeadline = (a, kicker, l1, l2, bigGold = false) => {
+            if (a <= 0.01) return;
+            ctx.save();
+            ctx.globalAlpha = a * igCardAlpha;
+            roundRect(ctx, 64, 152, 11, 11, 2.5); ctx.fillStyle = "#ebb343"; ctx.fill();
+            ctx.font = "600 17.5px ui-monospace, Consolas, monospace"; ctx.fillStyle = "#8f8d87";
+            ctx.textBaseline = "middle";
+            fillTrackedText(kicker, 86, 158, 1.6, "left");
+
+            ctx.textAlign = "left"; ctx.textBaseline = "top";
+            if (bigGold) {
+              ctx.font = "900 66px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+              ctx.fillStyle = "#ebb343"; ctx.fillText(l1, 64, 188);
+              ctx.font = "600 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+              ctx.fillStyle = "#b4b3ac"; ctx.fillText(l2, 64, 266);
+            } else {
+              ctx.font = "900 44px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+              ctx.fillStyle = "#f5f4f0"; ctx.fillText(l1, 64, 188);
+              ctx.fillStyle = "#ebb343"; ctx.fillText(l2, 64, 244);
+            }
+            ctx.restore();
+          };
+
+          drawPhaseHeadline(
+            bellCurve(time, 0.10, 0.65, 6.25, 6.65),
+            "OUTRO  ·  PROJECT SELANJUTNYA",
+            "Follow akun ini kalau kamu ingin",
+            "tau project video motion selanjutnya."
+          );
+          drawPhaseHeadline(
+            bellCurve(time, 6.60, 7.05, 9.20, 9.60),
+            "OPEN SOURCE  ·  CEK BIO",
+            "Link GitHub juga ada di bio-nya!",
+            "github.com/rjoulfiand-afk"
+          );
+          drawPhaseHeadline(
+            bellCurve(time, 9.55, 10.00, 11.95, 12.40),
+            "MERRY · ARTO · ROGER",
+            "Terimakasih!",
+            "Sudah nonton sampai akhir — kalian luar biasa.",
+            true
+          );
+
+          const followClickP = (time >= 4.25 && time <= 5.20) ? (time - 4.25) / 0.95 : 0;
+          const isFollowing = time >= 4.62;
+          const githubHL = bellCurve(time, 6.75, 7.20, 9.25, 9.65);
+
+          let cursorPt = null, cursorA = 0;
+          if (time >= 3.40 && time <= 5.25) {
+            const mp = easeOutQuart(clamp((time - 3.40) / 0.85, 0, 1));
+            cursorPt = { x: lerp(520, 299, mp), y: lerp(890, 782, mp) };
+            cursorA = bellCurve(time, 3.40, 3.65, 4.85, 5.25);
+          }
+
+          ctx.save();
+          const slideOutY = smootherstep(12.15, 12.85, time) * -140;
+          ctx.translate(0, slideOutY);
+          drawIGProfileCard(time, igCardAlpha, followClickP, isFollowing, githubHL, cursorPt, cursorA);
+          ctx.restore();
+        }
+
+        // =====================================================================
+        // PHASE B (12.60s - 26.60s): EXECUTIVE ORBITAL DROPSHIP + BOSS JULL 3D!
+        // =====================================================================
+        const M_HIT = 17.92, R_HIT = 20.28, A_HIT = 23.54;
+        const crewBoarded = [time >= M_HIT, time >= R_HIT, time >= A_HIT];
+
+        // Determine active hatch absorption flash
+        let absorbFlash = null;
+        for (const ev of [
+          { t: M_HIT, col: "#6ea8fe" },
+          { t: R_HIT, col: "#e07a5f" },
+          { t: A_HIT, col: "#ebb343" }
+        ]) {
+          if (time >= ev.t && time <= ev.t + 0.55) {
+            absorbFlash = { val: Math.sin(((time - ev.t) / 0.55) * Math.PI), col: ev.col };
+          }
+        }
+
+        let hatchInfo = null;
+        const rocketVisible = time >= 12.55 && time <= 26.65;
+        let rocketY = -390;
+        let hatchOpen = 0;
+
+        if (rocketVisible) {
+          const descP  = easeOutQuart(clamp((time - 12.60) / 1.55, 0, 1));
+          const blastP = easeInCubic(clamp((time - 24.95) / 1.45, 0, 1));
+          const hoverY = (time >= 14.10 && time < 24.95) ? Math.sin((time - 14.10) * 2.6) * 9 : 0;
+          rocketY = lerp(-390, 672, descP) + hoverY - blastP * 1240;
+
+          hatchOpen = smootherstep(13.80, 14.28, time) * (1 - smootherstep(24.30, 24.75, time));
+          const thrustPower = time >= 24.80 ? lerp(0.85, 2.45, clamp((time - 24.80) / 0.65, 0, 1)) : 0.72;
+
+          // Damped spring recoil jolt whenever a mascot dives into the airlock!
+          let joltY = 0;
+          for (const hitT of [M_HIT, R_HIT, A_HIT]) {
+            if (time >= hitT && time < hitT + 0.55) {
+              const dt = time - hitT;
+              joltY += Math.sin(dt * 18.0) * Math.exp(-dt * 6.5) * 16;
+            }
+          }
+
+          hatchInfo = drawOrbitalDropshipBack(W / 2, rocketY, time, thrustPower, hatchOpen, joltY, crewBoarded, absorbFlash);
+
+          // Render 3D VOXEL BOSS JULL inside the open panoramic airlock!
+          if (hatchOpen > 0.12) {
+            const bossPop = softSpringOut(clamp((time - 13.92) / 0.55, 0, 1), 0.78)
+                          * (1 - smootherstep(24.05, 24.42, time));
+            if (bossPop > 0.02) {
+              const bossShoutW = bellCurve(time, 14.20, 14.38, 16.25, 16.55);
+              const bossNod = absorbFlash ? absorbFlash.val : 0;
+              const bossQuads = buildBossJullQuads(time, {
+                x: 0, y: lerp(-4.5, -0.5, bossPop), z: 0,
+                yaw: Math.sin(time * 2.0) * 0.10,
+                pitch: 0.08, roll: 0,
+                scale: 0.66 * bossPop,
+                shoutAmt: bossShoutW,
+                mouthOpen: getLipSyncOpen(time, bossShoutW),
+                waveRight: smootherstep(16.60, 17.20, time),
+                coolSmirk: smootherstep(23.60, 24.05, time),
+                nodBump: bossNod
+              });
+
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, 0, Math.PI * 2);
+              ctx.clip();
+              renderSceneQuads(bossQuads, hatchInfo.hx, hatchInfo.hy + 38, 36, 980, bossPop);
+              ctx.restore();
+            }
+          }
+        }
+
+        // =====================================================================
+        // TRIO MASCOTS 3D + KINETIC JUMP TRAILS + TRUE AIRLOCK CLIPPING!
+        // =====================================================================
+        const trioOriginX = W / 2;
+        const trioOriginY = lerp(1245, 1385, rocketPhase);
+        const trioCamDist = 38;
+        const trioFov     = 960;
+        const floorPt = project3DPoint(0, -6.10, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+        drawStageFloor(floorPt.y, 1 - smootherstep(24.90, 25.60, time), rocketPhase * (1 - smootherstep(24.95, 25.60, time)));
+
+        const bowAmt   = bellCurve(time, 9.75, 10.25, 11.75, 12.25);
+        const cheerAmt = bellCurve(time, 4.62, 4.90, 6.20, 6.60);
+        const shockAll = bellCurve(time, 14.20, 14.38, 16.30, 16.60);
+        const pointUp  = bellCurve(time, 0.90, 1.35, 4.45, 4.70);
+        const endFadeAll = 1 - smootherstep(24.20, 24.50, time);
+
+        // Compute kinetic boarding samples
+        const sampleMerry = (tv) => sampleSideBoarding(tv, 16.55, 16.90, 17.80, 18.22, -11.4);
+        const sampleRoger = (tv) => sampleSideBoarding(tv, 18.90, 19.26, 20.16, 20.58,  11.4);
+        const sampleArto  = (tv) => sampleArtoBoarding(tv);
+
+        const mJ = sampleMerry(time);
+        const rJ = sampleRoger(time);
+        const aJ = sampleArto(time);
+
+        // Ground launch shockwaves & charge rings under each mascot!
+        const mFootPt = project3DPoint(-11.4, -4.60, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+        const rFootPt = project3DPoint( 11.4, -4.60, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+        const aFootPt = project3DPoint(  0.0, -6.10, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+        drawGroundLaunchFX(mFootPt.x, floorPt.y, time, 16.90, 16.55, "#6ea8fe", "#bae6fd");
+        drawGroundLaunchFX(rFootPt.x, floorPt.y, time, 19.26, 18.90, "#e07a5f", "#ffd0b8");
+        drawGroundLaunchFX(aFootPt.x, floorPt.y, time, 21.66, 21.30, "#ebb343", "#fff0b3");
+
+        // Curved luminous comet ribbons trailing behind each jumping mascot!
+        drawJumpCometTrail(sampleMerry, time, 16.90, 18.22, "#6ea8fe", "#e0f2fe", trioOriginX, trioOriginY, trioCamDist, trioFov);
+        drawJumpCometTrail(sampleRoger, time, 19.26, 20.58, "#e07a5f", "#ffe1cf", trioOriginX, trioOriginY, trioCamDist, trioFov);
+        drawJumpCometTrail(sampleArto,  time, 21.66, 23.82, "#ebb343", "#fff6cf", trioOriginX, trioOriginY, trioCamDist, trioFov);
+
+        // Arto's golden paintbrush swirl halo during slow-mo hero hang-time!
+        if (aJ.hangAmt > 0.05 && aJ.alpha > 0.05) {
+          const aHangPt = project3DPoint(aJ.wx, aJ.wy + 1.2, aJ.wz, trioOriginX, trioOriginY, trioCamDist, trioFov);
+          ctx.save();
+          ctx.globalAlpha = aJ.hangAmt * 0.72;
+          ctx.translate(aHangPt.x, aHangPt.y);
+          ctx.rotate(time * 2.8);
+          ctx.strokeStyle = "#ebb343"; ctx.lineWidth = 4.0;
+          ctx.shadowColor = "#ebb343"; ctx.shadowBlur = 18;
+          ctx.setLineDash([48, 28]);
+          ctx.beginPath(); ctx.arc(0, 0, 128, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
+        const baseScale = 0.76;
+        const renderMascotWithOptionalHatchClip = (quads, alpha, shouldClip) => {
+          if (shouldClip && hatchInfo) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, 0, Math.PI * 2);
+            ctx.clip();
+            renderSceneQuads(quads, trioOriginX, trioOriginY, trioCamDist, trioFov, alpha);
+            ctx.restore();
+          } else {
+            renderSceneQuads(quads, trioOriginX, trioOriginY, trioCamDist, trioFov, alpha);
+          }
+        };
+
+        // 1. MERRY (GEMINI · KIRI)
+        if (mJ.alpha > 0.01 && endFadeAll > 0.01) {
+          const mAlpha = smootherstep(0.25, 0.85, time) * mJ.alpha * endFadeAll;
+          const mFloor = project3DPoint(mJ.wx, -4.60, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+          const shF = clamp(1 - mJ.wy / 24, 0, 1);
+          drawFloorShadow(mFloor.x, floorPt.y, 82 * shF, 20 * shF, mAlpha * shF);
+
+          const mQuads = buildMerryQuads(time, {
+            x: mJ.wx,
+            y: mJ.wy + cheerAmt * Math.abs(Math.sin(time * 11)) * 1.1 - bowAmt * 0.4,
+            z: mJ.wz,
+            yaw: 0.24 + mJ.spin,
+            pitch: 0.05 + bowAmt * 0.52 - pointUp * 0.14 - (mJ.state === "air" ? 0.22 : 0),
+            roll: mJ.state === "air" ? Math.sin(time * 22) * 0.26 : 0,
+            scale: baseScale * 1.04 * mJ.sc,
+            squashX: mJ.sqX, squashY: mJ.sqY,
+            speakEnergy: Math.max(cheerAmt * 0.7, bellCurve(time, 16.60, 16.80, 18.00, 18.30)),
+            wavePhase: Math.max(pointUp * 0.9, cheerAmt, mJ.state !== "stand" ? 1.0 : 0),
+            blinkAmount: Math.abs(time - 3.1) < 0.1 ? 1 : 0,
+            happyEyes: Math.max(cheerAmt, bowAmt),
+            shockMode: shockAll,
+            goofyMode: mJ.state !== "stand" ? 1.0 : 0,
+            lookRight: pointUp * 0.6,
+            excitedHop: cheerAmt * 0.6
+          });
+          renderMascotWithOptionalHatchClip(mQuads, mAlpha, mJ.clipHatch);
+        }
+
+        // 2. ROGER (CLAUDE · KANAN)
+        if (rJ.alpha > 0.01 && endFadeAll > 0.01) {
+          const rAlpha = smootherstep(0.42, 1.02, time) * rJ.alpha * endFadeAll;
+          const rFloor = project3DPoint(rJ.wx, -4.60, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+          const shF = clamp(1 - rJ.wy / 24, 0, 1);
+          drawFloorShadow(rFloor.x, floorPt.y, 90 * shF, 22 * shF, rAlpha * shF);
+
+          const rQuads = buildRogerQuads(time, {
+            x: rJ.wx,
+            y: rJ.wy + cheerAmt * Math.abs(Math.sin(time * 11 + 1)) * 1.1 - bowAmt * 0.4,
+            z: rJ.wz,
+            yaw: -0.24 + rJ.spin,
+            pitch: 0.05 + bowAmt * 0.52 - pointUp * 0.14 - (rJ.state === "air" ? 0.22 : 0),
+            roll: rJ.state === "air" ? Math.cos(time * 20) * 0.26 : 0,
+            scale: baseScale * 1.04 * rJ.sc,
+            squashX: rJ.sqX, squashY: rJ.sqY,
+            speakEnergy: Math.max(cheerAmt * 0.7, bellCurve(time, 18.95, 19.15, 20.35, 20.65)),
+            waveLeft: Math.max(pointUp * 0.95, cheerAmt, rJ.state !== "stand" ? 1.0 : 0),
+            waveRight: Math.max(cheerAmt, rJ.state !== "stand" ? 1.0 : 0),
+            blinkAmount: Math.abs(time - 3.6) < 0.1 ? 1 : 0,
+            happyAmount: Math.max(cheerAmt, bowAmt),
+            excitedAmount: pointUp,
+            shockAmount: shockAll,
+            goofyAmount: rJ.state !== "stand" ? 1.0 : 0,
+            lookX: pointUp > 0.2 ? -0.6 : 0,
+            blushAmount: Math.max(cheerAmt * 0.8, bowAmt * 0.9, rJ.state !== "stand" ? 0.88 : 0)
+          });
+          renderMascotWithOptionalHatchClip(rQuads, rAlpha, rJ.clipHatch);
+        }
+
+        // 3. ARTO (PENILAI · TENGAH)
+        if (aJ.alpha > 0.01 && endFadeAll > 0.01) {
+          const aAlpha = smootherstep(0.32, 0.92, time) * aJ.alpha * endFadeAll;
+          const aFloor = project3DPoint(aJ.wx, -6.10, 0, trioOriginX, trioOriginY, trioCamDist, trioFov);
+          const shF = clamp(1 - aJ.wy / 24, 0, 1);
+          drawFloorShadow(aFloor.x, floorPt.y, 102 * shF, 24 * shF, aAlpha * shF);
+
+          let aExpr = "happy_host";
+          if (shockAll > 0.35) aExpr = "panic";
+          else if (time >= 21.30) aExpr = "goofy_kiss";
+          else if (bowAmt > 0.35) aExpr = "happy_host";
+          else if (pointUp > 0.35) aExpr = "amazed";
+          else if (time >= 6.60 && time < 9.60) aExpr = "tengil";
+
+          const aTalkW = bellCurve(time, 21.40, 21.65, 23.45, 23.75);
+          const aQuads = buildArtoQuads(time, {
+            x: aJ.wx,
+            y: aJ.wy + cheerAmt * Math.abs(Math.sin(time * 10 + 0.5)) * 1.0 - bowAmt * 0.5,
+            z: aJ.wz,
+            yaw: aJ.spin + (aJ.state === "stand" ? Math.sin(time * 1.6) * 0.10 : 0),
+            pitch: 0.04 + bowAmt * 0.50 - pointUp * 0.14 - (aJ.state === "air" ? 0.18 : 0),
+            roll: aJ.state === "hang" ? Math.sin(time * 4.5) * 0.12 : (aJ.state === "air" ? Math.sin(time * 16) * 0.18 : 0),
+            scale: baseScale * aJ.sc,
+            squashX: aJ.sqX, squashY: aJ.sqY,
+            expr: aExpr,
+            mouthOpen: getLipSyncOpen(time, Math.max(aTalkW, cheerAmt * 0.5)),
+            blinkAmount: Math.abs(time - 2.9) < 0.1 ? 1 : 0,
+            monocleOn: true,
+            orbitScale: (aJ.state === "air" || aJ.state === "enter") ? 0 : (aJ.state === "hang" ? 0.96 : 0.82),
+            shirtTheme: ARTO_SHIRT, camDist: trioCamDist
+          });
+          renderMascotWithOptionalHatchClip(aQuads, aAlpha, aJ.clipHatch);
+        }
+
+        // Front Airlock Rim + Holographic Portal Ring + Absorption Bursts OVERLAY!
+        if (rocketVisible && hatchInfo) {
+          drawOrbitalDropshipFrontRim(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, hatchOpen, time, absorbFlash);
+          drawHatchAbsorptionFX(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, time, M_HIT, "#6ea8fe", "#bae6fd");
+          drawHatchAbsorptionFX(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, time, R_HIT, "#e07a5f", "#ffd0b8");
+          drawHatchAbsorptionFX(hatchInfo.hx, hatchInfo.hy, hatchInfo.hr, time, A_HIT, "#ebb343", "#fff4c2");
+        }
+
+        // Blast-Off Sonic Boom Ring & Warp Streaks!
+        drawBlastOffFX(W / 2, rocketY + 206, time);
+
+        // Emote [!] kaget saat Boss Jull berteriak!
+        if (shockAll > 0.05) {
+          drawEmotePop(250, 1155, "!", "#6ea8fe", shockAll, time);
+          drawEmotePop(540, 1125, "!", "#ebb343", shockAll, time + 0.4);
+          drawEmotePop(830, 1155, "!", "#e07a5f", shockAll, time + 0.8);
+        }
+
+        // Floating Hearts & Gold Stars during Arto's slow-mo hero hang-time!
+        const loveHeartsA = bellCurve(time, 21.75, 22.10, 23.35, 23.85);
+        if (loveHeartsA > 0.02) {
+          ctx.save();
+          ctx.font = "36px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          for (let i = 0; i < 8; i++) {
+            const p = clamp((time - 21.75 - i * 0.14) / 1.35, 0, 1);
+            if (p <= 0 || p >= 1) continue;
+            const hx = 540 + Math.sin(i * 2.1 + p * 3.8) * (120 + (i % 3) * 45);
+            const hy = 1120 - easeOutCubic(p) * 320;
+            ctx.globalAlpha = loveHeartsA * (1 - p);
+            ctx.fillText(i % 2 === 0 ? "❤️" : "✨", hx, hy);
+          }
+          ctx.restore();
+        }
+
+        // =====================================================================
+        // SHOUT CALLOUTS (0% TABRAKAN! BOSS DI ATAS y=214, TRIO DI BAWAH y=1660!)
+        // =====================================================================
+        const bossShoutA = bellCurve(time, 14.15, 14.42, 16.20, 16.55);
+        if (bossShoutA > 0.01) {
+          drawShoutCallout({
+            tag: "THE BOSS (JULL)  ·  DARI ROKET!",
+            text1: "WOI KALIAN, CEPET BALIK!!",
+            text2: "KITA ADA PROJECT LAGI!!",
+            accentHex: "#ebb343",
+            yCenter: 214,
+            alpha: bossShoutA,
+            typeProg: clamp((time - 14.25) / 1.35, 0, 1),
+            time,
+            shakeAmp: bellCurve(time, 14.20, 14.32, 14.65, 15.00) * 5.0
+          });
+        }
+
+        const mByeA = bellCurve(time, 16.58, 16.80, 18.45, 18.78);
+        if (mByeA > 0.01) {
+          drawShoutCallout({
+            tag: "MERRY (GEMINI)  ·  LOMPAT!!",
+            text1: "EH SIAP BOSS! BYEE GUYSS!!",
+            text2: "",
+            accentHex: "#6ea8fe",
+            yCenter: 1660,
+            alpha: mByeA,
+            typeProg: clamp((time - 16.66) / 1.00, 0, 1),
+            time
+          });
+        }
+
+        const rByeA = bellCurve(time, 18.92, 19.14, 20.80, 21.12);
+        if (rByeA > 0.01) {
+          drawShoutCallout({
+            tag: "ROGER (CLAUDE)  ·  NYUSUL!!",
+            text1: "WAIT TUNGGUIN! DADAH SEMUAA!!",
+            text2: "",
+            accentHex: "#e07a5f",
+            yCenter: 1660,
+            alpha: rByeA,
+            typeProg: clamp((time - 19.00) / 1.00, 0, 1),
+            time
+          });
+        }
+
+        const aByeA = bellCurve(time, 21.35, 21.60, 23.85, 24.25);
+        if (aByeA > 0.01) {
+          drawShoutCallout({
+            tag: "ARTO (PENILAI)  ·  BYE BYE ❤️",
+            text1: "LOVE U PARA PENONTON,",
+            text2: "SAMPAI JUMPA!!",
+            accentHex: "#ebb343",
+            yCenter: 1660,
+            alpha: aByeA,
+            typeProg: clamp((time - 21.45) / 1.40, 0, 1),
+            time
+          });
+        }
+
+        // =====================================================================
+        // BEAT 7 (25.60s - 28.00s): CLEAN STUDIO END-CARD SETELAH ROKET MELESAT!
+        // =====================================================================
+        const endCardA = smootherstep(25.60, 26.35, time);
+        if (endCardA > 0.01) {
+          ctx.save();
+          ctx.globalAlpha = endCardA;
+          const cy = 920 + (1 - easeOutQuart(endCardA)) * 28;
+
+          roundRect(ctx, W / 2 - 14, cy - 118, 28, 28, 6);
+          ctx.fillStyle = "#ebb343"; ctx.fill();
+
+          ctx.font = "900 58px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f5f4f0"; ctx.textBaseline = "middle";
+          fillTrackedText("JOULFIAND STUDIO", W / 2, cy - 36, 4.0, "center");
+
+          ctx.font = "700 26px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#ebb343";
+          fillTrackedText("@julljhaa  ·  github.com/rjoulfiand-afk", W / 2, cy + 32, 1.4, "center");
+
+          roundRect(ctx, W / 2 - 220, cy + 84, 440, 50, 25);
+          ctx.fillStyle = "rgba(235, 179, 67, 0.12)"; ctx.fill();
+          ctx.lineWidth = 1.4; ctx.strokeStyle = "rgba(235, 179, 67, 0.55)"; ctx.stroke();
+
+          ctx.font = "700 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#e6e5e0";
+          fillTrackedText("SEE YOU IN THE NEXT PROJECT  ·  1 SHOT", W / 2, cy + 110, 1.6, "center");
+          ctx.restore();
+        }
+
+        // 4. FOOTER EDITORIAL PERSISTEN
+        const footY = 1834;
+        ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#6e6d68";
+        const mm = String(Math.floor(time)).padStart(2, "0");
+        const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
+        fillTrackedText(`00:${mm}:${ff}`, 48, footY, 1.2, "left");
+        ctx.fillStyle = "#ebb343"; ctx.fillRect(152, footY - 4, 7, 7);
+        ctx.fillStyle = "#6e6d68"; fillTrackedText("120 BPM", 172, footY, 1.2, "left");
+        fillTrackedText("1080×1920  ·  30FPS", W - 48, footY, 1.2, "right");
+
+        ctx.restore();
+      }
+
+      window.drawFrame = drawFrame;
+      window.DURATION = DURATION;
+      window.TOTAL_FRAMES = TOTAL_FRAMES;
+
+      let currentTime = Number(params.get("t") ?? 0);
+      let isPlaying = !isHeadless;
+      let startStamp = performance.now();
+
+      const slider = document.getElementById("slider");
+      const timeLabel = document.getElementById("timeLabel");
+      const btnPlay = document.getElementById("btnPlay");
+
+      function updateView(sec) {
+        currentTime = clamp(sec, 0, DURATION);
+        drawFrame(currentTime);
+        if (slider) slider.value = Math.min(TOTAL_FRAMES - 1, Math.floor(currentTime * FPS));
+        if (timeLabel) timeLabel.textContent = `${currentTime.toFixed(2).padStart(5, "0")} / ${DURATION.toFixed(2)} s`;
+      }
+
+      if (!isHeadless) {
+        const jump = (s) => { isPlaying = false; updateView(s); };
+        document.getElementById("b1").onclick = () => jump(3.50);
+        document.getElementById("b2").onclick = () => jump(5.20);
+        document.getElementById("b3").onclick = () => jump(8.00);
+        document.getElementById("b4").onclick = () => jump(10.80);
+        document.getElementById("b5").onclick = () => jump(15.00);
+        document.getElementById("b6").onclick = () => jump(17.50);
+        document.getElementById("b7").onclick = () => jump(19.90);
+        document.getElementById("b8").onclick = () => jump(22.60);
+        document.getElementById("b9").onclick = () => jump(26.00);
+
+        slider.max = TOTAL_FRAMES - 1;
+        slider.oninput = () => { isPlaying = false; updateView(Number(slider.value) / FPS); };
+
+        btnPlay.onclick = () => {
+          isPlaying = !isPlaying;
+          if (isPlaying) {
+            if (currentTime >= DURATION - 0.1) currentTime = 0;
+            startStamp = performance.now() - currentTime * 1000;
+            requestAnimationFrame(tick);
+          }
+        };
+
+        function tick(now) {
+          if (!isPlaying) return;
+          const elapsed = (now - startStamp) / 1000;
+          if (elapsed >= DURATION) {
+            updateView(DURATION - 0.01);
+            isPlaying = false;
+            return;
+          }
+          updateView(elapsed);
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+      } else {
+        updateView(0);
+      }
+    })();
+  </script>
+</body>
+</html>

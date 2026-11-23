@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1.0" />
-  <title>Project Rixsan Joulfiand — Intro (Gemini AI vs Claude Code)</title>
+  <title>Joulfiand Studio — Luxury Master Intro (3D Mascots + Engine Showcase · 46s)</title>
   <style>
     * {
       box-sizing: border-box;
@@ -23,16 +23,16 @@
       justify-content: center;
     }
     #stage {
-      height: calc(100vh - 58px);
+      height: calc(100vh - 68px);
       aspect-ratio: 9 / 16;
       display: block;
       background: #0f0f11;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
     }
     #controls {
-      height: 52px;
+      height: 62px;
       display: flex;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
       justify-content: center;
       padding: 6px 12px;
@@ -41,29 +41,45 @@
       width: 100%;
       font-size: 11px;
       flex-wrap: wrap;
+      z-index: 10;
     }
     button {
       background: #1e1e24;
       color: #e6e5e0;
       border: 1px solid #32323a;
-      padding: 5px 9px;
+      padding: 5px 8px;
       border-radius: 6px;
       cursor: pointer;
       font-family: inherit;
       font-size: 11px;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
     }
     button:hover {
       background: #2b2b33;
+      border-color: #ebb343;
     }
     button.primary {
       background: #ebb343;
       color: #0e0e10;
       border-color: #ebb343;
-      font-weight: 700;
+      font-weight: 800;
+    }
+    button.primary:hover {
+      background: #ffd066;
     }
     input[type="range"] {
-      width: 150px;
+      width: 165px;
       cursor: pointer;
+      accent-color: #ebb343;
+    }
+    #timeLabel {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      color: #ebb343;
+      font-weight: 700;
+      min-width: 124px;
+      text-align: right;
     }
     body.headless {
       width: 1080px;
@@ -81,21 +97,24 @@
   </style>
 </head>
 <body>
-  <!-- Kanvas 2x Supersampled (2160x3840 -> ditampilkan 1080x1920) -->
+  <!-- Kanvas 2x Supersampled (2160x3840 -> 1080x1920) Identik dengan final.html -->
   <canvas id="stage" width="2160" height="3840"></canvas>
 
   <div id="controls">
     <button id="btnPlay" class="primary">Play / Pause</button>
-    <button id="b1">1. Nama (1.0s)</button>
-    <button id="b2">2. VS (3.0s)</button>
-    <button id="b3">3. Claude Roda (4.8s)</button>
-    <button id="b4">4. Claude Code+Opus (8.8s)</button>
-    <button id="b5">5. Gemini Star (11.5s)</button>
-    <button id="b6">6. Argon 4 High (14.6s)</button>
-    <button id="b7">7. ERD + Baterai (17.5s)</button>
-    <button id="b8">8. Outro Tier (20.2s)</button>
-    <input id="slider" type="range" min="0" max="644" value="0" />
-    <span id="timeLabel">0.00 / 21.50 s</span>
+    <button id="b1">1. Opener (0.8s)</button>
+    <button id="b2">2. Roger Halo (5.5s)</button>
+    <button id="b3">3. Senggol! (10.3s)</button>
+    <button id="b4">4. Roger Kesal (13.3s)</button>
+    <button id="b5">5. Merry (18.5s)</button>
+    <button id="b6">6. Foto Jull (22.0s)</button>
+    <button id="b7">7. Duel VS (25.2s)</button>
+    <button id="b8">8. Claude Opus (28.5s)</button>
+    <button id="b9">9. Gemini Carbon (35.0s)</button>
+    <button id="b10">10. ERD Matrix (40.8s)</button>
+    <button id="b11">11. Showdown (44.2s)</button>
+    <input id="slider" type="range" min="0" max="1379" value="0" />
+    <span id="timeLabel">00.00 / 46.00 s</span>
   </div>
 
   <script>
@@ -104,9 +123,7 @@
 
       const params = new URLSearchParams(window.location.search);
       const isHeadless = params.has("headless") || params.has("render");
-      if (isHeadless) {
-        document.body.classList.add("headless");
-      }
+      if (isHeadless) document.body.classList.add("headless");
 
       const canvas = document.getElementById("stage");
       const ctx = canvas.getContext("2d", { alpha: false });
@@ -115,10 +132,26 @@
       const H = 1920;
       const SSAA = 2;
       const FPS = 30;
-      const DURATION = 21.5;
-      const TOTAL_FRAMES = Math.round(DURATION * FPS); // 645 frame
+      const DURATION = 46.00; // Master Intro Lengkap (46s · 1380 frame @ 30 FPS)
+      const TOTAL_FRAMES = Math.round(FPS * DURATION);
 
-      // Siluet kodingan sangar untuk Claude & Gemini
+      const LEFT_COL_X  = 48;
+      const RIGHT_COL_X = 564;
+      const COL_W       = 468;
+
+      // =======================================================================
+      // 0. LOAD FOTO PROFIL JULL (jull.jpeg di folder yang sama)
+      // =======================================================================
+      const jullPhoto = new Image();
+      let jullPhotoReady = false;
+      jullPhoto.onload = () => {
+        jullPhotoReady = true;
+        if (!isPlaying) drawFrame(currentTime);
+      };
+      jullPhoto.onerror = () => { jullPhotoReady = false; };
+      jullPhoto.src = "jull.jpeg";
+
+      // Kode Siluet Asli Claude & Gemini (Identik dengan final.html)
       const SHADOW_CODE_CLAUDE = [
         "import { W, H, FPS, T } from './timeline.js';",
         "const fb = new Uint8Array(W * H);",
@@ -171,7 +204,9 @@
         "}"
       ];
 
-      // --- Fungsi Matematika & Easing ---
+      // =======================================================================
+      // 1. MATEMATIKA, EASING & HELPER UI
+      // =======================================================================
       const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
       const lerp = (a, b, t) => a + (b - a) * t;
       const smoothstep = (a, b, x) => {
@@ -183,30 +218,34 @@
         return k * k * k * (k * (k * 6 - 15) + 10);
       };
       const easeOutCubic = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+      const easeOutQuart = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 4);
       const easeInOutCubic = (x) => {
         const k = clamp(x, 0, 1);
         return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
       };
-      function softBounceOut(x, overshoot = 1.15) {
+      function softSpringOut(x, overshoot = 0.95) {
         const k = clamp(x, 0, 1);
         const c1 = overshoot;
         const c3 = c1 + 1;
         return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
       }
+      function bellCurve(time, a, peakIn, peakOut, b) {
+        return smootherstep(a, peakIn, time) * (1 - smootherstep(peakOut, b, time));
+      }
 
-      function roundRect(ctx, x, y, w, h, r) {
+      function roundRect(c, x, y, w, h, r) {
         const rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
-        ctx.beginPath();
-        ctx.moveTo(x + rad, y);
-        ctx.lineTo(x + w - rad, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
-        ctx.lineTo(x + w, y + h - rad);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
-        ctx.lineTo(x + rad, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
-        ctx.lineTo(x, y + rad);
-        ctx.quadraticCurveTo(x, y, x + rad, y);
-        ctx.closePath();
+        c.beginPath();
+        c.moveTo(x + rad, y);
+        c.lineTo(x + w - rad, y);
+        c.quadraticCurveTo(x + w, y, x + w, y + rad);
+        c.lineTo(x + w, y + h - rad);
+        c.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+        c.lineTo(x + rad, y + h);
+        c.quadraticCurveTo(x, y + h, x, y + h - rad);
+        c.lineTo(x, y + rad);
+        c.quadraticCurveTo(x, y, x + rad, y);
+        c.closePath();
       }
 
       function drawCrosshair(x, y, size, color) {
@@ -237,41 +276,70 @@
         return totalW;
       }
 
-      // Menggambar Logo Roda / Sunburst Khas Claude AI
-      function drawClaudeWheelLogo(cx, cy, radius, angleRad, color = "#e07a5f", alpha = 1.0) {
+      function hexToRgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      }
+
+      function shadeRgb(rgb, factor, rimRgb, rimWeight) {
+        let r = rgb[0] * factor;
+        let g = rgb[1] * factor;
+        let b = rgb[2] * factor;
+        if (rimRgb && rimWeight > 0) {
+          r += rimRgb[0] * rimWeight;
+          g += rimRgb[1] * rimWeight;
+          b += rimRgb[2] * rimWeight;
+        }
+        return `rgb(${clamp(Math.round(r), 0, 255)},${clamp(Math.round(g), 0, 255)},${clamp(Math.round(b), 0, 255)})`;
+      }
+
+      function normalize3(v) {
+        const len = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / len, v[1] / len, v[2] / len];
+      }
+      function cross3(a, b) {
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+      }
+      function dot3(a, b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      }
+
+      // =======================================================================
+      // 2. LOGO VEKTOR ASLI CLAUDE (SUNBURST 11-SPOKE) & GEMINI (SPARKLE) + KURSOR
+      // =======================================================================
+      function drawClaudeSunburstLogo(cx, cy, radius, angleRad, color = "#e07a5f", alpha = 1.0) {
         if (alpha <= 0.01) return;
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha *= alpha;
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
 
-        const numSpokes = 12;
+        const spokeRatios = [1.00, 0.86, 0.96, 0.80, 0.98, 0.84, 0.94, 0.78, 1.00, 0.88, 0.92];
+        const n = spokeRatios.length;
         ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(2.5, radius * 0.16);
+        ctx.lineWidth = Math.max(2.4, radius * 0.21);
         ctx.lineCap = "round";
 
-        for (let i = 0; i < numSpokes; i++) {
-          const a = (i / numSpokes) * Math.PI * 2;
-          const innerR = radius * 0.22;
-          const outerR = (i % 2 === 0) ? radius : radius * 0.82;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 - Math.PI * 0.5;
+          const rOut = radius * spokeRatios[i];
+          const rIn  = radius * 0.16;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
-          ctx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+          ctx.moveTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+          ctx.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
           ctx.stroke();
         }
-
         ctx.beginPath();
-        ctx.arc(0, 0, radius * 0.24, 0, Math.PI * 2);
+        ctx.arc(0, 0, radius * 0.29, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
         ctx.restore();
       }
 
-      // Menggambar Logo Bintang 4 Sudut (Sparkle Star) Khas Gemini AI
       function drawGeminiSparkleLogo(cx, cy, radius, angleRad, alpha = 1.0) {
         if (alpha <= 0.01) return;
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha *= alpha;
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
 
@@ -289,17 +357,32 @@
         ctx.closePath();
 
         ctx.fillStyle = grad;
-        ctx.shadowColor = "rgba(110, 168, 254, 0.55)";
-        ctx.shadowBlur = 22;
+        ctx.shadowColor = "rgba(110, 168, 254, 0.45)";
+        ctx.shadowBlur = 18;
         ctx.fill();
         ctx.restore();
       }
 
-      // Menggambar Kursor Panah Modern
+      function drawAngryVeinIcon(cx, cy, r, color = "#ff5c5c") {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          ctx.beginPath();
+          ctx.moveTo(dx * r * 0.95, dy * r * 0.22);
+          ctx.quadraticCurveTo(dx * r * 0.25, dy * r * 0.25, dx * r * 0.22, dy * r * 0.95);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       function drawCursorArrow(x, y, scale = 1.0, alpha = 1.0) {
         if (alpha <= 0.01) return;
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha *= alpha;
         ctx.translate(x, y);
         ctx.scale(scale, scale);
 
@@ -325,303 +408,1439 @@
         ctx.restore();
       }
 
-      // =========================================================================
-      // KOMPONEN TEXT BOARD + SILUET KODINGAN SANGAR + PEMILIHAN MODEL & KIRIM
-      // Digunakan untuk Adegan Claude (4.2s - 10.6s) & Adegan Gemini (10.6s - 15.8s)
-      // =========================================================================
+      // =======================================================================
+      // 3. HIERARCHICAL 3D VOXEL ENGINE (ZERO EYE/LEG CLIPPING)
+      // =======================================================================
+      const KEY_LIGHT  = normalize3([-0.36, 0.72, 0.60]);
+      const FILL_LIGHT = normalize3([ 0.55, 0.25, 0.45]);
+
+      function transformPoint(p, tf) {
+        let x = p[0] * tf.sx, y = p[1] * tf.sy, z = p[2] * tf.sz;
+        if (tf.rz) {
+          const c = Math.cos(tf.rz), s = Math.sin(tf.rz);
+          const nx = x * c - y * s, ny = x * s + y * c;
+          x = nx; y = ny;
+        }
+        if (tf.rx) {
+          const c = Math.cos(tf.rx), s = Math.sin(tf.rx);
+          const ny = y * c - z * s, nz = y * s + z * c;
+          y = ny; z = nz;
+        }
+        if (tf.ry) {
+          const c = Math.cos(tf.ry), s = Math.sin(tf.ry);
+          const nx = x * c + z * s, nz = -x * s + z * c;
+          x = nx; z = nz;
+        }
+        return [x + tf.tx, y + tf.ty, z + tf.tz];
+      }
+
+      function pushBoxQuads(quadList, cx, cy, cz, w, h, d, rgb, localTf, worldTf, opts = {}) {
+        const hw = w / 2, hh = h / 2, hd = d / 2;
+        const rawVerts = [
+          [cx - hw, cy - hh, cz + hd], [cx + hw, cy - hh, cz + hd],
+          [cx + hw, cy + hh, cz + hd], [cx - hw, cy + hh, cz + hd],
+          [cx - hw, cy - hh, cz - hd], [cx + hw, cy - hh, cz - hd],
+          [cx + hw, cy + hh, cz - hd], [cx - hw, cy + hh, cz - hd]
+        ];
+        const verts = rawVerts.map((v) => transformPoint(localTf ? transformPoint(v, localTf) : v, worldTf));
+        const faceDefs = [
+          { idx: [0, 1, 2, 3], ao: 1.00 }, { idx: [5, 4, 7, 6], ao: 0.78 },
+          { idx: [1, 5, 6, 2], ao: 0.90 }, { idx: [4, 0, 3, 7], ao: 0.94 },
+          { idx: [3, 2, 6, 7], ao: 1.06 }, { idx: [4, 5, 1, 0], ao: 0.66 }
+        ];
+        const mask = opts.faceMask || [1, 1, 1, 1, 1, 1];
+        const rimRgb = opts.rimRgb || null;
+        const rimDir = opts.rimDir || [0, 0, 0];
+        const dimFactor = opts.dimFactor !== undefined ? opts.dimFactor : 1.0;
+        const layer = opts.layer !== undefined ? opts.layer : 2;
+        const unlit = opts.unlit === true;
+
+        for (let f = 0; f < 6; f++) {
+          if (!mask[f]) continue;
+          const fd = faceDefs[f];
+          const v0 = verts[fd.idx[0]], v1 = verts[fd.idx[1]], v2 = verts[fd.idx[2]], v3 = verts[fd.idx[3]];
+          const n = normalize3(cross3(
+            [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]],
+            [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]]
+          ));
+          const center = [
+            (v0[0] + v1[0] + v2[0] + v3[0]) * 0.25,
+            (v0[1] + v1[1] + v2[1] + v3[1]) * 0.25,
+            (v0[2] + v1[2] + v2[2] + v3[2]) * 0.25
+          ];
+          quadList.push({
+            verts: [v0, v1, v2, v3], normal: n, center, rgb,
+            ao: fd.ao, rimRgb, rimDir, dimFactor, layer, unlit,
+            strokeSame: opts.strokeSame !== false
+          });
+        }
+      }
+
+      function renderActorQuads(quadList, originX, originY, camDist, fov, actorAlpha = 1.0) {
+        if (actorAlpha <= 0.01 || quadList.length === 0) return;
+        const camPos = [0, 1.4, camDist];
+        const visible = [];
+
+        for (let i = 0; i < quadList.length; i++) {
+          const q = quadList[i];
+          const dx = camPos[0] - q.center[0];
+          const dy = camPos[1] - q.center[1];
+          const dz = camPos[2] - q.center[2];
+          if (dot3(q.normal, [dx, dy, dz]) <= 0.0005 || dz < 2.0) continue;
+
+          let fill;
+          if (q.unlit) {
+            fill = shadeRgb(q.rgb, q.dimFactor, null, 0);
+          } else {
+            const ndl = Math.max(0, dot3(q.normal, KEY_LIGHT));
+            const ndf = Math.max(0, dot3(q.normal, FILL_LIGHT));
+            const shade = (0.48 + 0.44 * ndl + 0.14 * ndf) * q.ao * q.dimFactor;
+            const rimHit = q.rimRgb ? Math.max(0, dot3(q.normal, q.rimDir)) * 0.24 * q.dimFactor : 0;
+            fill = shadeRgb(q.rgb, shade, q.rimRgb, rimHit);
+          }
+
+          const proj = q.verts.map((v) => {
+            const sc = fov / Math.max(1.5, camPos[2] - v[2]);
+            return [originX + (v[0] - camPos[0]) * sc, originY - (v[1] - camPos[1]) * sc];
+          });
+
+          visible.push({ layer: q.layer, distSq: dx * dx + dy * dy + dz * dz, proj, fill, strokeSame: q.strokeSame });
+        }
+
+        visible.sort((a, b) => (a.layer !== b.layer ? a.layer - b.layer : b.distSq - a.distSq));
+
+        ctx.save();
+        ctx.globalAlpha *= clamp(actorAlpha, 0, 1);
+        for (let i = 0; i < visible.length; i++) {
+          const item = visible[i], p = item.proj;
+          ctx.beginPath();
+          ctx.moveTo(p[0][0], p[0][1]);
+          ctx.lineTo(p[1][0], p[1][1]);
+          ctx.lineTo(p[2][0], p[2][1]);
+          ctx.lineTo(p[3][0], p[3][1]);
+          ctx.closePath();
+          ctx.fillStyle = item.fill;
+          ctx.fill();
+          if (item.strokeSame) {
+            ctx.strokeStyle = item.fill;
+            ctx.lineWidth = 0.75;
+            ctx.lineJoin = "round";
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      function project3DPoint(wx, wy, wz, originX, originY, camDist, fov) {
+        const sc = fov / Math.max(1.5, camDist - wz);
+        return { x: originX + wx * sc, y: originY - (wy - 1.4) * sc, sc };
+      }
+
+      // =======================================================================
+      // 4. MODEL 3D ROGER (CLAUDE CODE) & MERRY (GEMINI AGENT)
+      // =======================================================================
+      const ROGER_ORANGE_BASE = hexToRgb("#ea7444");
+      const ROGER_ORANGE_HOT  = hexToRgb("#ef5d3b");
+      const ROGER_EYE    = hexToRgb("#141419");
+      const ROGER_BROW   = hexToRgb("#261a16");
+      const ROGER_SHINE  = hexToRgb("#ffffff");
+      const ROGER_BLUSH  = hexToRgb("#ff8a80");
+      const ROGER_RIM    = hexToRgb("#ffb088");
+      const ROGER_RIMDIR = normalize3([0.75, 0.35, -0.30]);
+
+      function buildRogerQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale,
+          speakEnergy = 0, waveLeft = 0, waveRight = 0, blinkAmount = 0,
+          happyAmount = 0, excitedAmount = 0, shockAmount = 0, angryAmount = 0, sulkAmount = 0,
+          lookX = 0, blushAmount = 0, dimFactor = 1
+        } = pose;
+
+        const bodyRgb = [
+          Math.round(lerp(ROGER_ORANGE_BASE[0], ROGER_ORANGE_HOT[0], angryAmount)),
+          Math.round(lerp(ROGER_ORANGE_BASE[1], ROGER_ORANGE_HOT[1], angryAmount)),
+          Math.round(lerp(ROGER_ORANGE_BASE[2], ROGER_ORANGE_HOT[2], angryAmount))
+        ];
+
+        const angryJitterX = angryAmount * Math.sin(time * 42.0) * 0.14;
+        const bounce = Math.abs(Math.sin(time * 7.2)) * speakEnergy;
+        const angryStomp = Math.abs(Math.sin(time * 13.5)) * angryAmount * 0.45;
+        const breathe = Math.sin(time * 2.8) * 0.016;
+
+        const worldTf = {
+          tx: x + angryJitterX,
+          ty: y + bounce * 0.40 + angryStomp + Math.sin(time * 2.8) * 0.09,
+          tz: z, rx: pitch, ry: yaw, rz: roll,
+          sx: scale * (1 + bounce * 0.055 + shockAmount * 0.09 - angryAmount * 0.03 - breathe * 0.4),
+          sy: scale * (1 - bounce * 0.045 - shockAmount * 0.07 + angryAmount * 0.06 + breathe),
+          sz: scale * (1 + bounce * 0.03)
+        };
+        const baseOpts = { rimRgb: ROGER_RIM, rimDir: ROGER_RIMDIR, dimFactor };
+
+        // LAYER 0: 4 Kaki Balok
+        const legXs = [-3.35, -1.20, 1.20, 3.35];
+        for (let i = 0; i < 4; i++) {
+          const stepLift = Math.max(0, Math.sin(time * 8.4 + i * 1.55)) * 0.28 * speakEnergy
+                         + Math.max(0, Math.sin(time * 16.0 + i * 1.6)) * 0.48 * angryAmount
+                         + shockAmount * (i < 2 ? 0.55 : 0.15);
+          pushBoxQuads(quads, legXs[i], -2.25 + stepLift, 0, 1.38, 2.50, 1.85, bodyRgb, null, worldTf, { ...baseOpts, layer: 0 });
+        }
+
+        // LAYER 1 & 4: Tangan Kiri & Kanan
+        const leftArmLayer = yaw < 0 ? 1 : 4;
+        const rightArmLayer = yaw < 0 ? 4 : 1;
+
+        let leftArmAng = -0.08 + Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveLeft > 0.01) leftArmAng = lerp(leftArmAng, -0.82 - Math.sin(time * 15.0) * 0.36, waveLeft);
+        if (shockAmount > 0.05) leftArmAng = lerp(leftArmAng, -1.25 - Math.sin(time * 22.0) * 0.25, shockAmount);
+        if (angryAmount > 0.05) leftArmAng = lerp(leftArmAng, -0.95 - Math.sin(time * 18.0) * 0.42, angryAmount);
+        if (sulkAmount > 0.05) leftArmAng = lerp(leftArmAng, 0.35, sulkAmount);
+        pushBoxQuads(quads, -0.82, 0, 0, 1.75, 2.05, 1.95, bodyRgb,
+          { tx: -4.8, ty: 1.55 + shockAmount * 0.45, tz: 0, rx: 0, ry: 0, rz: leftArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: leftArmLayer });
+
+        let rightArmAng = 0.08 - Math.sin(time * 3.8) * 0.08 * (0.35 + speakEnergy);
+        if (waveRight > 0.01) rightArmAng = lerp(rightArmAng, 0.84 + Math.sin(time * 15.5) * 0.38, waveRight);
+        if (shockAmount > 0.05) rightArmAng = lerp(rightArmAng, 1.25 + Math.sin(time * 22.0) * 0.25, shockAmount);
+        if (angryAmount > 0.05) rightArmAng = lerp(rightArmAng, 0.95 + Math.sin(time * 18.0 + 1.4) * 0.42, angryAmount);
+        if (sulkAmount > 0.05) rightArmAng = lerp(rightArmAng, -0.35, sulkAmount);
+        pushBoxQuads(quads, 0.82, 0, 0, 1.75, 2.05, 1.95, bodyRgb,
+          { tx: 4.8, ty: 1.55 + shockAmount * 0.45, tz: 0, rx: 0, ry: 0, rz: rightArmAng, sx: 1, sy: 1, sz: 1 },
+          worldTf, { ...baseOpts, layer: rightArmLayer });
+
+        // LAYER 2: Badan
+        pushBoxQuads(quads, 0, 1.85, 0, 9.6, 6.2, 4.1, bodyRgb, null, worldTf, { ...baseOpts, layer: 2 });
+
+        // LAYER 3 & 3.5: Wajah Ekspresif
+        const eyeZ = 2.26, eyeBaseY = 2.55, shiftX = clamp(lookX, -1, 1) * 0.48;
+        for (const side of [-1, 1]) {
+          const ex = side * 2.55 + shiftX;
+          if (happyAmount > 0.55) {
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex - 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: 0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+            pushBoxQuads(quads, 0, 0, 0, 0.96, 0.40, 0.45, ROGER_EYE,
+              { tx: ex + 0.38, ty: eyeBaseY + 0.14, tz: eyeZ, rx: 0, ry: 0, rz: -0.44, sx: 1, sy: 1, sz: 1 }, worldTf, { ...baseOpts, layer: 3 });
+          } else if (shockAmount > 0.45) {
+            pushBoxQuads(quads, ex, eyeBaseY + 0.12, eyeZ, 1.78, 1.98, 0.62, ROGER_SHINE, null, worldTf, { ...baseOpts, layer: 3 });
+            pushBoxQuads(quads, ex + shiftX * 0.25, eyeBaseY + 0.12, eyeZ + 0.33, 0.62, 0.68, 0.10, ROGER_EYE, null, worldTf,
+              { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+          } else {
+            const glareSquint = clamp(angryAmount * 0.48 + sulkAmount * 0.38, 0, 0.55);
+            const eyeH = lerp(1.54 * (1 - glareSquint + excitedAmount * 0.16), 0.22, blinkAmount);
+            pushBoxQuads(quads, ex, eyeBaseY - glareSquint * 0.18, eyeZ, 1.52 * (1 + angryAmount * 0.10), eyeH, 0.58, ROGER_EYE, null, worldTf, { ...baseOpts, layer: 3 });
+            if (blinkAmount < 0.40) {
+              const ss = 1 + excitedAmount * 0.25 - angryAmount * 0.25;
+              pushBoxQuads(quads, ex - 0.32 + shiftX * 0.24, eyeBaseY + 0.32 - glareSquint * 0.22, eyeZ + 0.31, 0.40 * ss, 0.40 * ss, 0.08, ROGER_SHINE, null, worldTf,
+                { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+              if (angryAmount < 0.45) {
+                pushBoxQuads(quads, ex + 0.28 + shiftX * 0.16, eyeBaseY - 0.26, eyeZ + 0.31, 0.22, 0.22, 0.08, ROGER_SHINE, null, worldTf,
+                  { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.5, unlit: true, dimFactor });
+              }
+            }
+          }
+
+          const browLift = happyAmount * 0.44 + excitedAmount * 0.50 + shockAmount * 0.78 - angryAmount * 0.36 - sulkAmount * 0.28;
+          const browTilt = side === -1
+            ? (happyAmount * 0.16 + excitedAmount * 0.18 - angryAmount * 0.46 - sulkAmount * 0.20 + shockAmount * 0.16)
+            : (-happyAmount * 0.16 - excitedAmount * 0.18 + angryAmount * 0.46 + sulkAmount * 0.20 - shockAmount * 0.16);
+          pushBoxQuads(quads, 0, 0, 0, 1.72, 0.30 + angryAmount * 0.08, 0.34, ROGER_BROW,
+            { tx: ex, ty: eyeBaseY + 1.24 + browLift, tz: eyeZ + 0.08, rx: 0, ry: 0, rz: browTilt, sx: 1, sy: 1, sz: 1 },
+            worldTf, { ...baseOpts, layer: 3.6 });
+        }
+
+        const totalBlush = clamp(blushAmount + angryAmount * 0.75, 0, 1);
+        if (totalBlush > 0.08) {
+          pushBoxQuads(quads, -3.45 + shiftX * 0.35, 1.22, 2.14, 1.18 * totalBlush, 0.48 * totalBlush, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+          pushBoxQuads(quads,  3.45 + shiftX * 0.35, 1.22, 2.14, 1.18 * totalBlush, 0.48 * totalBlush, 0.14, ROGER_BLUSH, null, worldTf,
+            { faceMask: [1, 0, 0, 0, 0, 0], layer: 3.2, unlit: true, dimFactor });
+        }
+        return quads;
+      }
+
+      const MERRY_GRID = [
+        ".....KKKKKK.....", "...KKGGYYRRKK...", "..KGGGYYORRRRK..", "..KGGCCCCRRRRK..",
+        ".KGGCCCCCCCCRRK.", ".KGBBCCCCCCBBBK.", ".KBBWEBBBBWEBBK.", ".KBBEEBBBBEEBBK.",
+        "KBBPPBBMMBBPPBBK", "KBBBBBMTTMBBBBBK", "KBBBBBKKKKBBBBBK", "KBBBBK....KBBBBK",
+        "KBBBK......KBBBK", "KBBBK......KBBBK", ".KKK........KKK."
+      ];
+      const MERRY_COLORS = {
+        K: hexToRgb("#0c1328"), B: hexToRgb("#1d63ff"), C: hexToRgb("#38bdf8"),
+        G: hexToRgb("#22c55e"), Y: hexToRgb("#facc15"), O: hexToRgb("#fb923c"),
+        R: hexToRgb("#ef4444"), E: hexToRgb("#090d1c"), W: hexToRgb("#ffffff"),
+        P: hexToRgb("#f472b6"), M: hexToRgb("#0a0e1d"), T: hexToRgb("#fb7185")
+      };
+      const MERRY_RIM    = hexToRgb("#93c5fd");
+      const MERRY_RIMDIR = normalize3([-0.75, 0.38, -0.30]);
+      const MERRY_ROWS = MERRY_GRID.length, MERRY_COLS = MERRY_GRID[0].length;
+      const MERRY_VOXEL_META = [];
+      for (let r = 0; r < MERRY_ROWS; r++) {
+        for (let c = 0; c < MERRY_COLS; c++) {
+          const ch = MERRY_GRID[r][c];
+          if (ch === ".") continue;
+          const solid = (rr, cc) => rr >= 0 && rr < MERRY_ROWS && cc >= 0 && cc < MERRY_COLS && MERRY_GRID[rr][cc] !== ".";
+          MERRY_VOXEL_META.push({
+            r, c, ch,
+            faceMask: [1, 1, solid(r, c + 1) ? 0 : 1, solid(r, c - 1) ? 0 : 1, solid(r - 1, c) ? 0 : 1, solid(r + 1, c) ? 0 : 1]
+          });
+        }
+      }
+      const MERRY_SPARKLES = [
+        { ang: 0.4, rad: 6.1, yOff:  3.6, size: 0.68, col: hexToRgb("#facc15"), isPlus: true  },
+        { ang: 1.6, rad: 5.5, yOff:  4.4, size: 0.52, col: hexToRgb("#38bdf8"), isPlus: false },
+        { ang: 2.8, rad: 5.9, yOff:  0.8, size: 0.54, col: hexToRgb("#22c55e"), isPlus: false },
+        { ang: 3.9, rad: 5.7, yOff: -1.4, size: 0.58, col: hexToRgb("#ef4444"), isPlus: false },
+        { ang: 5.1, rad: 5.6, yOff:  2.2, size: 0.50, col: hexToRgb("#f472b6"), isPlus: false },
+        { ang: 5.9, rad: 6.0, yOff: -2.0, size: 0.48, col: hexToRgb("#facc15"), isPlus: false }
+      ];
+
+      function buildMerryQuads(time, pose) {
+        const quads = [];
+        const {
+          x, y, z, yaw, pitch, roll, scale,
+          speakEnergy = 0, wavePhase = 0, blinkAmount = 0,
+          happyEyes = 0, sassyMode = 0, bargeMode = 0, lookRight = 0, excitedHop = 0, squashAntic = 0,
+          showSparkles = true, dimFactor = 1
+        } = pose;
+
+        const hop = Math.abs(Math.sin(time * 8.4)) * speakEnergy + excitedHop * Math.abs(Math.sin(time * 12.0)) * 0.72;
+        const breathe = Math.sin(time * 3.2 + 1.0) * 0.016;
+        const worldTf = {
+          tx: x, ty: y + hop * 0.48 - squashAntic * 0.38 + Math.sin(time * 3.0 + 0.8) * 0.12, tz: z,
+          rx: pitch, ry: yaw, rz: roll,
+          sx: scale * (1 + hop * 0.055 + squashAntic * 0.14 - breathe * 0.4),
+          sy: scale * (1 - hop * 0.045 - squashAntic * 0.13 + breathe),
+          sz: scale * (1 + hop * 0.03 + squashAntic * 0.06)
+        };
+
+        const vSize = 0.62, vDepth = 2.60;
+        const mouthOpen = bargeMode > 0.4 ? true : (speakEnergy > 0.10 ? (Math.sin(time * 20.0) > -0.22) : (happyEyes > 0.5));
+        const eyesClosed = blinkAmount > 0.55;
+
+        for (let i = 0; i < MERRY_VOXEL_META.length; i++) {
+          const vm = MERRY_VOXEL_META[i];
+          let ch = vm.ch;
+          const isL = (vm.r === 6 || vm.r === 7) && (vm.c === 4 || vm.c === 5);
+          const isR = (vm.r === 6 || vm.r === 7) && (vm.c === 10 || vm.c === 11);
+          if (isL || isR) {
+            if (eyesClosed) ch = (vm.r === 7) ? "E" : "B";
+            else if (happyEyes > 0.55) {
+              if (isL) ch = (vm.r === 6 && vm.c === 5) || (vm.r === 7 && vm.c === 4) ? "E" : "B";
+              if (isR) ch = (vm.r === 6 && vm.c === 10) || (vm.r === 7 && vm.c === 11) ? "E" : "B";
+            } else if (sassyMode > 0.50) {
+              ch = (vm.r === 6) ? "B" : ((vm.c === 5 || vm.c === 11) ? "E" : "W");
+            } else if (bargeMode > 0.50) {
+              ch = (vm.r === 6 && (vm.c === 4 || vm.c === 10)) ? "B" : "E";
+            } else if (lookRight > 0.50) {
+              ch = (vm.r === 6 && (vm.c === 5 || vm.c === 11)) ? "W" : "E";
+            }
+          }
+          if (!mouthOpen && (ch === "M" || ch === "T")) ch = (vm.r === 8 && (vm.c === 7 || vm.c === 8)) ? "M" : "B";
+
+          const vx = (vm.c - (MERRY_COLS - 1) / 2) * vSize;
+          const vy = ((MERRY_ROWS - 1) / 2 - vm.r) * vSize + 1.15;
+          pushBoxQuads(quads, vx, vy, 0, vSize, vSize, vDepth, MERRY_COLORS[ch], null, worldTf, {
+            faceMask: vm.faceMask, rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: 1, strokeSame: true
+          });
+        }
+
+        let armAng = 0.10 + Math.sin(time * 3.8) * 0.12;
+        if (wavePhase > 0.01) armAng = lerp(armAng, 0.65 + Math.sin(time * 18.0) * 0.44, wavePhase);
+        if (bargeMode > 0.1)  armAng = lerp(armAng, -0.35 + Math.sin(time * 24.0) * 0.25, bargeMode);
+        if (sassyMode > 0.1)  armAng = lerp(armAng, 0.30 + Math.sin(time * 12.0) * 0.35, sassyMode);
+
+        const handTf = { tx: 4.32, ty: 1.25, tz: 0, rx: 0, ry: 0, rz: armAng, sx: 1, sy: 1, sz: 1 };
+        const handLayer = yaw > 0.45 ? 0 : 2;
+        pushBoxQuads(quads, 0.45, 0.0, 0, 0.70, 0.70, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 0.96, 0.54, 0, 0.70, 0.70, 1.30, MERRY_COLORS.W, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+        pushBoxQuads(quads, 1.36, 1.02, 0, 0.66, 0.66, 1.30, MERRY_COLORS.K, handTf, worldTf, { rimRgb: MERRY_RIM, rimDir: MERRY_RIMDIR, dimFactor, layer: handLayer });
+
+        if (showSparkles) {
+          const orbitSpeed = 0.80 + speakEnergy * 1.35 + excitedHop * 1.10 + bargeMode * 1.60;
+          for (let i = 0; i < MERRY_SPARKLES.length; i++) {
+            const sp = MERRY_SPARKLES[i];
+            const a = sp.ang + time * orbitSpeed;
+            const spZ = z + Math.sin(a) * (sp.rad * 0.52) * scale;
+            const spLayer = spZ < z ? 0 : 3;
+            const spTf = {
+              tx: x + Math.cos(a) * sp.rad * scale,
+              ty: y + (sp.yOff + Math.sin(time * 4.2 + i * 1.3) * 0.42) * scale + 1.0,
+              tz: spZ, rx: time * 1.6 + i, ry: time * 2.1 + i, rz: 0,
+              sx: scale, sy: scale, sz: scale
+            };
+            if (sp.isPlus) {
+              pushBoxQuads(quads, 0, 0, 0, sp.size * 2.1, sp.size * 0.66, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+              pushBoxQuads(quads, 0, 0, 0, sp.size * 0.66, sp.size * 2.1, sp.size * 0.66, sp.col, null, spTf, { dimFactor, layer: spLayer });
+            } else {
+              pushBoxQuads(quads, 0, 0, 0, sp.size, sp.size, sp.size, sp.col, null, spTf, { dimFactor, layer: spLayer });
+            }
+          }
+        }
+        return quads;
+      }
+
+      // =======================================================================
+      // 5. KOMPONEN VISUAL: EMOTE, IMPACT FX, POLAROID JULL, SPEECH CARD, CODE BOARD
+      // =======================================================================
+      function drawEmoteBadge(x, y, iconType, accentHex, alpha, time) {
+        if (alpha <= 0.02) return;
+        const bob = Math.sin(time * 6.2) * 7;
+        const sc = softSpringOut(clamp(alpha * 1.3, 0, 1), 1.15);
+        ctx.save();
+        ctx.globalAlpha = clamp(alpha, 0, 1);
+        ctx.translate(x, y + bob);
+        ctx.scale(sc, sc);
+        ctx.shadowColor = accentHex;
+        ctx.shadowBlur = 18;
+        roundRect(ctx, -28, -28, 56, 56, 14);
+        ctx.fillStyle = "#16161d";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = accentHex;
+        ctx.stroke();
+
+        if (iconType === "claude") drawClaudeSunburstLogo(0, 0, 17, time * 0.75, accentHex, 1);
+        else if (iconType === "gemini") drawGeminiSparkleLogo(0, 0, 17, Math.sin(time * 1.6) * 0.14, 1);
+        else if (iconType === "angry") {
+          const p = 1 + Math.sin(time * 18.0) * 0.10;
+          ctx.scale(p, p);
+          drawAngryVeinIcon(0, 0, 14, accentHex);
+        } else {
+          ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = accentHex;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(iconType, 0, 2);
+        }
+        ctx.restore();
+      }
+
+      function drawBumpImpactFX(cx, cy, tSkit) {
+        if (tSkit < 6.95 || tSkit > 7.52) return;
+        const p = clamp((tSkit - 6.95) / 0.57, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = Math.pow(1 - p, 1.3);
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.arc(0, 0, lerp(18, 128, easeOutCubic(p)), 0, Math.PI * 2);
+        ctx.strokeStyle = "#ebb343";
+        ctx.lineWidth = lerp(4.5, 1.0, p);
+        ctx.stroke();
+        for (let i = 0; i < 10; i++) {
+          const ang = (i / 10) * Math.PI * 2 + 0.18;
+          const r0 = lerp(24, 78, easeOutCubic(p)), r1 = lerp(58, 148, easeOutQuart(p));
+          ctx.strokeStyle = i % 2 === 0 ? "#ffe07d" : "#6ea8fe";
+          ctx.lineWidth = i % 2 === 0 ? 4.2 : 2.8;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0);
+          ctx.lineTo(Math.cos(ang) * r1, Math.sin(ang) * r1);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawSkidDustPuffs(floorX, floorY, tSkit) {
+        if (tSkit < 6.98 || tSkit > 8.10) return;
+        const p = clamp((tSkit - 6.98) / 1.12, 0, 1);
+        ctx.save();
+        for (let i = 0; i < 7; i++) {
+          const lp = clamp((p - i * 0.07) / 0.55, 0, 1);
+          if (lp <= 0 || lp >= 1) continue;
+          const px = floorX - 24 - i * 16 - easeOutCubic(lp) * 58;
+          const py = floorY - easeOutCubic(lp) * (22 + (i % 3) * 14);
+          const sz = lerp(15, 4, lp);
+          ctx.globalAlpha = (1 - lp) * 0.65;
+          ctx.fillStyle = i % 2 === 0 ? "#8e8d88" : "#ebb343";
+          roundRect(ctx, px - sz / 2, py - sz / 2, sz, sz, 3);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // 5B. UPGRADE KOMPONEN MEWAH:
+      //     - Reactive Studio Lighting & Micro Chapter Progress Rail
+      //     - Volumetric Spotlight Cones & Dash Speed Lines
+      //     - Polaroid Foil Sheen & Golden Bezier Connection Arcs
+      //     - Framed Agent PiP Cam (LIVE) + Syntax Highlighted Code + Click Ripple
+      //     - Live Upgrade Spec Dock + Dual Compute Oscilloscope Graph
+      //     - "Breaking the Frame" 3D Mascots + Handover Teaser to Page 1
+      // =======================================================================
+
+      function drawJullBossCard(appearProg, time) {
+        if (appearProg <= 0.01) return;
+        const ease = softSpringOut(clamp(appearProg, 0, 1), 0.72);
+        const alpha = smoothstep(0.0, 0.45, appearProg);
+        const cardW = 392, cardH = 472;
+        const cy = lerp(745, 650, ease) + Math.sin(time * 2.2) * 5;
+        const tilt = (-2.6 + Math.sin(time * 1.8) * 0.7) * (Math.PI / 180);
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.translate(W / 2, cy);
+        ctx.rotate(tilt);
+        const sc = lerp(0.84, 1.0, ease);
+        ctx.scale(sc, sc);
+
+        const halo = ctx.createRadialGradient(0, -10, 40, 0, -10, 295);
+        halo.addColorStop(0, "rgba(235, 179, 67, 0.25)");
+        halo.addColorStop(0.58, "rgba(110, 168, 254, 0.07)");
+        halo.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = halo;
+        ctx.fillRect(-310, -310, 620, 620);
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.80)";
+        ctx.shadowBlur = 44;
+        ctx.shadowOffsetY = 18;
+        roundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 24);
+        ctx.fillStyle = "#17171d";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = "#3a3a48";
+        ctx.stroke();
+
+        // Garis aksen emas top bezel
+        ctx.fillStyle = "#ebb343";
+        roundRect(ctx, -84, -cardH / 2, 168, 3.5, 2);
+        ctx.fill();
+
+        const pad = 18, photoW = cardW - pad * 2, photoH = 342;
+        const photoX = -photoW / 2, photoY = -cardH / 2 + pad;
+
+        ctx.save();
+        roundRect(ctx, photoX, photoY, photoW, photoH, 16);
+        ctx.clip();
+        if (jullPhotoReady && jullPhoto.naturalWidth > 0) {
+          const iw = jullPhoto.naturalWidth, ih = jullPhoto.naturalHeight;
+          const imgRatio = iw / ih, boxRatio = photoW / photoH;
+          let sx = 0, sy = 0, sw = iw, sh = ih;
+          if (imgRatio > boxRatio) { sw = ih * boxRatio; sx = (iw - sw) / 2; }
+          else { sh = iw / boxRatio; sy = (ih - sh) * 0.25; }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(jullPhoto, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+          const vig = ctx.createRadialGradient(0, photoY + photoH / 2, photoW * 0.32, 0, photoY + photoH / 2, photoW * 0.72);
+          vig.addColorStop(0, "rgba(0, 0, 0, 0)");
+          vig.addColorStop(1, "rgba(10, 10, 14, 0.34)");
+          ctx.fillStyle = vig;
+          ctx.fillRect(photoX, photoY, photoW, photoH);
+        } else {
+          const bg = ctx.createLinearGradient(photoX, photoY, photoX + photoW, photoY + photoH);
+          bg.addColorStop(0, "#1d1d26"); bg.addColorStop(1, "#111116");
+          ctx.fillStyle = bg; ctx.fillRect(photoX, photoY, photoW, photoH);
+          ctx.fillStyle = "#2b2b36";
+          ctx.beginPath(); ctx.arc(0, photoY + 128, 48, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0, photoY + 266, 86, Math.PI, Math.PI * 2); ctx.fill();
+          ctx.font = "700 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#ebb343"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("LOAD: jull.jpeg", 0, photoY + photoH - 28);
+        }
+
+        // Foil Glass Sheen Diagonal menyapu foto setelah kartu mendarat!
+        const sheenP = clamp((time - 21.45) / 1.10, 0, 1);
+        if (sheenP > 0 && sheenP < 1) {
+          const sx = lerp(-cardW, cardW, easeInOutCubic(sheenP));
+          const sg = ctx.createLinearGradient(sx - 90, photoY, sx + 90, photoY + photoH);
+          sg.addColorStop(0, "rgba(255, 255, 255, 0)");
+          sg.addColorStop(0.5, "rgba(255, 245, 210, 0.24)");
+          sg.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = sg;
+          ctx.fillRect(photoX, photoY, photoW, photoH);
+        }
+        ctx.restore();
+
+        roundRect(ctx, photoX, photoY, photoW, photoH, 16);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        const footerTop = photoY + photoH + 14;
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = "#f5f4f0"; ctx.fillText("Jull", photoX + 6, footerTop + 4);
+        ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88"; ctx.fillText("@rjoulfiand", photoX + 6, footerTop + 44);
+
+        const pillW = 132, pillH = 38, pillX = photoX + photoW - pillW - 4, pillY = footerTop + 22;
+        roundRect(ctx, pillX, pillY, pillW, pillH, 19);
+        ctx.fillStyle = "#ebb343"; ctx.fill();
+        ctx.font = "800 14px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#0e0e10"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        fillTrackedText("THE BOSS", pillX + pillW / 2, pillY + pillH / 2 + 0.5, 1.0, "center");
+        ctx.restore();
+      }
+
+      // Garis Penghubung Emas Melengkung (Bezier) dari Merry & Roger ke Polaroid Jull
+      function drawBossConnectionArcs(mFloor, rFloor, prog, time) {
+        if (prog <= 0.02) return;
+        const alpha = smoothstep(0.0, 0.55, prog);
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+
+        const arcs = [
+          { x0: mFloor.x, y0: mFloor.y - 35, cx: 220, cy: 840, x1: 356, y1: 795, col: "#6ea8fe" },
+          { x0: rFloor.x, y0: rFloor.y - 35, cx: 860, cy: 840, x1: 724, y1: 778, col: "#e07a5f" }
+        ];
+
+        for (const a of arcs) {
+          const grad = ctx.createLinearGradient(a.x0, a.y0, a.x1, a.y1);
+          grad.addColorStop(0, a.col);
+          grad.addColorStop(1, "#ebb343");
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([6, 6]);
+          ctx.lineDashOffset = -time * 28;
+          ctx.beginPath();
+          ctx.moveTo(a.x0, a.y0);
+          ctx.quadraticCurveTo(a.cx, a.cy, a.x1, a.y1);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 2 titik cahaya emas mengalir sepanjang kurva menuju kartu Boss
+          for (let k = 0; k < 2; k++) {
+            const u = (time * 0.75 + k * 0.5) % 1.0;
+            const inv = 1 - u;
+            const px = inv * inv * a.x0 + 2 * inv * u * a.cx + u * u * a.x1;
+            const py = inv * inv * a.y0 + 2 * inv * u * a.cy + u * u * a.y1;
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffe07d";
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      // Volumetric Overhead Spotlight Cones (Jatuh lembut dari atas ke panggung 3D)
+      function drawVolumetricCones(stageAlpha, merryGlow, rogerGlow, togetherGlow) {
+        if (stageAlpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha *= stageAlpha;
+
+        // Kerucut Cahaya Biru (Kiri -> Merry)
+        const gL = ctx.createLinearGradient(250, 380, 310, 1140);
+        gL.addColorStop(0, `rgba(110, 168, 254, ${(0.075 + merryGlow * 0.085 + togetherGlow * 0.04).toFixed(4)})`);
+        gL.addColorStop(0.75, `rgba(110, 168, 254, ${(0.020 + merryGlow * 0.035).toFixed(4)})`);
+        gL.addColorStop(1, "rgba(110, 168, 254, 0)");
+        ctx.fillStyle = gL;
+        ctx.beginPath();
+        ctx.moveTo(150, 390); ctx.lineTo(350, 390);
+        ctx.lineTo(540, 1160); ctx.lineTo(60, 1160);
+        ctx.closePath();
+        ctx.fill();
+
+        // Kerucut Cahaya Koral (Kanan -> Roger)
+        const gR = ctx.createLinearGradient(830, 380, 770, 1140);
+        gR.addColorStop(0, `rgba(224, 122, 95, ${(0.075 + rogerGlow * 0.085 + togetherGlow * 0.04).toFixed(4)})`);
+        gR.addColorStop(0.75, `rgba(224, 122, 95, ${(0.020 + rogerGlow * 0.035).toFixed(4)})`);
+        gR.addColorStop(1, "rgba(224, 122, 95, 0)");
+        ctx.fillStyle = gR;
+        ctx.beginPath();
+        ctx.moveTo(730, 390); ctx.lineTo(930, 390);
+        ctx.lineTo(1020, 1160); ctx.lineTo(540, 1160);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // Garis Kecepatan Horizontal saat Merry Melesat Menyenggol Roger!
+      function drawDashSpeedLines(tSkit) {
+        if (tSkit < 6.76 || tSkit > 7.36) return;
+        const p = clamp((tSkit - 6.76) / 0.60, 0, 1);
+        const alpha = Math.sin(p * Math.PI) * 0.65;
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.lineCap = "round";
+        const ys = [775, 815, 855, 900, 945, 985, 1020];
+        for (let i = 0; i < ys.length; i++) {
+          const x0 = 70 + (i % 3) * 45 + p * 120;
+          const len = 140 + (i % 2) * 110;
+          ctx.strokeStyle = i % 2 === 0 ? "#6ea8fe" : "#ffe07d";
+          ctx.lineWidth = i % 2 === 0 ? 3.0 : 1.8;
+          ctx.beginPath();
+          ctx.moveTo(x0, ys[i]);
+          ctx.lineTo(x0 + len, ys[i]);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Micro Chapter Progress Rail tepat di bawah masthead (y = 122)
+      function drawChapterProgressRail(time) {
+        const x0 = 24, w = W - 48, y = 122;
+        const prog = clamp(time / DURATION, 0, 1);
+
+        ctx.save();
+        // Fill garis emas tipis real-time
+        ctx.fillStyle = "#ebb343";
+        ctx.fillRect(x0, y - 0.5, w * prog, 2);
+
+        // 5 Titik Chapter (Opener, Skit, Duel, Engines, Showdown)
+        const marks = [0, 3.20 / DURATION, 24.20 / DURATION, 27.00 / DURATION, 42.80 / DURATION];
+        for (let i = 0; i < marks.length; i++) {
+          const mx = x0 + w * marks[i];
+          const passed = prog >= marks[i] - 0.002;
+          ctx.fillStyle = passed ? "#ebb343" : "#2d2d36";
+          ctx.fillRect(mx - 2.5, y - 2.5, 5, 5);
+        }
+        ctx.restore();
+      }
+
+      // Framed Agent PiP Cam Monitor (Menggantikan cameo 3D yang tadinya melayang!)
+      function drawAgentPiPCam(brand, accentHex, quads, time, alpha) {
+        if (alpha <= 0.01) return;
+        const x = 804, y = 304, w = 212, h = 166;
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+
+        // Frame monitor dark-glass
+        ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+        ctx.shadowBlur = 22;
+        roundRect(ctx, x, y, w, h, 12);
+        ctx.fillStyle = "#121218";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = "#2b2b36";
+        ctx.stroke();
+
+        // Top bar monitor PiP
+        ctx.fillStyle = "#181820";
+        roundRect(ctx, x + 1, y + 1, w - 2, 30, 11);
+        ctx.fill();
+        ctx.fillStyle = "#252530";
+        ctx.fillRect(x + 1, y + 31, w - 2, 1);
+
+        // Titik LIVE hijau berkedip halus
+        const pulse = 0.55 + 0.45 * Math.sin(time * 6.0);
+        ctx.fillStyle = `rgba(92, 230, 160, ${pulse.toFixed(2)})`;
+        ctx.beginPath(); ctx.arc(x + 16, y + 16, 4.2, 0, Math.PI * 2); ctx.fill();
+
+        ctx.font = "700 11.5px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#969590";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText(brand === "CLAUDE" ? "CAM · ROGER" : "CAM · MERRY", x + 27, y + 16.5);
+
+        ctx.fillStyle = accentHex;
+        ctx.textAlign = "right";
+        ctx.fillText("LIVE", x + w - 12, y + 16.5);
+
+        // Background pendaran tipis di dalam jendela kamera
+        ctx.save();
+        roundRect(ctx, x + 2, y + 32, w - 4, h - 34, 10);
+        ctx.clip();
+
+        const bg = ctx.createRadialGradient(x + w / 2, y + 106, 10, x + w / 2, y + 106, 95);
+        bg.addColorStop(0, brand === "CLAUDE" ? "rgba(224, 122, 95, 0.16)" : "rgba(110, 168, 254, 0.16)");
+        bg.addColorStop(1, "rgba(12, 12, 18, 0)");
+        ctx.fillStyle = bg;
+        ctx.fillRect(x + 2, y + 32, w - 4, h - 34);
+
+        // Render mini 3D agent tepat di tengah jendela PiP!
+        renderActorQuads(quads, x + w / 2, y + 108, 34, 470, alpha);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      // Live Upgrade Spec Dock (Mengisi 560px Dead Space di Bawah Code Board Beat 4 & 5!)
+      function drawLiveSpecDock(opts) {
+        const { brand, accentHex, accentDim, modelSelected, upgradeFlashProg, boardAlpha, flyCenter } = opts;
+        const dockAlpha = boardAlpha * (1 - smoothstep(0.15, 0.65, flyCenter));
+        if (dockAlpha <= 0.01) return;
+
+        const startX = 64, dockY = 1270, fullW = W - 128; // 952px
+        const gap = 16, cardW = (fullW - gap * 2) / 3, cardH = 178;
+
+        const isClaude = brand === "CLAUDE";
+        const items = [
+          {
+            k: "ACTIVE MODEL TIER",
+            v0: isClaude ? "Fable" : "Flash Lite",
+            v1: isClaude ? "Opus 5.5" : "Carbon",
+            sub0: "Default Baseline",
+            sub1: isClaude ? "Extra Compute Tier" : "High Reasoning Tier"
+          },
+          {
+            k: "REASONING BUDGET",
+            v0: "STANDARD",
+            v1: isClaude ? "EXTRA MAX" : "HIGH MAX",
+            sub0: "1× Pass Draft",
+            sub1: "Deep Single-Shot"
+          },
+          {
+            k: "RENDER PIPELINE",
+            v0: "STANDBY",
+            v1: isClaude ? "Uint8 FB" : "Canvas2D",
+            sub0: "Awaiting Dispatch",
+            sub1: "270×480 · 4× NN"
+          }
+        ];
+
+        ctx.save();
+        ctx.globalAlpha *= dockAlpha;
+
+        for (let i = 0; i < 3; i++) {
+          const cx = startX + i * (cardW + gap);
+          const it = items[i];
+          const flash = clamp(upgradeFlashProg - i * 0.08, 0, 1);
+          const glowPulse = Math.sin(flash * Math.PI);
+
+          ctx.save();
+          if (modelSelected) {
+            ctx.shadowColor = accentDim;
+            ctx.shadowBlur = 18 + glowPulse * 24;
+          }
+          roundRect(ctx, cx, dockY, cardW, cardH, 12);
+          ctx.fillStyle = modelSelected ? "#14141b" : "#111116";
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          ctx.lineWidth = modelSelected ? 1.6 : 1.2;
+          ctx.strokeStyle = modelSelected ? accentHex : "#252530";
+          ctx.stroke();
+
+          // Power-up sweep flash saat upgrade diklik!
+          if (glowPulse > 0.02) {
+            roundRect(ctx, cx + 1, dockY + 1, cardW - 2, cardH - 2, 11);
+            ctx.fillStyle = `rgba(235, 179, 67, ${(glowPulse * 0.16).toFixed(3)})`;
+            ctx.fill();
+          }
+
+          // Top bar aksen
+          ctx.fillStyle = modelSelected ? accentHex : "#2c2c38";
+          ctx.fillRect(cx + 22, dockY, 64, 3);
+
+          ctx.textAlign = "left"; ctx.textBaseline = "top";
+          ctx.font = "700 13px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = modelSelected ? "#9c9b95" : "#5e5d58";
+          fillTrackedText(it.k, cx + 22, dockY + 24, 1.2, "left");
+
+          ctx.font = "900 34px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = modelSelected ? (i === 0 ? accentHex : "#f5f4f0") : "#6c6b66";
+          ctx.fillText(modelSelected ? it.v1 : it.v0, cx + 22, dockY + 62);
+
+          ctx.font = "500 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = modelSelected ? "#ebb343" : "#52514d";
+          ctx.fillText(modelSelected ? "✦ " + it.sub1 : "· " + it.sub0, cx + 22, dockY + 124);
+          ctx.restore();
+        }
+
+        // Status Telemetry Strip di bawah 3 kartu (y = 1472..1548)
+        const stripY = dockY + cardH + 24;
+        roundRect(ctx, startX, stripY, fullW, 74, 10);
+        ctx.fillStyle = "#121217";
+        ctx.fill();
+        ctx.strokeStyle = modelSelected ? "rgba(92, 230, 160, 0.45)" : "#23232c";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+
+        ctx.fillStyle = modelSelected ? "#5ce6a0" : "#ebb343";
+        roundRect(ctx, startX + 24, stripY + 31, 12, 12, 3);
+        ctx.fill();
+
+        ctx.font = "700 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = modelSelected ? "#f5f4f0" : "#969590";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText(
+          modelSelected
+            ? `TIER TERKUNCI  ·  ${isClaude ? "CLAUDE OPUS 5.5 EXTRA" : "GEMINI CARBON HIGH"} SIAP EKSEKUSI`
+            : `MEMINDAI WORKSPACE  ·  MENYIAPKAN UPGRADE KE TIER TERTINGGI...`,
+          startX + 50, stripY + 38
+        );
+
+        ctx.font = "700 15px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = modelSelected ? "#5ce6a0" : "#6e6d68";
+        ctx.textAlign = "right";
+        ctx.fillText(modelSelected ? "STATUS: READY ✓" : "IDLE", startX + fullW - 24, stripY + 38);
+
+        ctx.restore();
+      }
+
+      // Live Dual Compute Oscilloscope Panel (Mengisi 660px Dead Space di Beat 6 ERD!)
+      function drawComputeTelemetryPanel(chargeProg, time, alpha) {
+        if (alpha <= 0.01) return;
+        const x = 48, y = 1172, w = 984, h = 528;
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+
+        roundRect(ctx, x, y, w, h, 14);
+        ctx.fillStyle = "#121217";
+        ctx.fill();
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = "#262632";
+        ctx.stroke();
+
+        // Header panel
+        ctx.fillStyle = "#17171f";
+        roundRect(ctx, x + 1, y + 1, w - 2, 52, 13);
+        ctx.fill();
+        ctx.fillStyle = "#252530";
+        ctx.fillRect(x + 1, y + 53, w - 2, 1);
+
+        ctx.font = "700 15px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#ebb343";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        fillTrackedText("LIVE COMPUTE TELEMETRY  ·  DUAL WAVEFORM MONITOR", x + 26, y + 27, 1.5, "left");
+
+        // Legend kanan
+        ctx.fillStyle = "#6ea8fe"; ctx.fillRect(x + w - 266, y + 22, 10, 10);
+        ctx.font = "600 14px ui-monospace, Consolas, monospace";
+        ctx.fillStyle = "#c8c7c0"; ctx.fillText("GEMINI", x + w - 248, y + 27);
+        ctx.fillStyle = "#e07a5f"; ctx.fillRect(x + w - 148, y + 22, 10, 10);
+        ctx.fillStyle = "#c8c7c0"; ctx.fillText("CLAUDE", x + w - 130, y + 27);
+
+        // Area Grafik Oscilloscope
+        const gx = x + 28, gy = y + 76, gw = w - 56, gh = 264;
+        roundRect(ctx, gx, gy, gw, gh, 8);
+        ctx.fillStyle = "#0b0b0f";
+        ctx.fill();
+        ctx.strokeStyle = "#1f1f28";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Grid garis dalam oscilloscope
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.045)";
+        for (let r = 1; r <= 3; r++) {
+          const ly = gy + (gh / 4) * r;
+          ctx.beginPath(); ctx.moveTo(gx, ly); ctx.lineTo(gx + gw, ly); ctx.stroke();
+        }
+        for (let c = 1; c <= 7; c++) {
+          const lx = gx + (gw / 8) * c;
+          ctx.beginPath(); ctx.moveTo(lx, gy); ctx.lineTo(lx, gy + gh); ctx.stroke();
+        }
+
+        // Gambar 2 gelombang aktif bergerak seiring chargeProg
+        const activeW = Math.max(8, gw * clamp(chargeProg, 0.02, 1.0));
+        const drawWave = (color, fillRgba, freqA, freqB, phaseOff, ampScale) => {
+          ctx.save();
+          ctx.beginPath();
+          const steps = 90;
+          let lastX = gx, lastY = gy + gh * 0.72;
+          for (let s = 0; s <= steps; s++) {
+            const u = s / steps;
+            const px = gx + u * activeW;
+            const envelope = Math.sin(u * Math.PI * 0.85 + 0.15);
+            const trend = lerp(0.76, 0.28, u * chargeProg);
+            const osc = (Math.sin(u * freqA - time * 6.5 + phaseOff) * 0.55 + Math.cos(u * freqB + time * 4.2) * 0.45) * ampScale * envelope;
+            const py = gy + clamp(trend + osc, 0.10, 0.90) * gh;
+            if (s === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+            lastX = px; lastY = py;
+          }
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.6;
+          ctx.stroke();
+
+          // Soft fill di bawah kurva
+          ctx.lineTo(lastX, gy + gh);
+          ctx.lineTo(gx, gy + gh);
+          ctx.closePath();
+          ctx.fillStyle = fillRgba;
+          ctx.fill();
+
+          // Titik ujung hidup
+          ctx.beginPath();
+          ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.restore();
+        };
+
+        drawWave("#6ea8fe", "rgba(110, 168, 254, 0.11)", 18, 31, 0.0, 0.13);
+        drawWave("#e07a5f", "rgba(224, 122, 95, 0.11)", 22, 27, 1.8, 0.14);
+
+        // Live 3-Row Pipeline Console Checklist di bawah grafik
+        const logY = gy + gh + 22;
+        const logs = [
+          { t: 0.15, k: "01 · ALLOCATE BUFFER",   v: "270×480 Offscreen + Uint8Array(129600)", ok: "LOCKED ✓" },
+          { t: 0.48, k: "02 · PALETTE ENFORCER",  v: "Strict 16-Color Hex LUT · 0% Anti-Alias", ok: "VERIFIED ✓" },
+          { t: 0.80, k: "03 · RENDER HARNESS",    v: "Playwright 360F @ 30FPS + FFmpeg x264",   ok: "ARMED ✓" }
+        ];
+
+        for (let i = 0; i < logs.length; i++) {
+          const ly = logY + i * 50;
+          const done = chargeProg >= logs[i].t;
+          roundRect(ctx, gx, ly, gw, 40, 7);
+          ctx.fillStyle = done ? "#141918" : "#0e0e13";
+          ctx.fill();
+          ctx.strokeStyle = done ? "rgba(92, 230, 160, 0.32)" : "#1f1f28";
+          ctx.lineWidth = 1.1;
+          ctx.stroke();
+
+          ctx.textBaseline = "middle";
+          ctx.font = "700 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = done ? "#ebb343" : "#5c5b57";
+          ctx.textAlign = "left";
+          ctx.fillText(logs[i].k, gx + 16, ly + 20);
+
+          ctx.font = "500 14.5px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = done ? "#d8d7d2" : "#4a4a52";
+          ctx.fillText(logs[i].v, gx + 236, ly + 20);
+
+          ctx.font = "700 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = done ? "#5ce6a0" : "#4a4a52";
+          ctx.textAlign = "right";
+          ctx.fillText(done ? logs[i].ok : "PENDING...", gx + gw - 16, ly + 20);
+        }
+
+        ctx.restore();
+      }
+
+      function drawModelBadge(x, y, w, h, accentHex, brandName, versionText, activeGlow = 0, entranceProg = 1) {
+        if (entranceProg <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha *= clamp(entranceProg, 0, 1);
+        ctx.translate(0, (1 - easeOutCubic(entranceProg)) * -18);
+        if (activeGlow > 0.02) { ctx.shadowColor = accentHex; ctx.shadowBlur = 22 * activeGlow; }
+        roundRect(ctx, x, y, w, h, 10);
+        ctx.fillStyle = "#151518"; ctx.fill(); ctx.shadowBlur = 0;
+        ctx.lineWidth = activeGlow > 0.3 ? 1.75 : 1.25;
+        ctx.strokeStyle = activeGlow > 0.3 ? accentHex : "#26262c";
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.fillRect(x + 12, y + 1, w - 24, 1);
+        roundRect(ctx, x + 22, y + (h - 13) / 2, 13, 13, 3.5);
+        ctx.fillStyle = accentHex; ctx.fill();
+        ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.fillStyle = accentHex; ctx.textBaseline = "middle";
+        const brandX = x + 48;
+        const brandW = fillTrackedText(brandName, brandX, y + h / 2 + 0.5, 1.2, "left");
+        ctx.font = "500 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88"; ctx.textAlign = "left";
+        ctx.fillText(versionText, brandX + brandW + 14, y + h / 2 + 0.5);
+        ctx.restore();
+      }
+
+      function drawEditorialSpeechCard(opts) {
+        const {
+          speakerTag, roleTag, line1, line2, accentHex,
+          appearProg, textAlpha, typeProg, time, pointerX, dualMode, baseCardY, shakeAmp = 0
+        } = opts;
+        if (appearProg <= 0.01) return;
+        const cardW = 940, cardH = 228;
+        const shakeX = shakeAmp > 0 ? Math.sin(time * 48.0) * shakeAmp : 0;
+        const shakeY = shakeAmp > 0 ? Math.cos(time * 39.0) * (shakeAmp * 0.55) : 0;
+        const cardX = (W - cardW) / 2 + shakeX;
+        const cardY = lerp(baseCardY + 42, baseCardY, easeOutCubic(clamp(appearProg, 0, 1))) + shakeY;
+
+        ctx.save();
+        ctx.globalAlpha *= clamp(appearProg * 1.4, 0, 1);
+        if (!dualMode && pointerX !== undefined) {
+          const px = clamp(pointerX, cardX + 95, cardX + cardW - 95);
+          ctx.beginPath();
+          ctx.moveTo(px - 18, cardY + 2); ctx.lineTo(px, cardY - 18); ctx.lineTo(px + 18, cardY + 2);
+          ctx.closePath();
+          ctx.fillStyle = "#141419"; ctx.fill();
+          ctx.strokeStyle = accentHex; ctx.lineWidth = 1.6; ctx.stroke();
+        }
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.65)"; ctx.shadowBlur = 34; ctx.shadowOffsetY = 10;
+        roundRect(ctx, cardX, cardY, cardW, cardH, 14);
+        ctx.fillStyle = "#141419"; ctx.fill();
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        ctx.lineWidth = 1.6; ctx.strokeStyle = accentHex; ctx.stroke();
+
+        if (!dualMode && pointerX !== undefined) {
+          const px = clamp(pointerX, cardX + 95, cardX + cardW - 95);
+          ctx.fillStyle = "#141419"; ctx.fillRect(px - 16, cardY - 1, 32, 4);
+        }
+
+        ctx.fillStyle = "#191921";
+        roundRect(ctx, cardX + 2, cardY + 2, cardW - 4, 56, 12); ctx.fill();
+        ctx.fillStyle = "#262632"; ctx.fillRect(cardX + 2, cardY + 58, cardW - 4, 1);
+
+        if (dualMode) {
+          roundRect(ctx, cardX + 26, cardY + 23, 12, 12, 3); ctx.fillStyle = "#6ea8fe"; ctx.fill();
+          roundRect(ctx, cardX + 43, cardY + 23, 12, 12, 3); ctx.fillStyle = "#e07a5f"; ctx.fill();
+        } else {
+          roundRect(ctx, cardX + 26, cardY + 23, 12, 12, 3); ctx.fillStyle = accentHex; ctx.fill();
+        }
+
+        const tagStartX = dualMode ? cardX + 66 : cardX + 48;
+        ctx.font = "800 18px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = accentHex; ctx.textBaseline = "middle";
+        const spW = fillTrackedText(speakerTag, tagStartX, cardY + 30, 1.8, "left");
+        ctx.font = "500 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+        ctx.fillStyle = "#8e8d88"; ctx.fillText("  ·  " + roleTag, tagStartX + spW, cardY + 30);
+
+        const wfRight = cardX + cardW - 26, wfMidY = cardY + 30;
+        const talkingNow = typeProg > 0.02 && typeProg < 0.96;
+        for (let b = 0; b < 14; b++) {
+          const bx = wfRight - (13 - b) * 8;
+          const wave = talkingNow
+            ? 5 + Math.abs(Math.sin(time * 18 + b * 0.72) * Math.cos(time * 10 - b * 0.38)) * 22
+            : 4 + Math.sin(time * 4 + b) * 1.5;
+          roundRect(ctx, bx - 4, wfMidY - wave / 2, 4, wave, 2);
+          ctx.fillStyle = talkingNow ? accentHex : "#3b3b46"; ctx.fill();
+        }
+
+        ctx.save();
+        ctx.globalAlpha *= clamp(textAlpha, 0, 1);
+        const fullText = line2 ? (line1 + "\n" + line2) : line1;
+        const shownStr = fullText.slice(0, Math.floor(clamp(typeProg, 0, 1) * fullText.length));
+        const parts = shownStr.split("\n"), s1 = parts[0] || "", s2 = parts[1] || "";
+
+        ctx.font = "800 36px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+
+        const renderHL = (str, yPos) => {
+          const kws = [
+            { w: "Roger!", col: "#e07a5f" }, { w: "Roger", col: "#e07a5f" },
+            { w: "Merry!", col: "#6ea8fe" }, { w: "Merry", col: "#6ea8fe" },
+            { w: "Jull!",  col: "#ebb343" }, { w: "Jull",  col: "#ebb343" },
+            { w: "Woi",    col: "#ff6b6b" }
+          ];
+          let m = null;
+          for (const kw of kws) { const idx = str.indexOf(kw.w); if (idx >= 0) { m = { idx, len: kw.w.length, col: kw.col }; break; } }
+          if (!m) { ctx.fillStyle = "#f5f4f0"; ctx.fillText(str, cardX + 34, yPos); }
+          else {
+            const p0 = str.slice(0, m.idx), p1 = str.slice(m.idx, m.idx + m.len), p2 = str.slice(m.idx + m.len);
+            ctx.fillStyle = "#f5f4f0"; ctx.fillText(p0, cardX + 34, yPos);
+            const w0 = ctx.measureText(p0).width;
+            ctx.fillStyle = m.col; ctx.fillText(p1, cardX + 34 + w0, yPos);
+            const w1 = ctx.measureText(p1).width;
+            ctx.fillStyle = "#f5f4f0"; ctx.fillText(p2, cardX + 34 + w0 + w1, yPos);
+          }
+        };
+
+        const yL1 = line2 ? (cardY + 112) : (cardY + 140);
+        renderHL(s1, yL1);
+        if (s2.length > 0) renderHL(s2, cardY + 166);
+        if (typeProg > 0.02 && (typeProg < 1.0 || Math.sin(time * 9) > 0)) {
+          const onL2 = parts.length > 1;
+          const activeStr = onL2 ? s2 : s1;
+          const curY = onL2 ? cardY + 166 : yL1;
+          ctx.fillStyle = accentHex;
+          roundRect(ctx, cardX + 34 + ctx.measureText(activeStr).width + 8, curY - 18, 4, 36, 2);
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.restore();
+      }
+
+      function drawStageFloor(floorY, stageAlpha, rogerGlow, merryGlow, togetherGlow) {
+        if (stageAlpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha *= stageAlpha;
+        const leftGlow = ctx.createRadialGradient(310, floorY, 10, 310, floorY, 340);
+        leftGlow.addColorStop(0, `rgba(110, 168, 254, ${(0.10 + merryGlow * 0.16 + togetherGlow * 0.08).toFixed(3)})`);
+        leftGlow.addColorStop(1, "rgba(110, 168, 254, 0)");
+        ctx.fillStyle = leftGlow; ctx.fillRect(24, floorY - 200, W - 48, 400);
+
+        const rightGlow = ctx.createRadialGradient(770, floorY, 10, 770, floorY, 340);
+        rightGlow.addColorStop(0, `rgba(224, 122, 95, ${(0.10 + rogerGlow * 0.16 + togetherGlow * 0.08).toFixed(3)})`);
+        rightGlow.addColorStop(1, "rgba(224, 122, 95, 0)");
+        ctx.fillStyle = rightGlow; ctx.fillRect(24, floorY - 200, W - 48, 400);
+
+        ctx.beginPath(); ctx.rect(48, floorY - 85, W - 96, 230); ctx.clip();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.045)"; ctx.lineWidth = 1;
+        for (let i = -5; i <= 5; i++) {
+          ctx.beginPath(); ctx.moveTo(W / 2 + i * 38, floorY - 80); ctx.lineTo(W / 2 + i * 165, floorY + 150); ctx.stroke();
+        }
+        for (const hy of [floorY - 72, floorY - 38, floorY + 2, floorY + 48, floorY + 102]) {
+          ctx.beginPath(); ctx.moveTo(48, hy); ctx.lineTo(W - 48, hy); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawFloorShadow(cx, cy, rx, ry, alpha) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(1, ry / rx);
+        const grad = ctx.createRadialGradient(0, 0, rx * 0.12, 0, 0, rx);
+        grad.addColorStop(0, `rgba(0, 0, 0, ${(0.72 * alpha).toFixed(3)})`);
+        grad.addColorStop(0.65, `rgba(0, 0, 0, ${(0.28 * alpha).toFixed(3)})`);
+        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // Syntax Highlighter Mini untuk Kode Siluet Workspace
+      function drawSyntaxLine(line, x, y, spotlight, accentHex) {
+        if (spotlight <= 0.05) {
+          ctx.fillStyle = "#32323d";
+          ctx.fillText(line, x, y);
+          return;
+        }
+        const tokenRe = /('[^']*'|\b(?:import|export|from|const|let|function|async|return|if|for|new)\b|\b\d+(?:\.\d+)?\b)/g;
+        let curX = x, lastIdx = 0, match;
+        ctx.save();
+        ctx.shadowColor = accentHex;
+        ctx.shadowBlur = spotlight * 10;
+
+        while ((match = tokenRe.exec(line)) !== null) {
+          if (match.index > lastIdx) {
+            const plain = line.slice(lastIdx, match.index);
+            ctx.fillStyle = spotlight > 0.50 ? "#f4f3ef" : "#a8a7a0";
+            ctx.fillText(plain, curX, y);
+            curX += ctx.measureText(plain).width;
+          }
+          const tok = match[0];
+          if (tok.startsWith("'")) ctx.fillStyle = "#5ce6a0";
+          else if (/^\d/.test(tok)) ctx.fillStyle = "#ebb343";
+          else ctx.fillStyle = accentHex;
+          ctx.fillText(tok, curX, y);
+          curX += ctx.measureText(tok).width;
+          lastIdx = tokenRe.lastIndex;
+        }
+        if (lastIdx < line.length) {
+          const tail = line.slice(lastIdx);
+          ctx.fillStyle = spotlight > 0.50 ? "#f4f3ef" : "#a8a7a0";
+          ctx.fillText(tail, curX, y);
+        }
+        ctx.restore();
+      }
+
+      // Upgraded AI Code Workspace Board (+ Syntax Highlighting + Cursor Click Ripples)
       function drawAICodeBoardSequence(opts) {
         const {
-          brand,           // "CLAUDE" | "GEMINI"
-          accentHex,       // "#e07a5f" | "#6ea8fe"
-          accentDim,       // rgba(...)
-          codeLines,       // array string kode
-          initModel,       // "Fable" | "Flash Lite"
-          targetModel,     // "Opus 5.5 Extra" | "Argon 4 High"
-          revealProg,      // 0..1 pembukaan text board
-          scrollProg,      // 0..1 (0 -> 0.5 turun, 0.5 -> 1.0 naik balik ke atas)
-          dropdownOpenProg,// 0..1 menu pemilihan model terbuka
-          modelSelected,   // boolean apakah model tier tertinggi sudah terpilih
-          sendClickProg,   // 0..1 efek tombol kirim ditekan
-          flyToCenterProg, // 0..1 board mengecil & meluncur ke tengah layar
-          cursorPos,       // { x, y, scale, alpha }
-          revealMode       // "wheel" (Claude) | "starburst" (Gemini)
+          brand, accentHex, accentDim, codeLines, initModel, targetModel,
+          revealProg, scrollProg, dropdownOpenProg, modelSelected,
+          sendClickProg, flyToCenterProg, cursorPos, clickRipples = [], revealMode
         } = opts;
 
-        const baseX = 64;
-        const baseY = 540;
-        const fullW = W - 128; // 952 px
-        const fullH = 680;
-
-        // Saat dikirim ke tengah layar, kotak mengecil menuju pusat (540, 960)
+        const baseX = 64, baseY = 530, fullW = W - 128, fullH = 696;
         const flyEase = easeInOutCubic(flyToCenterProg);
         const boxW = lerp(fullW * (revealMode === "wheel" ? revealProg : 1), 320, flyEase);
         const boxH = lerp(fullH * (revealMode === "starburst" ? revealProg : 1), 110, flyEase);
-        const boxX = revealMode === "wheel"
-          ? lerp(baseX, (W - boxW) / 2, flyEase)
-          : (W - boxW) / 2;
+        const boxX = revealMode === "wheel" ? lerp(baseX, (W - boxW) / 2, flyEase) : (W - boxW) / 2;
         const boxY = lerp(baseY, (H - boxH) / 2, flyEase);
-
         const boardAlpha = clamp(revealProg * 2.5, 0, 1) * (1 - smoothstep(0.75, 1.0, flyToCenterProg));
 
         if (boardAlpha > 0.01 && boxW > 20 && boxH > 20) {
           ctx.save();
-          ctx.globalAlpha = boardAlpha;
-
-          // Glow atmosferik di belakang Text Board
-          ctx.shadowColor = accentDim;
-          ctx.shadowBlur = 36;
+          ctx.globalAlpha *= boardAlpha;
+          ctx.shadowColor = accentDim; ctx.shadowBlur = 36;
           roundRect(ctx, boxX, boxY, boxW, boxH, 14);
-          ctx.fillStyle = "#131317";
-          ctx.fill();
-          ctx.shadowColor = "transparent";
+          ctx.fillStyle = "#131317"; ctx.fill(); ctx.shadowBlur = 0;
+          ctx.lineWidth = 1.8; ctx.strokeStyle = accentHex; ctx.stroke();
 
-          ctx.lineWidth = 1.8;
-          ctx.strokeStyle = accentHex;
-          ctx.stroke();
-
-          // Clip isi Text Board
           ctx.beginPath();
           roundRect(ctx, boxX + 2, boxY + 2, Math.max(1, boxW - 4), Math.max(1, boxH - 4), 12);
           ctx.clip();
 
-          // Header Bar Text Board
-          ctx.fillStyle = "#18181e";
-          ctx.fillRect(boxX, boxY, boxW, 56);
-          ctx.fillStyle = "#262630";
-          ctx.fillRect(boxX, boxY + 56, boxW, 1);
+          ctx.fillStyle = "#18181e"; ctx.fillRect(boxX, boxY, boxW, 56);
+          ctx.fillStyle = "#262630"; ctx.fillRect(boxX, boxY + 56, boxW, 1);
 
-          // Ikon kecil & judul di header
-          if (brand === "CLAUDE") {
-            drawClaudeWheelLogo(boxX + 34, boxY + 28, 12, scrollProg * Math.PI * 2, accentHex, 1);
-          } else {
-            drawGeminiSparkleLogo(boxX + 34, boxY + 28, 14, scrollProg * Math.PI, 1);
-          }
+          if (brand === "CLAUDE") drawClaudeSunburstLogo(boxX + 34, boxY + 28, 12, scrollProg * Math.PI * 2, accentHex, 1);
+          else drawGeminiSparkleLogo(boxX + 34, boxY + 28, 14, scrollProg * Math.PI, 1);
 
           ctx.font = "700 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#e6e5e0";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#e6e5e0"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
           ctx.fillText(brand === "CLAUDE" ? "claude_workspace // rocket_sim.js" : "gemini_studio // orbital_core.js", boxX + 58, boxY + 28);
 
-          ctx.font = "500 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = accentHex;
-          ctx.textAlign = "right";
-          ctx.fillText("SILHOUETTE CODE INSPECTOR", boxX + boxW - 24, boxY + 28);
+          ctx.font = "500 15.5px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = accentHex; ctx.textAlign = "right";
+          ctx.fillText("SYNTAX CODE INSPECTOR", boxX + boxW - 24, boxY + 28);
 
-          // --- SILUET & OVERLAY KODINGAN SANGAR DENGAN ANIMASI SCROLL ATAS -> BAWAH -> ATAS ---
-          const codeAreaTop = boxY + 60;
-          const codeAreaH = boxH - 136;
-          const lineH = 32;
+          const codeAreaTop = boxY + 60, codeAreaH = boxH - 136, lineH = 32;
           const maxScroll = Math.max(0, codeLines.length * lineH - codeAreaH + 40);
-
-          // Kurva Scroll: 0.0 -> 0.55 turun ke bawah, 0.55 -> 1.00 naik kembali ke atas
-          let scrollPos = 0;
-          if (scrollProg <= 0.55) {
-            scrollPos = easeInOutCubic(scrollProg / 0.55) * maxScroll;
-          } else {
-            scrollPos = (1 - easeInOutCubic((scrollProg - 0.55) / 0.45)) * maxScroll;
-          }
-
-          // Posisi band cahaya penyapu (Spotlight Scanner Bar)
+          const scrollPos = scrollProg <= 0.55
+            ? easeInOutCubic(scrollProg / 0.55) * maxScroll
+            : (1 - easeInOutCubic((scrollProg - 0.55) / 0.45)) * maxScroll;
           const scannerY = codeAreaTop + (scrollProg <= 0.55
             ? (scrollProg / 0.55) * codeAreaH
             : (1 - (scrollProg - 0.55) / 0.45) * codeAreaH);
 
           ctx.font = "500 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.textBaseline = "top";
-          ctx.textAlign = "left";
+          ctx.textBaseline = "top"; ctx.textAlign = "left";
 
           for (let i = 0; i < codeLines.length; i++) {
             const ly = codeAreaTop + 18 + i * lineH - scrollPos;
             if (ly + lineH < codeAreaTop || ly > codeAreaTop + codeAreaH) continue;
+            const spot = clamp(1 - Math.abs((ly + lineH / 2) - scannerY) / 165, 0, 1);
 
-            // Jarak baris ke pusat sorotan scanner
-            const distFromScanner = Math.abs((ly + lineH / 2) - scannerY);
-            const spotlightIntensity = clamp(1 - distFromScanner / 150, 0, 1);
-
-            // Bayangan siluet kodingan di lapisan belakang (offset 3px)
-            ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
-            ctx.fillText(codeLines[i], boxX + 68 + 3, ly + 3);
-
-            // Nomor baris
-            ctx.fillStyle = spotlightIntensity > 0.3 ? accentHex : "#3a3a44";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillText(codeLines[i], boxX + 71, ly + 3);
+            ctx.fillStyle = spot > 0.3 ? accentHex : "#3a3a44";
             ctx.fillText(String(i + 1).padStart(2, "0"), boxX + 24, ly);
 
-            // Teks kodingan utama: awalnya gelap siluet (#2d2d37), saat tersorot menjadi terang sangar!
-            if (spotlightIntensity > 0.05) {
-              ctx.save();
-              ctx.shadowColor = accentHex;
-              ctx.shadowBlur = spotlightIntensity * 14;
-              ctx.fillStyle = spotlightIntensity > 0.55 ? "#f4f3ef" : accentHex;
-              ctx.fillText(codeLines[i], boxX + 68, ly);
-              ctx.restore();
-            } else {
-              ctx.fillStyle = "#32323d";
-              ctx.fillText(codeLines[i], boxX + 68, ly);
-            }
+            drawSyntaxLine(codeLines[i], boxX + 68, ly, spot, accentHex);
           }
 
-          // Garis Laser Scanner Horizontal yang menyapu siluet kodingan
           if (scrollProg > 0.02 && scrollProg < 0.98) {
-            const scanGrad = ctx.createLinearGradient(boxX, scannerY - 45, boxX, scannerY + 45);
-            scanGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-            scanGrad.addColorStop(0.5, accentDim);
-            scanGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-            ctx.fillStyle = scanGrad;
-            ctx.fillRect(boxX + 4, scannerY - 45, boxW - 8, 90);
-
-            ctx.fillStyle = accentHex;
-            ctx.fillRect(boxX + 12, scannerY, boxW - 24, 1.5);
+            const sg = ctx.createLinearGradient(boxX, scannerY - 45, boxX, scannerY + 45);
+            sg.addColorStop(0, "rgba(0,0,0,0)"); sg.addColorStop(0.5, accentDim); sg.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = sg; ctx.fillRect(boxX + 4, scannerY - 45, boxW - 8, 90);
+            ctx.fillStyle = accentHex; ctx.fillRect(boxX + 12, scannerY, boxW - 24, 1.5);
           }
 
-          // Scrollbar indikator di sisi kanan
-          const sbTrackH = Math.max(20, codeAreaH - 24);
-          const sbThumbH = 64;
+          const sbTrackH = Math.max(20, codeAreaH - 24), sbThumbH = 64;
           const sbY = codeAreaTop + 12 + (maxScroll > 0 ? (scrollPos / maxScroll) * (sbTrackH - sbThumbH) : 0);
           roundRect(ctx, boxX + boxW - 12, sbY, 5, sbThumbH, 2.5);
-          ctx.fillStyle = accentHex;
-          ctx.fill();
+          ctx.fillStyle = accentHex; ctx.fill();
 
-          // --- FOOTER BAR BAWAH: DROPDOWN MODEL (KIRI) & TOMBOL KIRIM (KANAN) ---
           const footTop = boxY + boxH - 76;
-          ctx.fillStyle = "#18181f";
-          ctx.fillRect(boxX, footTop, boxW, 76);
-          ctx.fillStyle = "#282833";
-          ctx.fillRect(boxX, footTop, boxW, 1.5);
+          ctx.fillStyle = "#18181f"; ctx.fillRect(boxX, footTop, boxW, 76);
+          ctx.fillStyle = "#282833"; ctx.fillRect(boxX, footTop, boxW, 1.5);
 
-          // Pill Pemilih Model di Kiri Bawah
-          const pillX = boxX + 22;
-          const pillY = footTop + 15;
-          const pillW = 295;
-          const pillH = 46;
-
+          const pillX = boxX + 22, pillY = footTop + 15, pillW = 295, pillH = 46;
           roundRect(ctx, pillX, pillY, pillW, pillH, 9);
-          ctx.fillStyle = modelSelected ? "rgba(255, 255, 255, 0.06)" : "#121217";
-          ctx.fill();
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = modelSelected ? accentHex : "#343440";
-          ctx.stroke();
+          ctx.fillStyle = modelSelected ? "rgba(255, 255, 255, 0.06)" : "#121217"; ctx.fill();
+          ctx.lineWidth = 1.5; ctx.strokeStyle = modelSelected ? accentHex : "#343440"; ctx.stroke();
 
-          // Titik warna model
           roundRect(ctx, pillX + 14, pillY + 15, 16, 16, 4);
-          ctx.fillStyle = modelSelected ? accentHex : "#6e6d68";
-          ctx.fill();
+          ctx.fillStyle = modelSelected ? accentHex : "#6e6d68"; ctx.fill();
 
           ctx.font = "700 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
           ctx.fillStyle = modelSelected ? "#f4f3ef" : "#969590";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          const activeModelLabel = modelSelected ? targetModel : initModel;
-          ctx.fillText(activeModelLabel, pillX + 40, pillY + pillH / 2 + 0.5);
+          ctx.textAlign = "left"; ctx.textBaseline = "middle";
+          ctx.fillText(modelSelected ? targetModel : initModel, pillX + 40, pillY + pillH / 2 + 0.5);
 
-          // Panah chevron dropdown
-          ctx.fillStyle = "#8a8984";
-          ctx.font = "600 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984"; ctx.font = "600 16px ui-monospace, Consolas, monospace";
           ctx.fillText("▾", pillX + pillW - 26, pillY + pillH / 2 + 1);
 
-          // Popup Menu Dropdown Pemilihan Model (Muncul saat kursor mengklik model awal)
           if (dropdownOpenProg > 0.02) {
             ctx.save();
             ctx.globalAlpha = boardAlpha * dropdownOpenProg;
-            const menuW = 310;
-            const menuH = 108;
-            const menuX = pillX;
-            const menuY = pillY - menuH - 10;
-
+            const menuW = 310, menuH = 108, menuX = pillX, menuY = pillY - menuH - 10;
             roundRect(ctx, menuX, menuY, menuW, menuH, 10);
-            ctx.fillStyle = "#1c1c24";
-            ctx.fill();
-            ctx.lineWidth = 1.6;
-            ctx.strokeStyle = accentHex;
-            ctx.stroke();
-
-            // Opsi 1: Model Awal (Fable / Flash Lite)
+            ctx.fillStyle = "#1c1c24"; ctx.fill();
+            ctx.lineWidth = 1.6; ctx.strokeStyle = accentHex; ctx.stroke();
             ctx.font = "500 18px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#787670";
-            ctx.textAlign = "left";
+            ctx.fillStyle = "#787670"; ctx.textAlign = "left";
             ctx.fillText(initModel + "  ( Default )", menuX + 18, menuY + 28);
-
-            // Opsi 2: Model Tier Tertinggi (Opus 5.5 Extra / Argon 4 High) — Highlighted!
             roundRect(ctx, menuX + 8, menuY + 52, menuW - 16, 46, 7);
-            ctx.fillStyle = accentDim;
-            ctx.fill();
-            ctx.strokeStyle = accentHex;
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
+            ctx.fillStyle = accentDim; ctx.fill();
+            ctx.strokeStyle = accentHex; ctx.lineWidth = 1.2; ctx.stroke();
             ctx.font = "800 19px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
             ctx.fillStyle = accentHex;
             ctx.fillText("✦ " + targetModel, menuX + 20, menuY + 75);
             ctx.restore();
           }
 
-          // Tombol Kirim [↑] di Kanan Bawah Text Board
-          const sendW = 142;
-          const sendH = 46;
-          const sendX = boxX + boxW - sendW - 22;
-          const sendY = footTop + 15;
+          const sendW = 142, sendH = 46, sendX = boxX + boxW - sendW - 22, sendY = footTop + 15;
           const btnScale = 1 - 0.09 * Math.sin(sendClickProg * Math.PI);
-
           ctx.save();
           ctx.translate(sendX + sendW / 2, sendY + sendH / 2);
           ctx.scale(btnScale, btnScale);
           roundRect(ctx, -sendW / 2, -sendH / 2, sendW, sendH, 9);
-          ctx.fillStyle = accentHex;
-          ctx.fill();
-
+          ctx.fillStyle = accentHex; ctx.fill();
           ctx.font = "800 18px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#0e0e10";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#0e0e10"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText("KIRIM  ↑", 0, 1);
           ctx.restore();
 
           ctx.restore();
         }
 
-        // Jika Roda Claude sedang menggelinding dari kiri ke kanan (revealMode === "wheel")
+        // Click Ripples pada setiap aksi klik kursor!
+        for (const rp of clickRipples) {
+          if (rp.p > 0 && rp.p < 1) {
+            ctx.save();
+            ctx.globalAlpha = Math.pow(1 - rp.p, 1.4) * 0.85;
+            ctx.beginPath();
+            ctx.arc(rp.x, rp.y, 10 + easeOutCubic(rp.p) * 44, 0, Math.PI * 2);
+            ctx.strokeStyle = "#ebb343";
+            ctx.lineWidth = 2.4;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
         if (revealMode === "wheel" && revealProg > 0.01 && revealProg < 0.99) {
-          const wheelX = boxX + boxW;
-          const wheelY = boxY + boxH / 2;
-          const wheelAngle = revealProg * Math.PI * 5;
-          drawClaudeWheelLogo(wheelX, wheelY, 54, wheelAngle, accentHex, 1.0);
+          drawClaudeSunburstLogo(boxX + boxW, boxY + boxH / 2, 54, revealProg * Math.PI * 5, accentHex, 1.0);
         }
-
-        // Jika Bintang Gemini sedang memancar membuka board (revealMode === "starburst")
         if (revealMode === "starburst" && revealProg > 0.01 && revealProg < 0.99) {
-          const starScale = lerp(1.6, 0.9, revealProg);
-          drawGeminiSparkleLogo(W / 2, boxY, 44 * starScale, revealProg * Math.PI, 1 - revealProg * 0.5);
-          drawGeminiSparkleLogo(W / 2, boxY + boxH, 44 * starScale, -revealProg * Math.PI, 1 - revealProg * 0.5);
+          const ss = lerp(1.6, 0.9, revealProg);
+          drawGeminiSparkleLogo(W / 2, boxY, 44 * ss, revealProg * Math.PI, 1 - revealProg * 0.5);
+          drawGeminiSparkleLogo(W / 2, boxY + boxH, 44 * ss, -revealProg * Math.PI, 1 - revealProg * 0.5);
         }
-
-        // Gambar Kursor di atas Board
         if (cursorPos && cursorPos.alpha > 0.01) {
           drawCursorArrow(cursorPos.x, cursorPos.y, cursorPos.scale || 1.0, cursorPos.alpha);
         }
+
+        return boardAlpha;
       }
 
-      // =========================================================================
-      // FUNGSI UTAMA: drawFrame(t) — t dalam detik (0.00 s/d 21.50)
-      // =========================================================================
+      // =======================================================================
+      // 6. FUNGSI UTAMA: drawFrame(t) — LUXURY MASTER INTRO 46.00 DETIK
+      // =======================================================================
       function drawFrame(t) {
         const time = clamp(Number(t) || 0, 0, DURATION);
 
-        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(SSAA, SSAA);
 
-        // 1. Latar Belakang Warm Obsidian Konsisten (#0f0f11)
+        // Micro camera shake saat senggolan di skit (global time = 10.15s)
+        let camShakeX = 0, camShakeY = 0;
+        if (time >= 10.15 && time <= 10.57) {
+          const sp = (time - 10.15) / 0.42;
+          const amp = (1 - sp) * (1 - sp) * 9.5;
+          camShakeX = Math.sin(time * 88.0) * amp;
+          camShakeY = Math.cos(time * 74.0) * (amp * 0.6);
+        }
+
+        // 1. Latar Warm Obsidian (#0f0f11) + REACTIVE STUDIO LIGHTING!
         ctx.fillStyle = "#0f0f11";
         ctx.fillRect(0, 0, W, H);
 
-        // Pendaran atmosferik halus
-        const wash = ctx.createRadialGradient(W / 2, H / 2 - 120, 40, W / 2, H / 2 - 120, 720);
-        wash.addColorStop(0, "rgba(235, 179, 67, 0.045)");
-        wash.addColorStop(0.5, "rgba(110, 168, 254, 0.025)");
+        ctx.save();
+        ctx.translate(camShakeX, camShakeY);
+
+        const angryFlash  = bellCurve(time, 12.45, 12.80, 14.85, 15.20);
+        const claudeMood  = bellCurve(time, 26.80, 27.50, 32.50, 33.20);
+        const geminiMood  = bellCurve(time, 33.40, 34.10, 38.90, 39.50);
+        const splitMood   = Math.max(bellCurve(time, 24.15, 24.65, 26.70, 27.10), smootherstep(42.75, 43.35, time));
+
+        // Base Gold Wash
+        const wash = ctx.createRadialGradient(W / 2, 740, 40, W / 2, 740, 800);
+        wash.addColorStop(0, "rgba(235, 179, 67, 0.052)");
+        wash.addColorStop(0.6, "rgba(110, 168, 254, 0.018)");
         wash.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = wash;
         ctx.fillRect(0, 0, W, H);
 
-        // Bingkai Editorial Hairline 1px
+        // Reactive Angry Red Pulse saat Roger ngamuk
+        if (angryFlash > 0.01) {
+          const ag = ctx.createRadialGradient(780, 900, 30, 780, 900, 620);
+          ag.addColorStop(0, `rgba(255, 92, 92, ${(angryFlash * 0.11).toFixed(4)})`);
+          ag.addColorStop(1, "rgba(255, 92, 92, 0)");
+          ctx.fillStyle = ag; ctx.fillRect(0, 0, W, H);
+        }
+
+        // Reactive Claude Workspace Warm Coral Wash
+        if (claudeMood > 0.01) {
+          const cg = ctx.createRadialGradient(W / 2, 780, 40, W / 2, 780, 760);
+          cg.addColorStop(0, `rgba(224, 122, 95, ${(claudeMood * 0.085).toFixed(4)})`);
+          cg.addColorStop(1, "rgba(224, 122, 95, 0)");
+          ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+        }
+
+        // Reactive Gemini Studio Cool Blue Wash
+        if (geminiMood > 0.01) {
+          const gg = ctx.createRadialGradient(W / 2, 780, 40, W / 2, 780, 760);
+          gg.addColorStop(0, `rgba(110, 168, 254, ${(geminiMood * 0.090).toFixed(4)})`);
+          gg.addColorStop(1, "rgba(110, 168, 254, 0)");
+          ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
+        }
+
+        // Reactive Duotone Split Wash saat Duel VS & Showdown
+        if (splitMood > 0.01) {
+          const dL = ctx.createRadialGradient(220, 680, 30, 220, 680, 640);
+          dL.addColorStop(0, `rgba(110, 168, 254, ${(splitMood * 0.095).toFixed(4)})`);
+          dL.addColorStop(1, "rgba(110, 168, 254, 0)");
+          ctx.fillStyle = dL; ctx.fillRect(0, 0, W, H);
+
+          const dR = ctx.createRadialGradient(860, 1180, 30, 860, 1180, 640);
+          dR.addColorStop(0, `rgba(224, 122, 95, ${(splitMood * 0.095).toFixed(4)})`);
+          dR.addColorStop(1, "rgba(224, 122, 95, 0)");
+          ctx.fillStyle = dR; ctx.fillRect(0, 0, W, H);
+        }
+
+        // 2. Frame Editorial Hairline (1px) + Micro Chapter Progress Rail
         ctx.strokeStyle = "#1e1e23";
         ctx.lineWidth = 1;
         ctx.strokeRect(24.5, 44.5, W - 49, H - 89);
@@ -630,665 +1849,841 @@
         ctx.fillRect(24, 122, W - 48, 1);
         ctx.fillRect(24, 1792, W - 48, 1);
 
+        if (time >= 3.20 && time < 24.40) {
+          ctx.fillStyle = "#1d1d22";
+          ctx.fillRect(539.5, 44, 1, 212);
+        }
+
+        drawChapterProgressRail(time);
         drawCrosshair(540, 122, 4, "#36363f");
         drawCrosshair(540, 1792, 4, "#36363f");
 
-        // Masthead Atas
+        // 3. Masthead Atas Dinamis
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#ebb343";
         ctx.fillRect(48, 80, 6, 6);
         ctx.fillStyle = "#7c7b76";
         fillTrackedText("JOULFIAND STUDIO  ·  ADU MODEL", 66, 83.5, 1.8, "left");
+
+        let mastRight = "00 — INTRO  ·  BENCHMARK";
+        if (time >= 3.20 && time < 24.20) mastRight = "00 — INTRO  ·  AI AGENTS";
+        else if (time >= 24.20 && time < 39.20) mastRight = "00 — ENGINE  ·  SETUP";
+        else if (time >= 39.20 && time < 42.80) mastRight = "00 — SCHEMA  ·  COMPUTE";
+        else if (time >= 42.80) mastRight = "00 — SHOWDOWN  ·  1 SHOT";
         ctx.fillStyle = "#969590";
-        fillTrackedText("00 — INTRO  ·  BENCHMARK", W - 48, 83.5, 1.8, "right");
+        fillTrackedText(mastRight, W - 48, 83.5, 1.8, "right");
 
-        // =======================================================================
-        // ADEGAN 1 (0.0s - 2.3s): "Project Rixsan Joulfiand"
-        // =======================================================================
-        if (time < 2.45) {
-          const inProg = smootherstep(0.10, 0.85, time);
-          const outProg = smootherstep(1.85, 2.40, time);
-          const alpha = inProg * (1 - outProg);
+        // =====================================================================
+        // BEAT 1 (0.00s - 3.25s): KINETIC SLIT-MASK OPENER + METALLIC GOLD GLINT
+        // =====================================================================
+        if (time < 3.30) {
+          const inP  = smootherstep(0.06, 0.85, time);
+          const outP = smootherstep(2.55, 3.25, time);
+          const alpha = inP * (1 - outP);
 
-          ctx.save();
-          ctx.globalAlpha = alpha;
-          const yShift = (1 - easeOutCubic(inProg)) * 28 - easeInOutCubic(outProg) * 24;
-          ctx.translate(0, yShift);
+          if (alpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
 
-          // Garis aksen pembuka horizontal dari tengah
-          const lineW = lerp(0, 420, easeOutCubic(inProg)) * (1 - outProg * 0.5);
-          ctx.fillStyle = "#ebb343";
-          ctx.fillRect(W / 2 - lineW / 2, 818, lineW, 2);
+            // Corner Viewfinder Brackets yang membuka melebar menjelang Beat 2
+            const expand = easeInOutCubic(outP) * 36;
+            const bx0 = 60 - expand, bx1 = W - 60 + expand;
+            const by0 = 160 - expand, by1 = 1756 + expand;
+            const arm = 24;
+            ctx.strokeStyle = "rgba(235, 179, 67, 0.45)";
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(bx0, by0 + arm); ctx.lineTo(bx0, by0); ctx.lineTo(bx0 + arm, by0);
+            ctx.moveTo(bx1 - arm, by0); ctx.lineTo(bx1, by0); ctx.lineTo(bx1, by0 + arm);
+            ctx.moveTo(bx0, by1 - arm); ctx.lineTo(bx0, by1); ctx.lineTo(bx0 + arm, by1);
+            ctx.moveTo(bx1 - arm, by1); ctx.lineTo(bx1, by1); ctx.lineTo(bx1, by1 - arm);
+            ctx.stroke();
 
-          // Label kecil di atas nama
-          ctx.font = "600 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#8f8d87";
-          ctx.textBaseline = "middle";
-          fillTrackedText("ORIGINAL PRODUCTION  ·  2026", W / 2, 868, 3.5, "center");
+            // Micro telemetry viewfinder atas & bawah
+            ctx.font = "500 13.5px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#5f5e59";
+            ctx.textBaseline = "middle";
+            fillTrackedText("REC ●  SSAA 2X  ·  2160×3840", bx0 + 18, by0 + 18, 1.5, "left");
+            fillTrackedText("PURE HTML CANVAS 2D", bx1 - 18, by0 + 18, 1.5, "right");
+            fillTrackedText("BENCHMARK EDITION  ·  ONE SHOT", W / 2, by1 - 18, 2.0, "center");
 
-          // Teks Utama: "Project Rixsan Joulfiand"
-          ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f5f4f0";
-          ctx.textAlign = "center";
-          ctx.fillText("Project", W / 2, 938);
+            // Garis aksen emas pembuka
+            const lineW = lerp(0, 440, easeOutCubic(inP)) * (1 - outP * 0.4);
+            ctx.fillStyle = "#ebb343";
+            ctx.fillRect(W / 2 - lineW / 2, 816, lineW, 2);
 
-          ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#ebb343";
-          ctx.fillText("Rixsan Joulfiand", W / 2, 1022);
+            ctx.font = "600 20px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#8f8d87";
+            fillTrackedText("ORIGINAL PRODUCTION  ·  2026", W / 2, 868, 3.5, "center");
 
-          // Tag spesifikasi di bawah nama
-          roundRect(ctx, W / 2 - 195, 1092, 390, 42, 8);
-          ctx.fillStyle = "#16161b";
-          ctx.fill();
-          ctx.strokeStyle = "#2b2b34";
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
+            // Slit-Mask Reveal: "Project"
+            const p1 = easeOutQuart(clamp((time - 0.14) / 0.65, 0, 1));
+            ctx.save();
+            ctx.beginPath(); ctx.rect(80, 896, W - 160, 84); ctx.clip();
+            ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#f5f4f0"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("Project", W / 2, lerp(990, 938, p1) - outP * 18);
+            ctx.restore();
 
-          ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
-          ctx.fillStyle = "#969590";
-          fillTrackedText("PURE CODE ANIMATION EXPERIMENT", W / 2, 1113, 1.5, "center");
+            // Slit-Mask Reveal + Metallic Gold Glint: "Rixsan Joulfiand"
+            const p2 = easeOutQuart(clamp((time - 0.30) / 0.72, 0, 1));
+            ctx.save();
+            ctx.beginPath(); ctx.rect(80, 978, W - 160, 94); ctx.clip();
+            ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
-          ctx.restore();
+            // Sweep kilau metalik emas (0.95s -> 2.15s)
+            const glintP = clamp((time - 0.95) / 1.15, 0, 1);
+            const gx = lerp(180, 900, easeInOutCubic(glintP));
+            const titleGrad = ctx.createLinearGradient(gx - 110, 980, gx + 110, 1065);
+            titleGrad.addColorStop(0, "#ebb343");
+            titleGrad.addColorStop(0.5, glintP > 0 && glintP < 1 ? "#fff4c2" : "#ebb343");
+            titleGrad.addColorStop(1, "#ebb343");
+            ctx.fillStyle = titleGrad;
+            ctx.fillText("Rixsan Joulfiand", W / 2, lerp(1080, 1024, p2) - outP * 24);
+            ctx.restore();
+
+            // Tag spesifikasi
+            const tagP = easeOutCubic(clamp((time - 0.55) / 0.55, 0, 1));
+            ctx.save();
+            ctx.globalAlpha *= tagP;
+            ctx.translate(0, (1 - tagP) * 16 - outP * 14);
+            roundRect(ctx, W / 2 - 205, 1094, 410, 44, 8);
+            ctx.fillStyle = "#16161b"; ctx.fill();
+            ctx.strokeStyle = "#2e2e38"; ctx.lineWidth = 1.2; ctx.stroke();
+            ctx.font = "500 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#969590";
+            fillTrackedText("PURE CODE ANIMATION EXPERIMENT", W / 2, 1116, 1.5, "center");
+            ctx.restore();
+
+            ctx.restore();
+          }
         }
 
-        // =======================================================================
-        // ADEGAN 2 (2.2s - 4.7s): "Gemini AI Vs Claude Code" & Zoom ke Claude
-        // =======================================================================
-        if (time >= 2.20 && time < 4.85) {
-          const fadeIn = smootherstep(2.20, 2.85, time);
-          const zoomClaude = smootherstep(3.75, 4.65, time);
-          const alpha = fadeIn * (1 - smootherstep(4.35, 4.80, time));
+        // =====================================================================
+        // BEAT 2 (3.20s - 24.30s): SKIT 3D ROGER & MERRY + POLAROID jull.jpeg
+        // =====================================================================
+        if (time >= 3.20 && time < 24.35) {
+          const ts = time - 3.20;
+          const skitExit = 1 - smootherstep(20.45, 21.15, ts);
 
           ctx.save();
-          ctx.globalAlpha = alpha;
+          ctx.globalAlpha = skitExit;
 
-          // Saat zoomClaude berjalan (3.75s - 4.65s), kamera fokus & memperbesar teks "Claude Code"
-          const scale = lerp(1.0, 1.85, easeInOutCubic(zoomClaude));
-          const focusY = lerp(920, 760, easeInOutCubic(zoomClaude));
-          ctx.translate(W / 2, focusY);
-          ctx.scale(scale, scale);
+          const rogerIntro    = bellCurve(ts, 1.25, 1.85, 6.90, 7.15);
+          const cardAProg     = bellCurve(ts, 1.30, 1.75, 6.50, 6.76);
+          const rogerExcited  = bellCurve(ts, 3.95, 4.35, 6.85, 7.02);
+          const bumpAntic     = bellCurve(ts, 6.40, 6.68, 6.78, 6.94);
+          const bumpDash      = bellCurve(ts, 6.78, 6.98, 8.85, 9.20);
+          const bumpStrike    = bellCurve(ts, 6.78, 6.96, 7.08, 7.56);
+          const merryClaim    = bellCurve(ts, 6.95, 7.25, 16.90, 17.45);
+          const rogerShock    = bellCurve(ts, 6.95, 7.10, 8.85, 9.25);
+          const rogerAngry    = bellCurve(ts, 9.25, 9.60, 11.65, 12.00);
+          const rogerSulk     = bellCurve(ts, 11.95, 12.40, 16.65, 17.30);
+          const merrySassy    = bellCurve(ts, 12.05, 12.45, 14.35, 14.70);
+          const merryCheer    = bellCurve(ts, 14.55, 14.95, 16.95, 17.30);
+          const togetherFocus = smootherstep(17.30, 18.05, ts);
 
-          // Teks "Gemini AI" (Meredup saat fokus memperbesar Claude Code)
-          const gemAlpha = 1 - smoothstep(3.75, 4.25, time);
-          if (gemAlpha > 0.01) {
+          const rogerHighlight = Math.max(rogerIntro, rogerAngry, togetherFocus * 0.75);
+          const merryHighlight = Math.max(bumpDash, merrySassy, merryCheer, togetherFocus * 0.75);
+
+
+          const badgeEnter = smootherstep(0.05, 0.70, ts);
+          drawModelBadge(LEFT_COL_X,  162, COL_W, 56, "#6ea8fe", "MERRY", "Gemini Agent · Kiri",  merryHighlight, badgeEnter);
+          drawModelBadge(RIGHT_COL_X, 162, COL_W, 56, "#e07a5f", "ROGER", "Claude Code · Kanan", rogerHighlight, badgeEnter);
+
+          const headProg = easeOutCubic(clamp((ts - 0.10) / 0.65, 0, 1));
+          ctx.save();
+          ctx.globalAlpha *= headProg;
+          ctx.translate(0, (1 - headProg) * 18);
+          roundRect(ctx, LEFT_COL_X, 266, 11, 11, 2.5);
+          ctx.fillStyle = "#ebb343"; ctx.fill();
+          ctx.font = "600 19px ui-monospace, 'Cascadia Code', Consolas, monospace";
+          ctx.fillStyle = "#8f8d87"; ctx.textBaseline = "middle";
+          fillTrackedText(togetherFocus > 0.5 ? "TEAM JULL  ·  THE CREATOR" : "KENALAN DULU  ·  2 AGENT JULL", LEFT_COL_X + 22, 272, 2.0, "left");
+
+          ctx.font = "900 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.textBaseline = "top"; ctx.textAlign = "left";
+          ctx.fillStyle = "#f5f4f0"; ctx.fillText("Meet ", LEFT_COL_X, 308);
+          const w0 = ctx.measureText("Meet ").width;
+          ctx.fillStyle = "#6ea8fe"; ctx.fillText("Merry", LEFT_COL_X + w0, 308);
+          const w1 = ctx.measureText("Merry").width;
+          ctx.fillStyle = "#7c7b76"; ctx.fillText(" & ", LEFT_COL_X + w0 + w1, 308);
+          const w2 = ctx.measureText(" & ").width;
+          ctx.fillStyle = "#e07a5f"; ctx.fillText("Roger.", LEFT_COL_X + w0 + w1 + w2, 308);
+          ctx.restore();
+
+          const originX = W / 2;
+          const originY = lerp(885, 1055, togetherFocus);
+          const camDist = 34;
+          const fov = lerp(1100, 1055, togetherFocus);
+          const floorY = lerp(1050, 1202, togetherFocus);
+          drawStageFloor(floorY, smootherstep(0.05, 0.75, ts), rogerHighlight, merryHighlight, togetherFocus);
+
+          // Speed lines behind Merry's bump dash!
+          drawDashSpeedLines(ts);
+
+          const rogerInRaw = clamp((ts - 0.15) / 0.85, 0, 1);
+          const merryInRaw = clamp((ts - 0.32) / 0.85, 0, 1);
+          const rogerAlpha = smootherstep(0.0, 0.45, rogerInRaw);
+          const merryAlpha = smootherstep(0.0, 0.45, merryInRaw);
+          const rogerSlide = softSpringOut(rogerInRaw, 0.85);
+          const merrySlide = softSpringOut(merryInRaw, 0.85);
+
+          const knockProgress = smoothstep(6.95, 7.45, ts) * (1 - smootherstep(16.95, 17.85, ts));
+          const knockImpactKick = bellCurve(ts, 6.95, 7.10, 7.28, 7.80);
+
+          const rogerX = lerp(9.5, 6.2, rogerSlide) - rogerIntro * 3.9 + knockProgress * 2.7 + knockImpactKick * 1.6 - rogerAngry * 0.8 + togetherFocus * 2.2;
+          const rogerZ = lerp(-2.5, 0.0, easeOutQuart(rogerInRaw)) + rogerIntro * 4.8 - knockProgress * 3.8 + rogerAngry * 2.0 - togetherFocus * 1.8;
+          const rogerY = lerp(2.2, 0.0, rogerSlide) + knockImpactKick * 1.45 + togetherFocus * Math.abs(Math.sin(time * 6.5)) * 0.25;
+          const rogerYaw = lerp(-0.26, -0.04, rogerIntro) - knockProgress * 0.32 - rogerAngry * 0.24 - togetherFocus * 0.22 + Math.sin(time * 1.8 + 1.1) * 0.05;
+          const rogerPitch = 0.07 - rogerExcited * 0.08 + knockImpactKick * 0.26 - rogerAngry * 0.10 + Math.cos(time * 2.4) * 0.03;
+          const rogerRoll = -knockImpactKick * 0.30 + rogerAngry * Math.sin(time * 14.0) * 0.08 + rogerExcited * 0.07;
+          const rogerScale = lerp(0.76, 0.95, rogerSlide) * (1 + rogerIntro * 0.10 - knockProgress * 0.08 + rogerAngry * 0.06 - togetherFocus * 0.04);
+
+          const rogerHappy = Math.max(bellCurve(ts, 1.35, 1.75, 3.70, 4.05), togetherFocus);
+          const rogerSpeak = Math.max(
+            bellCurve(ts, 1.45, 1.65, 3.55, 3.80),
+            bellCurve(ts, 4.10, 4.30, 6.35, 6.60),
+            bellCurve(ts, 9.35, 9.55, 11.45, 11.75),
+            bellCurve(ts, 17.55, 17.85, 20.10, 20.45)
+          );
+
+          const merryX = lerp(-9.5, -6.2, merrySlide) - rogerIntro * 1.2 - bumpAntic * 1.6 + bumpStrike * 4.4 + merryClaim * 3.8 - rogerAngry * 0.8 - togetherFocus * 2.2;
+          const merryZ = lerp(-2.5, 0.0, easeOutQuart(merryInRaw)) - rogerIntro * 2.8 + merryClaim * 4.5 - rogerAngry * 1.6 - togetherFocus * 1.8;
+          const merryY = lerp(2.2, 0.0, merrySlide) + bellCurve(ts, 6.78, 6.95, 7.08, 7.38) * 1.1 + togetherFocus * Math.abs(Math.sin(time * 6.5 + 0.5)) * 0.28;
+          const merryYaw = lerp(0.26, 0.06, merryCheer) + rogerIntro * 0.28 + bumpDash * 0.36 + merrySassy * 0.38 + togetherFocus * 0.22 + Math.sin(time * 2.0) * 0.05;
+          const merryPitch = 0.07 - bumpDash * 0.08 + merrySassy * 0.06 + Math.sin(time * 2.6) * 0.03;
+          const merryRoll = bumpAntic * 0.18 - bumpDash * 0.16 + merrySassy * 0.12 + merryCheer * Math.sin(time * 7.0) * 0.06;
+          const merryScale = lerp(0.76, 0.95, merrySlide) * (1 - rogerIntro * 0.08 + bumpDash * 0.10 + merrySassy * 0.08 + merryCheer * 0.11 - togetherFocus * 0.04);
+
+          const merrySpeak = Math.max(
+            bellCurve(ts, 6.88, 7.02, 8.85, 9.10),
+            bellCurve(ts, 12.15, 12.35, 14.15, 14.45),
+            bellCurve(ts, 14.70, 14.90, 16.80, 17.10),
+            bellCurve(ts, 17.55, 17.85, 20.10, 20.45)
+          );
+
+          const blinkPulse = (tSec, marks) => {
+            for (const m of marks) { const d = Math.abs(tSec - m); if (d < 0.11) return Math.cos((d / 0.11) * (Math.PI / 2)); }
+            return 0;
+          };
+          const rogerBlink = blinkPulse(ts, [1.10, 3.92, 13.40, 16.00]);
+          const merryBlink = blinkPulse(ts, [1.00, 3.20, 5.60, 10.60, 14.50]);
+
+          const mFloor = project3DPoint(merryX, -3.50, merryZ, originX, originY, camDist, fov);
+          const rFloor = project3DPoint(rogerX, -3.50, rogerZ, originX, originY, camDist, fov);
+
+          // Garis Bezier Emas penghubung Merry & Roger ke kartu Jull!
+          drawBossConnectionArcs(mFloor, rFloor, clamp((ts - 17.70) / 0.80, 0, 1) * skitExit, time);
+
+          drawFloorShadow(mFloor.x, mFloor.y, 4.4 * mFloor.sc * merryScale, 1.3 * mFloor.sc * merryScale, merryAlpha * 0.95 * skitExit);
+          drawFloorShadow(rFloor.x, rFloor.y, 4.9 * rFloor.sc * rogerScale, 1.4 * rFloor.sc * rogerScale, rogerAlpha * 0.95 * skitExit);
+          drawSkidDustPuffs(rFloor.x, rFloor.y, ts);
+
+          const merryQuads = buildMerryQuads(time, {
+            x: merryX, y: merryY, z: merryZ, yaw: merryYaw, pitch: merryPitch, roll: merryRoll, scale: merryScale,
+            speakEnergy: merrySpeak, wavePhase: Math.max(merryCheer * 0.95, togetherFocus * 0.95),
+            blinkAmount: merryBlink, happyEyes: Math.max(merryCheer, togetherFocus),
+            sassyMode: merrySassy, bargeMode: bumpDash, lookRight: Math.max(rogerIntro, rogerAngry),
+            excitedHop: Math.max(bumpDash * 0.65, merryCheer * 0.70), squashAntic: bumpAntic,
+            dimFactor: lerp(1.0, 0.76, Math.max(rogerIntro, rogerAngry * 0.65))
+          });
+
+          const rogerQuads = buildRogerQuads(time, {
+            x: rogerX, y: rogerY, z: rogerZ, yaw: rogerYaw, pitch: rogerPitch, roll: rogerRoll, scale: rogerScale,
+            speakEnergy: rogerSpeak, waveLeft: togetherFocus * 0.68,
+            waveRight: Math.max(bellCurve(ts, 1.35, 1.75, 3.65, 4.00), togetherFocus * 0.92),
+            blinkAmount: rogerBlink, happyAmount: rogerHappy, excitedAmount: rogerExcited,
+            shockAmount: rogerShock, angryAmount: rogerAngry, sulkAmount: rogerSulk,
+            lookX: (rogerShock > 0.2 || rogerAngry > 0.2 || rogerSulk > 0.2) ? -1.0 : 0,
+            blushAmount: Math.max(rogerHappy * 0.85, rogerExcited * 0.55),
+            dimFactor: lerp(1.0, 0.76, Math.max(merrySassy, merryCheer))
+          });
+
+          if (merryZ < rogerZ) {
+            renderActorQuads(merryQuads, originX, originY, camDist, fov, merryAlpha * skitExit);
+            renderActorQuads(rogerQuads, originX, originY, camDist, fov, rogerAlpha * skitExit);
+          } else {
+            renderActorQuads(rogerQuads, originX, originY, camDist, fov, rogerAlpha * skitExit);
+            renderActorQuads(merryQuads, originX, originY, camDist, fov, merryAlpha * skitExit);
+          }
+
+          const hitPt = project3DPoint((merryX + rogerX) * 0.5, 1.8, (merryZ + rogerZ) * 0.5 + 1.5, originX, originY, camDist, fov);
+          drawBumpImpactFX(hitPt.x, hitPt.y, ts);
+
+          const rHead = project3DPoint(rogerX + 4.9 * rogerScale, rogerY + 5.2 * rogerScale, rogerZ, originX, originY, camDist, fov);
+          const mHead = project3DPoint(merryX - 4.9 * merryScale, merryY + 5.2 * merryScale, merryZ, originX, originY, camDist, fov);
+
+          if (rogerExcited > 0.05) drawEmoteBadge(rHead.x + 12, rHead.y - 10, "!", "#ebb343", rogerExcited * skitExit, time);
+          if (bumpDash > 0.05)     drawEmoteBadge(mHead.x - 10, mHead.y - 10, "!", "#6ea8fe", bumpDash * skitExit, time);
+          if (rogerAngry > 0.05)   drawEmoteBadge(rHead.x + 14, rHead.y - 14, "angry", "#ff5c5c", rogerAngry * skitExit, time);
+          if (togetherFocus > 0.20) {
+            const logoA = smootherstep(0.20, 0.85, togetherFocus) * skitExit;
+            drawEmoteBadge(mHead.x - 8, mHead.y - 8, "gemini", "#6ea8fe", logoA, time);
+            drawEmoteBadge(rHead.x + 8, rHead.y - 8, "claude", "#e07a5f", logoA, time + 0.7);
+          }
+
+          const tagAlpha = smootherstep(0.75, 1.25, ts) * skitExit;
+          if (tagAlpha > 0.02) {
             ctx.save();
-            ctx.globalAlpha = alpha * gemAlpha;
-            drawGeminiSparkleLogo(-265, -120, 26, time * 0.8, 1);
-            ctx.font = "900 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.fillStyle = "#6ea8fe";
-            ctx.textAlign = "center";
+            ctx.globalAlpha = tagAlpha * 0.90;
+            ctx.font = "700 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
             ctx.textBaseline = "middle";
-            ctx.fillText("Gemini AI", 25, -118);
-
-            // Kapsul "VS"
-            roundRect(ctx, -52, -28, 104, 46, 23);
-            ctx.fillStyle = "#18181f";
-            ctx.fill();
-            ctx.strokeStyle = "#ebb343";
-            ctx.lineWidth = 1.8;
-            ctx.stroke();
-            ctx.font = "800 22px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#ebb343";
-            ctx.fillText("VS", 0, -4);
+            ctx.fillStyle = "#6ea8fe"; fillTrackedText("MERRY · GEMINI", mFloor.x, mFloor.y + 38, 1.8, "center");
+            ctx.fillStyle = "#e07a5f"; fillTrackedText("ROGER · CLAUDE", rFloor.x, rFloor.y + 38, 1.8, "center");
             ctx.restore();
           }
 
-          // Teks "Claude Code" + Roda Claude yang mulai muncul dan membesar
-          const claudeY = lerp(105, 0, easeInOutCubic(zoomClaude));
-          drawClaudeWheelLogo(-285, claudeY, lerp(28, 42, zoomClaude), time * 2.2, "#e07a5f", 1);
+          drawJullBossCard(clamp((ts - 17.50) / 0.85, 0, 1), time);
 
-          ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#e07a5f";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("Claude Code", 30, claudeY + 2);
+          const baseCardY = lerp(1245, 1320, togetherFocus);
+
+          if (cardAProg > 0.01) {
+            const isSecond = ts >= 3.98;
+            let txtA = 1.0;
+            if (ts >= 3.76 && ts < 3.98) txtA = 1 - (ts - 3.76) / 0.22;
+            else if (ts >= 3.98 && ts < 4.20) txtA = (ts - 3.98) / 0.22;
+            drawEditorialSpeechCard({
+              speakerTag: "ROGER", roleTag: "CLAUDE CODE · OPUS 5.5",
+              line1: isSecond ? "Kenalin, aku Roger!" : "Halo semuanya,",
+              line2: isSecond ? "Ada yang tau aku ngga nih?" : "gimana kabar kalian?",
+              accentHex: "#e07a5f", appearProg: cardAProg, textAlpha: txtA,
+              typeProg: isSecond ? clamp((ts - 4.08) / 2.05, 0, 1) : clamp((ts - 1.45) / 1.90, 0, 1),
+              time, pointerX: rFloor.x, dualMode: false, baseCardY
+            });
+          }
+
+          if (bumpDash > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY", roleTag: "GEMINI AGENT · NYAMBER!",
+              line1: "Ehh minggir minggir!", line2: "",
+              accentHex: "#6ea8fe", appearProg: bumpDash, textAlpha: 1.0,
+              typeProg: clamp((ts - 6.88) / 1.25, 0, 1),
+              time, pointerX: mFloor.x, dualMode: false, baseCardY,
+              shakeAmp: bellCurve(ts, 6.95, 7.02, 7.14, 7.36) * 6.0
+            });
+          }
+
+          if (rogerAngry > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "ROGER", roleTag: "CLAUDE CODE · KESAL!",
+              line1: "Woi apaan sih!", line2: "",
+              accentHex: "#ff6b6b", appearProg: rogerAngry, textAlpha: 1.0,
+              typeProg: clamp((ts - 9.35) / 1.10, 0, 1),
+              time, pointerX: rFloor.x, dualMode: false, baseCardY,
+              shakeAmp: rogerAngry * 3.2
+            });
+          }
+
+          const merryTalkBlock = Math.max(merrySassy, merryCheer);
+          if (merryTalkBlock > 0.01) {
+            const isCheer = ts >= 14.55;
+            let txtA = 1.0;
+            if (ts >= 14.32 && ts < 14.55) txtA = 1 - (ts - 14.32) / 0.23;
+            else if (ts >= 14.55 && ts < 14.78) txtA = (ts - 14.55) / 0.23;
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY", roleTag: isCheer ? "GEMINI AGENT · CARBON" : "GEMINI AGENT · SASSY",
+              line1: isCheer ? "Hai hai semuanya," : "Diem deh, aku juga",
+              line2: isCheer ? "kenalin aku Merry!" : "mau kenalan nih!",
+              accentHex: "#6ea8fe", appearProg: merryTalkBlock, textAlpha: txtA,
+              typeProg: isCheer ? clamp((ts - 14.70) / 1.85, 0, 1) : clamp((ts - 12.15) / 1.85, 0, 1),
+              time, pointerX: mFloor.x, dualMode: false, baseCardY
+            });
+          }
+
+          if (togetherFocus > 0.01) {
+            drawEditorialSpeechCard({
+              speakerTag: "MERRY & ROGER", roleTag: "DUAL AI AGENTS · TEAM JULL",
+              line1: "Kita berdua adalah", line2: "AI Agent-nya Jull!",
+              accentHex: "#ebb343", appearProg: togetherFocus, textAlpha: 1.0,
+              typeProg: clamp((ts - 17.55) / 1.85, 0, 1),
+              time, dualMode: true, baseCardY
+            });
+          }
 
           ctx.restore();
         }
 
-        // =======================================================================
-        // ADEGAN 3, 4, 5 (4.4s - 10.8s):
-        // - Roda Claude menggelinding dari kiri ke kanan membuka Text Board (4.4s - 5.5s)
-        // - Siluet kodingan sangar di-scroll atas -> bawah -> atas (5.5s - 8.1s)
-        // - Kursor klik model "Fable" -> pilih "Opus 5.5 Extra" -> klik Kirim (8.1s - 10.1s)
-        // - Meluncur ke tengah layar & menjadi animasi Loading (10.1s - 10.9s)
-        // =======================================================================
-        if (time >= 4.40 && time < 10.85) {
-          // Header seksi Claude di atas layar
-          const hdrAlpha = smoothstep(4.40, 4.80, time) * (1 - smoothstep(10.10, 10.55, time));
+        // =====================================================================
+        // BEAT 3 (24.20s - 27.10s): EDITORIAL SPLIT TENSION "Gemini AI VS Claude Code"
+        // =====================================================================
+        if (time >= 24.15 && time < 27.15) {
+          const td = time - 24.20;
+          const fadeIn = smootherstep(0.0, 0.55, td);
+          const zoomClaude = smootherstep(1.55, 2.75, td);
+          const alpha = fadeIn * (1 - smootherstep(2.60, 2.95, td));
+
+          if (alpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+
+            // Giant Editorial Watermarks + Diagonal Split Hairline
+            ctx.save();
+            ctx.globalAlpha = alpha * (1 - zoomClaude * 0.85);
+            ctx.font = "900 185px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = "rgba(110, 168, 254, 0.032)";
+            ctx.fillText("GEMINI", W / 2, 520);
+            ctx.fillStyle = "rgba(224, 122, 95, 0.032)";
+            ctx.fillText("CLAUDE", W / 2, 1380);
+
+            // Diagonal hairline slash
+            ctx.strokeStyle = "rgba(235, 179, 67, 0.16)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(48, 1080); ctx.lineTo(W - 48, 780);
+            ctx.stroke();
+            ctx.restore();
+
+            const scale = lerp(1.0, 1.28, easeInOutCubic(zoomClaude));
+            const focusY = lerp(930, 780, easeInOutCubic(zoomClaude));
+            ctx.translate(W / 2, focusY);
+            ctx.scale(scale, scale);
+
+            const colStartX = -260, logoCenterX = colStartX + 28, textStartX = colStartX + 80;
+
+            const gemAlpha = 1 - smoothstep(1.50, 2.05, td);
+            if (gemAlpha > 0.01) {
+              ctx.save();
+              ctx.globalAlpha = alpha * gemAlpha;
+              drawGeminiSparkleLogo(logoCenterX, -118, 28, time * 0.8, 1);
+              ctx.font = "900 68px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+              ctx.fillStyle = "#6ea8fe"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+              ctx.fillText("Gemini AI", textStartX, -118);
+
+              // Flare emas horizontal memancar dari kapsul VS saat terkunci
+              const flareW = lerp(0, 380, easeOutCubic(clamp(td / 0.55, 0, 1))) * (1 - zoomClaude);
+              const fg = ctx.createLinearGradient(-flareW, -3, flareW, -3);
+              fg.addColorStop(0, "rgba(235, 179, 67, 0)");
+              fg.addColorStop(0.5, "rgba(235, 179, 67, 0.55)");
+              fg.addColorStop(1, "rgba(235, 179, 67, 0)");
+              ctx.fillStyle = fg;
+              ctx.fillRect(-flareW, -4, flareW * 2, 2);
+
+              roundRect(ctx, -52, -26, 104, 46, 23);
+              ctx.fillStyle = "#18181f"; ctx.fill();
+              ctx.strokeStyle = "#ebb343"; ctx.lineWidth = 1.8; ctx.stroke();
+              ctx.font = "800 22px ui-monospace, Consolas, monospace";
+              ctx.fillStyle = "#ebb343"; ctx.textAlign = "center";
+              ctx.fillText("VS", 0, -3);
+              ctx.restore();
+            }
+
+            const claudeY = lerp(110, 0, easeInOutCubic(zoomClaude));
+            drawClaudeSunburstLogo(logoCenterX, claudeY, lerp(28, 36, zoomClaude), time * 2.0, "#e07a5f", 1);
+            ctx.font = "900 70px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = "#e07a5f"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+            ctx.fillText("Claude Code", textStartX, claudeY + 2);
+            ctx.restore();
+          }
+        }
+
+        // =====================================================================
+        // BEAT 4 (27.00s - 32.90s): CLAUDE WORKSPACE + FRAMED PIP CAM + SPEC DOCK
+        // =====================================================================
+        if (time >= 27.00 && time < 32.95) {
+          const tc = time - 27.00;
+          const hdrAlpha = smoothstep(0.0, 0.45, tc) * (1 - smoothstep(5.35, 5.85, tc));
+
           ctx.save();
           ctx.globalAlpha = hdrAlpha;
-          drawClaudeWheelLogo(96, 360, 26, time * 1.8, "#e07a5f", 1);
+          drawClaudeSunburstLogo(96, 360, 26, time * 1.6, "#e07a5f", 1);
           ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#f4f3ef"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
           ctx.fillText("Claude ", 140, 362);
           const cw = ctx.measureText("Claude ").width;
-          ctx.fillStyle = "#e07a5f";
-          ctx.fillText("Code.", 140 + cw, 362);
-
-          ctx.font = "500 20px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#e07a5f"; ctx.fillText("Code.", 140 + cw, 362);
+          ctx.font = "500 18.5px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#8e8d88";
-          ctx.fillText("KONFIGURASI ENGINE & INSPEKSI KODE", 64, 430);
+          ctx.fillText("ROGER WORKSPACE  ·  KONFIGURASI ENGINE", 64, 428);
           ctx.restore();
 
-          const revealProg = smootherstep(4.45, 5.45, time);
-          const scrollProg = clamp((time - 5.45) / 2.60, 0, 1); // 5.45s..8.05s
-          const dropdownOpen = smoothstep(8.35, 8.55, time) * (1 - smoothstep(9.15, 9.32, time));
-          const modelSelected = time >= 9.15;
-          const sendClick = (time >= 9.75 && time <= 10.05) ? (time - 9.75) / 0.30 : 0;
-          const flyCenter = smootherstep(10.00, 10.65, time);
+          // Framed Agent PiP Cam Monitor (Roger LIVE!)
+          if (hdrAlpha > 0.02) {
+            const miniRoger = buildRogerQuads(time, {
+              x: 0, y: 0, z: 0, yaw: -0.24 + Math.sin(time * 2.2) * 0.08, pitch: 0.08, roll: 0,
+              scale: 0.72, speakEnergy: tc >= 4.50 ? 0.65 : 0.14, waveRight: tc >= 4.50 ? 0.80 : 0,
+              happyAmount: tc >= 4.50 ? 1.0 : 0, excitedAmount: tc < 4.50 ? 0.5 : 0,
+              lookX: -0.45, blushAmount: 0.55
+            });
+            drawAgentPiPCam("CLAUDE", "#e07a5f", miniRoger, time, hdrAlpha);
+          }
 
-          // Posisi Kursor pada Adegan Claude
+          const revealProg = smootherstep(0.05, 0.90, tc);
+          const scrollProg = clamp((tc - 0.90) / 2.25, 0, 1);
+          const dropdownOpen = smoothstep(3.60, 3.82, tc) * (1 - smoothstep(4.50, 4.70, tc));
+          const modelSelected = tc >= 4.50;
+          const sendClick = (tc >= 5.15 && tc <= 5.45) ? (tc - 5.15) / 0.30 : 0;
+          const flyCenter = smootherstep(5.38, 5.88, tc);
+
+          const pillCenter = { x: 210, y: 1188 }, menuTarget = { x: 220, y: 1122 }, sendBtn = { x: 915, y: 1188 };
           let cur = { x: 540, y: 1450, scale: 1.0, alpha: 0 };
-          if (time >= 8.05 && time <= 10.25) {
-            cur.alpha = smoothstep(8.05, 8.25, time) * (1 - smoothstep(10.00, 10.25, time));
-            const pillCenter = { x: 210, y: 1180 };
-            const menuTarget = { x: 220, y: 1105 };
-            const sendBtn = { x: 915, y: 1180 };
-
-            if (time < 8.40) {
-              const k = easeOutCubic((time - 8.05) / 0.35);
-              cur.x = lerp(520, pillCenter.x, k);
-              cur.y = lerp(1420, pillCenter.y, k);
-            } else if (time < 8.95) {
-              const k = easeInOutCubic((time - 8.40) / 0.55);
-              cur.x = lerp(pillCenter.x, menuTarget.x, k);
-              cur.y = lerp(pillCenter.y, menuTarget.y, k);
-            } else if (time < 9.25) {
-              cur.x = menuTarget.x;
-              cur.y = menuTarget.y;
-              if (time >= 9.05 && time <= 9.22) cur.scale = 0.88;
-            } else if (time < 9.75) {
-              const k = easeInOutCubic((time - 9.25) / 0.50);
-              cur.x = lerp(menuTarget.x, sendBtn.x, k);
-              cur.y = lerp(menuTarget.y, sendBtn.y, k);
+          if (tc >= 3.05 && tc <= 5.55) {
+            cur.alpha = smoothstep(3.05, 3.30, tc) * (1 - smoothstep(5.35, 5.55, tc));
+            if (tc < 3.60) {
+              const k = easeOutCubic((tc - 3.05) / 0.55);
+              cur.x = lerp(520, pillCenter.x, k); cur.y = lerp(1420, pillCenter.y, k);
+            } else if (tc < 4.10) {
+              const k = easeInOutCubic((tc - 3.60) / 0.50);
+              cur.x = lerp(pillCenter.x, menuTarget.x, k); cur.y = lerp(pillCenter.y, menuTarget.y, k);
+            } else if (tc < 4.60) {
+              cur.x = menuTarget.x; cur.y = menuTarget.y;
+              if (tc >= 4.38 && tc <= 4.56) cur.scale = 0.88;
+            } else if (tc < 5.15) {
+              const k = easeInOutCubic((tc - 4.60) / 0.55);
+              cur.x = lerp(menuTarget.x, sendBtn.x, k); cur.y = lerp(menuTarget.y, sendBtn.y, k);
             } else {
-              cur.x = sendBtn.x;
-              cur.y = sendBtn.y;
-              if (time >= 9.75 && time <= 9.95) cur.scale = 0.88;
+              cur.x = sendBtn.x; cur.y = sendBtn.y;
+              if (tc >= 5.15 && tc <= 5.38) cur.scale = 0.88;
             }
           }
 
-          drawAICodeBoardSequence({
-            brand: "CLAUDE",
-            accentHex: "#e07a5f",
-            accentDim: "rgba(224, 122, 95, 0.22)",
-            codeLines: SHADOW_CODE_CLAUDE,
-            initModel: "Fable",
-            targetModel: "Opus 5.5 Extra",
-            revealProg,
-            scrollProg,
-            dropdownOpenProg: dropdownOpen,
-            modelSelected,
-            sendClickProg: sendClick,
-            flyToCenterProg: flyCenter,
-            cursorPos: cur,
-            revealMode: "wheel"
+          const clickRipples = [
+            { x: pillCenter.x, y: pillCenter.y, p: (tc - 3.60) / 0.35 },
+            { x: menuTarget.x, y: menuTarget.y, p: (tc - 4.50) / 0.42 },
+            { x: sendBtn.x,    y: sendBtn.y,    p: (tc - 5.15) / 0.35 }
+          ];
+
+          const bAlpha = drawAICodeBoardSequence({
+            brand: "CLAUDE", accentHex: "#e07a5f", accentDim: "rgba(224, 122, 95, 0.22)",
+            codeLines: SHADOW_CODE_CLAUDE, initModel: "Fable", targetModel: "Opus 5.5 Extra",
+            revealProg, scrollProg, dropdownOpenProg: dropdownOpen, modelSelected,
+            sendClickProg: sendClick, flyToCenterProg: flyCenter, cursorPos: cur, clickRipples, revealMode: "wheel"
+          });
+
+          // Live Upgrade Spec Dock di bawah code board!
+          drawLiveSpecDock({
+            brand: "CLAUDE", accentHex: "#e07a5f", accentDim: "rgba(224, 122, 95, 0.24)",
+            modelSelected, upgradeFlashProg: clamp((tc - 4.50) / 0.65, 0, 1),
+            boardAlpha: bAlpha, flyCenter
           });
         }
 
-        // =======================================================================
-        // TRANSISI LOADING DI TENGAH LAYAR (10.35s - 11.45s):
-        // Dari pengiriman Claude muncul cincin loading yang berubah menjadi Bintang Gemini!
-        // =======================================================================
-        if (time >= 10.35 && time < 11.50) {
-          const loadProg = clamp((time - 10.35) / 1.10, 0, 1);
-          const loadAlpha = smoothstep(10.35, 10.55, time) * (1 - smoothstep(11.20, 11.48, time));
-
+        // =====================================================================
+        // BEAT 5A (32.75s - 33.85s): LOADING MORPH CLAUDE -> GEMINI
+        // =====================================================================
+        if (time >= 32.75 && time < 33.90) {
+          const lp = clamp((time - 32.75) / 1.15, 0, 1);
+          const loadAlpha = smoothstep(32.75, 32.98, time) * (1 - smoothstep(33.65, 33.90, time));
           ctx.save();
           ctx.globalAlpha = loadAlpha;
           ctx.translate(W / 2, H / 2);
+          ctx.strokeStyle = "#262630"; ctx.lineWidth = 5;
+          ctx.beginPath(); ctx.arc(0, 0, 74, 0, Math.PI * 2); ctx.stroke();
 
-          // Cincin orbit berputar
-          const ringR = 74;
-          ctx.strokeStyle = "#262630";
-          ctx.lineWidth = 5;
-          ctx.beginPath();
-          ctx.arc(0, 0, ringR, 0, Math.PI * 2);
-          ctx.stroke();
+          const startAng = time * 7.8;
+          ctx.strokeStyle = lp < 0.5 ? "#e07a5f" : "#6ea8fe";
+          ctx.lineWidth = 5; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.arc(0, 0, 74, startAng, startAng + Math.PI * 1.35); ctx.stroke();
 
-          // Busur loading bergradasi dari Oranye Claude -> Biru Gemini
-          const startAng = time * 7.5;
-          ctx.strokeStyle = loadProg < 0.5 ? "#e07a5f" : "#6ea8fe";
-          ctx.lineWidth = 5;
-          ctx.lineCap = "round";
-          ctx.beginPath();
-          ctx.arc(0, 0, ringR, startAng, startAng + Math.PI * 1.35);
-          ctx.stroke();
-
-          // Di tengah cincin: Roda Claude berubah menjadi Bintang Sparkle Gemini
-          if (loadProg < 0.52) {
-            drawClaudeWheelLogo(0, 0, 32 * (1 - loadProg * 1.2), time * 6, "#e07a5f", 1);
-          } else {
-            const gemScale = softBounceOut((loadProg - 0.52) / 0.48, 1.4);
-            drawGeminiSparkleLogo(0, 0, 42 * gemScale, time * 2, 1);
-          }
+          if (lp < 0.52) drawClaudeSunburstLogo(0, 0, 32 * (1 - lp * 1.1), time * 5, "#e07a5f", 1);
+          else drawGeminiSparkleLogo(0, 0, 42 * softSpringOut((lp - 0.52) / 0.48, 1.35), time * 2, 1);
 
           ctx.font = "700 18px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#d8d7d2";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "top";
-          ctx.fillText(
-            loadProg < 0.5 ? "CLAUDE OPUS 5.5 DISPATCHED..." : "INITIALIZING GEMINI AI...",
-            0,
-            ringR + 26
-          );
-
+          ctx.fillStyle = "#d8d7d2"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+          ctx.fillText(lp < 0.5 ? "CLAUDE OPUS 5.5 DISPATCHED..." : "INITIALIZING GEMINI AI...", 0, 100);
           ctx.restore();
         }
 
-        // =======================================================================
-        // ADEGAN 6 & 7 (11.15s - 16.40s):
-        // - Bintang Gemini memancar vertikal (Starburst Split) membuka Text Board (11.15s - 12.0s)
-        // - Siluet kodingan sangar di-scroll atas -> bawah -> atas (12.0s - 14.1s)
-        // - Kursor klik "Flash Lite" -> pilih "Argon 4 High" -> klik Kirim (14.1s - 16.3s)
-        // =======================================================================
-        if (time >= 11.15 && time < 16.45) {
-          const hdrAlpha = smoothstep(11.15, 11.55, time) * (1 - smoothstep(15.75, 16.20, time));
+        // =====================================================================
+        // BEAT 5B (33.75s - 39.25s): GEMINI STUDIO + FRAMED PIP CAM + SPEC DOCK
+        // =====================================================================
+        if (time >= 33.75 && time < 39.30) {
+          const tg = time - 33.75;
+          const hdrAlpha = smoothstep(0.0, 0.45, tg) * (1 - smoothstep(4.95, 5.45, tg));
+
           ctx.save();
           ctx.globalAlpha = hdrAlpha;
           drawGeminiSparkleLogo(96, 360, 28, time * 1.2, 1);
           ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#f4f3ef"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
           ctx.fillText("Gemini ", 140, 362);
           const gw = ctx.measureText("Gemini ").width;
-          ctx.fillStyle = "#6ea8fe";
-          ctx.fillText("AI.", 140 + gw, 362);
-
-          ctx.font = "500 20px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#6ea8fe"; ctx.fillText("AI.", 140 + gw, 362);
+          ctx.font = "500 18.5px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#8e8d88";
-          ctx.fillText("PRISM MATRIX & PEMILIHAN MODEL", 64, 430);
+          ctx.fillText("MERRY STUDIO  ·  PRISM MATRIX ENGINE", 64, 428);
           ctx.restore();
 
-          const revealProg = smootherstep(11.20, 12.05, time);
-          const scrollProg = clamp((time - 12.05) / 2.15, 0, 1); // 12.05s..14.20s
-          const dropdownOpen = smoothstep(14.40, 14.60, time) * (1 - smoothstep(15.10, 15.25, time));
-          const modelSelected = time >= 15.10;
-          const sendClick = (time >= 15.55 && time <= 15.85) ? (time - 15.55) / 0.30 : 0;
-          const flyCenter = smootherstep(15.80, 16.38, time);
+          // Framed Agent PiP Cam Monitor (Merry LIVE!)
+          if (hdrAlpha > 0.02) {
+            const miniMerry = buildMerryQuads(time, {
+              x: 0, y: 0, z: 0, yaw: -0.22 + Math.sin(time * 2.5) * 0.10, pitch: 0.08, roll: 0,
+              scale: 0.72, speakEnergy: tg >= 4.15 ? 0.70 : 0.14, wavePhase: tg >= 4.15 ? 0.85 : 0.1,
+              happyEyes: tg >= 4.15 ? 1.0 : 0, showSparkles: true
+            });
+            drawAgentPiPCam("GEMINI", "#6ea8fe", miniMerry, time, hdrAlpha);
+          }
 
+          const revealProg = smootherstep(0.05, 0.82, tg);
+          const scrollProg = clamp((tg - 0.82) / 2.05, 0, 1);
+          const dropdownOpen = smoothstep(3.25, 3.48, tg) * (1 - smoothstep(4.15, 4.35, tg));
+          const modelSelected = tg >= 4.15;
+          const sendClick = (tg >= 4.80 && tg <= 5.10) ? (tg - 4.80) / 0.30 : 0;
+          const flyCenter = smootherstep(5.02, 5.48, tg);
+
+          const pillCenter = { x: 210, y: 1188 }, menuTarget = { x: 220, y: 1122 }, sendBtn = { x: 915, y: 1188 };
           let cur = { x: 540, y: 1450, scale: 1.0, alpha: 0 };
-          if (time >= 14.15 && time <= 16.05) {
-            cur.alpha = smoothstep(14.15, 14.32, time) * (1 - smoothstep(15.80, 16.05, time));
-            const pillCenter = { x: 210, y: 1180 };
-            const menuTarget = { x: 220, y: 1105 };
-            const sendBtn = { x: 915, y: 1180 };
-
-            if (time < 14.45) {
-              const k = easeOutCubic((time - 14.15) / 0.30);
-              cur.x = lerp(520, pillCenter.x, k);
-              cur.y = lerp(1420, pillCenter.y, k);
-            } else if (time < 14.90) {
-              const k = easeInOutCubic((time - 14.45) / 0.45);
-              cur.x = lerp(pillCenter.x, menuTarget.x, k);
-              cur.y = lerp(pillCenter.y, menuTarget.y, k);
-            } else if (time < 15.18) {
-              cur.x = menuTarget.x;
-              cur.y = menuTarget.y;
-              if (time >= 14.98 && time <= 15.15) cur.scale = 0.88;
-            } else if (time < 15.55) {
-              const k = easeInOutCubic((time - 15.18) / 0.37);
-              cur.x = lerp(menuTarget.x, sendBtn.x, k);
-              cur.y = lerp(menuTarget.y, sendBtn.y, k);
+          if (tg >= 2.75 && tg <= 5.20) {
+            cur.alpha = smoothstep(2.75, 2.98, tg) * (1 - smoothstep(5.00, 5.20, tg));
+            if (tg < 3.25) {
+              const k = easeOutCubic((tg - 2.75) / 0.50);
+              cur.x = lerp(520, pillCenter.x, k); cur.y = lerp(1420, pillCenter.y, k);
+            } else if (tg < 3.75) {
+              const k = easeInOutCubic((tg - 3.25) / 0.50);
+              cur.x = lerp(pillCenter.x, menuTarget.x, k); cur.y = lerp(pillCenter.y, menuTarget.y, k);
+            } else if (tg < 4.25) {
+              cur.x = menuTarget.x; cur.y = menuTarget.y;
+              if (tg >= 4.02 && tg <= 4.20) cur.scale = 0.88;
+            } else if (tg < 4.80) {
+              const k = easeInOutCubic((tg - 4.25) / 0.55);
+              cur.x = lerp(menuTarget.x, sendBtn.x, k); cur.y = lerp(menuTarget.y, sendBtn.y, k);
             } else {
-              cur.x = sendBtn.x;
-              cur.y = sendBtn.y;
-              if (time >= 15.55 && time <= 15.75) cur.scale = 0.88;
+              cur.x = sendBtn.x; cur.y = sendBtn.y;
+              if (tg >= 4.80 && tg <= 5.02) cur.scale = 0.88;
             }
           }
 
-          drawAICodeBoardSequence({
-            brand: "GEMINI",
-            accentHex: "#6ea8fe",
-            accentDim: "rgba(110, 168, 254, 0.22)",
-            codeLines: SHADOW_CODE_GEMINI,
-            initModel: "Flash Lite",
-            targetModel: "Argon 4 High",
-            revealProg,
-            scrollProg,
-            dropdownOpenProg: dropdownOpen,
-            modelSelected,
-            sendClickProg: sendClick,
-            flyToCenterProg: flyCenter,
-            cursorPos: cur,
-            revealMode: "starburst"
+          const clickRipples = [
+            { x: pillCenter.x, y: pillCenter.y, p: (tg - 3.25) / 0.35 },
+            { x: menuTarget.x, y: menuTarget.y, p: (tg - 4.15) / 0.42 },
+            { x: sendBtn.x,    y: sendBtn.y,    p: (tg - 4.80) / 0.35 }
+          ];
+
+          const bAlpha = drawAICodeBoardSequence({
+            brand: "GEMINI", accentHex: "#6ea8fe", accentDim: "rgba(110, 168, 254, 0.22)",
+            codeLines: SHADOW_CODE_GEMINI, initModel: "Flash Lite", targetModel: "Carbon High",
+            revealProg, scrollProg, dropdownOpenProg: dropdownOpen, modelSelected,
+            sendClickProg: sendClick, flyToCenterProg: flyCenter, cursorPos: cur, clickRipples, revealMode: "starburst"
+          });
+
+          drawLiveSpecDock({
+            brand: "GEMINI", accentHex: "#6ea8fe", accentDim: "rgba(110, 168, 254, 0.24)",
+            modelSelected, upgradeFlashProg: clamp((tg - 4.15) / 0.65, 0, 1),
+            boardAlpha: bAlpha, flyCenter
           });
         }
 
-        // =======================================================================
-        // ADEGAN 8 (16.15s - 19.10s):
-        // DIAGRAM ERD + SEL BATERAI TOKEN MENGISI PENUH (MENGURAS TOKEN!)
-        // =======================================================================
-        if (time >= 16.15 && time < 19.20) {
-          const erdIn = smootherstep(16.15, 16.65, time);
-          const erdOut = smootherstep(18.70, 19.15, time);
-          const alpha = erdIn * (1 - erdOut);
-          const chargeProg = clamp((time - 16.55) / 2.05, 0, 1);
+        // =====================================================================
+        // BEAT 6 (39.20s - 42.85s): ERD MATRIX + LIVE COMPUTE OSCILLOSCOPE PANEL
+        // =====================================================================
+        if (time >= 39.20 && time < 42.90) {
+          const te = time - 39.20;
+          const alpha = smootherstep(0.0, 0.45, te) * (1 - smootherstep(3.25, 3.68, te));
+          const chargeProg = clamp((te - 0.30) / 2.65, 0, 1);
 
           ctx.save();
           ctx.globalAlpha = alpha;
 
-          // Judul Atas ERD
           ctx.font = "600 18px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#ebb343";
-          fillTrackedText(" ARCHITECTURE ERD  ·  HIGH TOKEN CONSUMPTION", W / 2, 245, 2.0, "center");
+          fillTrackedText("DUAL ARCHITECTURE SCHEMA  ·  TOKEN POWER TELEMETRY", W / 2, 210, 2.0, "center");
 
-          ctx.font = "900 54px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f4f3ef";
-          ctx.textAlign = "center";
-          ctx.fillText(" Komputasi Penuh.", W / 2, 305);
+          ctx.font = "900 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+          ctx.fillStyle = "#f4f3ef"; ctx.textAlign = "center";
+          ctx.fillText("Komputasi Penuh.", W / 2, 268);
 
-          // 1. Node Atas ERD: [ PROMPT_SPEC_ENTITY ]
-          const rootW = 460, rootH = 110;
-          const rootX = (W - rootW) / 2, rootY = 400;
-          roundRect(ctx, rootX, rootY, rootW, rootH, 10);
-          ctx.fillStyle = "#15151b";
-          ctx.fill();
-          ctx.lineWidth = 1.8;
-          ctx.strokeStyle = "#ebb343";
-          ctx.stroke();
+          const rootW = 540, rootH = 100, rootX = (W - rootW) / 2, rootY = 342;
+          roundRect(ctx, rootX, rootY, rootW, rootH, 12);
+          ctx.fillStyle = "#141419"; ctx.fill();
+          ctx.lineWidth = 1.8; ctx.strokeStyle = "#ebb343"; ctx.stroke();
 
-          ctx.fillStyle = "#1e1c16";
-          roundRect(ctx, rootX + 2, rootY + 2, rootW - 4, 38, 8);
-          ctx.fill();
+          ctx.fillStyle = "#1e1b14";
+          roundRect(ctx, rootX + 2, rootY + 2, rootW - 4, 38, 10); ctx.fill();
           ctx.font = "700 16px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#ebb343";
-          ctx.textAlign = "center";
-          ctx.fillText("ENTITY :: PROMPT_PAYLOAD (PK)", W / 2, rootY + 22);
+          ctx.fillStyle = "#ebb343"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("SCHEMA :: PROMPT_PAYLOAD_V1 [PRIMARY_KEY]", W / 2, rootY + 20);
+          ctx.font = "500 16px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#d8d7d2";
+          ctx.fillText("SPEC: 12s  ·  270×480 -> 1080×1920  ·  16 PALETTE  ·  360F", W / 2, rootY + 60);
+          ctx.font = "600 14px ui-monospace, Consolas, monospace";
+          ctx.fillStyle = "#8a8984";
+          ctx.fillText("RELATION: 1 -> [N=2] MERRY (GEMINI) & ROGER (CLAUDE)", W / 2, rootY + 84);
 
-          ctx.font = "500 17px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = "#b8b6b0";
-          ctx.fillText("12s · 270x480 -> 1080x1920 · 16 PALETTE", W / 2, rootY + 74);
+          const leftCardX = 48, rightCardX = 564, cardW = 468, cardY = 588, cardH = 345;
+          const leftBusX = leftCardX + cardW / 2, rightBusX = rightCardX + cardW / 2, busSplitY = 502;
 
-          // 2. Garis Konektor ERD (Dengan Simbol Crow's Foot 1-to-Many) menuju Gemini (Kiri) & Claude (Kanan)
-          const leftCenterX = 282;
-          const rightCenterX = 798;
-          const midY = 580;
-          const cardTopY = 650;
-
-          ctx.strokeStyle = "#3a3a46";
-          ctx.lineWidth = 2.2;
+          ctx.strokeStyle = "#2b2b35"; ctx.lineWidth = 2.5;
           ctx.beginPath();
-          // Dari Root turun ke percabangan
-          ctx.moveTo(W / 2, rootY + rootH);
-          ctx.lineTo(W / 2, midY);
-          // Cabang Kiri (Gemini) & Kanan (Claude)
-          ctx.lineTo(leftCenterX, midY);
-          ctx.lineTo(leftCenterX, cardTopY);
-          ctx.moveTo(W / 2, midY);
-          ctx.lineTo(rightCenterX, midY);
-          ctx.lineTo(rightCenterX, cardTopY);
+          ctx.moveTo(W / 2, rootY + rootH); ctx.lineTo(W / 2, busSplitY);
+          ctx.lineTo(leftBusX, busSplitY); ctx.lineTo(leftBusX, cardY);
+          ctx.moveTo(W / 2, busSplitY); ctx.lineTo(rightBusX, busSplitY); ctx.lineTo(rightBusX, cardY);
           ctx.stroke();
 
-          // Simbol Crow's Foot ERD (Kaki Tiga Relasi) di atas masing-masing kartu AI
           const drawCrowsFoot = (cx, yBottom, color) => {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = color; ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(cx - 14, yBottom);
-            ctx.lineTo(cx, yBottom - 18);
-            ctx.lineTo(cx + 14, yBottom);
-            ctx.moveTo(cx - 12, yBottom - 22);
-            ctx.lineTo(cx + 12, yBottom - 22);
+            ctx.moveTo(cx - 14, yBottom); ctx.lineTo(cx, yBottom - 18); ctx.lineTo(cx + 14, yBottom);
+            ctx.moveTo(cx - 12, yBottom - 22); ctx.lineTo(cx + 12, yBottom - 22);
             ctx.stroke();
           };
-          drawCrowsFoot(leftCenterX, cardTopY, "#6ea8fe");
-          drawCrowsFoot(rightCenterX, cardTopY, "#e07a5f");
+          drawCrowsFoot(leftBusX, cardY, "#6ea8fe");
+          drawCrowsFoot(rightBusX, cardY, "#e07a5f");
 
-          // Paket Data Berjalan di Sepanjang Jalur ERD
           for (let p = 0; p < 4; p++) {
             const u = ((time * 1.8 + p * 0.25) % 1.0);
-            const py = lerp(midY, cardTopY, u);
-            ctx.fillStyle = "#6ea8fe";
-            ctx.fillRect(leftCenterX - 3, py - 3, 6, 6);
-            ctx.fillStyle = "#e07a5f";
-            ctx.fillRect(rightCenterX - 3, py - 3, 6, 6);
+            const py = lerp(busSplitY, cardY - 24, u);
+            ctx.fillStyle = "#6ea8fe"; ctx.fillRect(leftBusX - 3, py - 3, 6, 7);
+            ctx.fillStyle = "#e07a5f"; ctx.fillRect(rightBusX - 3, py - 3, 6, 7);
           }
 
-          // 3. Fungsi Menggambar Kartu Node AI + Bar Baterai Kecil-Kecil Penguras Token
-          const drawERDBatteryNode = (x, y, w, h, brand, model, accent, isLeft) => {
-            roundRect(ctx, x, y, w, h, 12);
-            ctx.fillStyle = "#141419";
-            ctx.fill();
-            ctx.lineWidth = 1.8;
-            ctx.strokeStyle = accent;
-            ctx.stroke();
+          const drawNode = (x, y, w, h, brand, accentHex, isLeft) => {
+            roundRect(ctx, x, y, w, h, 14);
+            ctx.fillStyle = "#131317"; ctx.fill();
+            ctx.lineWidth = 1.8; ctx.strokeStyle = accentHex; ctx.stroke();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.035)"; ctx.fillRect(x + 2, y + 2, w - 4, 56);
+            ctx.fillStyle = "#262630"; ctx.fillRect(x, y + 58, w, 1.5);
 
-            // Header Tabel ERD
-            ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-            ctx.fillRect(x + 2, y + 2, w - 4, 52);
-            ctx.fillStyle = "#262630";
-            ctx.fillRect(x, y + 54, w, 1.5);
+            if (isLeft) drawGeminiSparkleLogo(x + 32, y + 30, 16, time * 1.6, 1);
+            else drawClaudeSunburstLogo(x + 32, y + 30, 15, time * 2.2, accentHex, 1);
 
-            if (isLeft) {
-              drawGeminiSparkleLogo(x + 30, y + 28, 14, time * 2, 1);
-            } else {
-              drawClaudeWheelLogo(x + 30, y + 28, 13, time * 3, accent, 1);
+            ctx.font = "800 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
+            ctx.fillStyle = accentHex; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+            ctx.fillText(brand, x + 58, y + 30);
+
+            roundRect(ctx, x + w - 165, y + 16, 145, 28, 6);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.05)"; ctx.fill();
+            ctx.strokeStyle = "#383844"; ctx.lineWidth = 1; ctx.stroke();
+            ctx.font = "700 13px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#5ce6a0"; ctx.textAlign = "center";
+            ctx.fillText("ACTIVE COMPUTE", x + w - 92, y + 30);
+
+            const specs = isLeft
+              ? [{ l: "FK_TIER", v: "CARBON_HIGH" }, { l: "ENGINE ", v: "CANVAS_2D_OFFSCREEN" }, { l: "AUDIO  ", v: "SYNTH_PCM16_CHIPTUNE" }]
+              : [{ l: "FK_TIER", v: "OPUS_5_5_EXTRA" }, { l: "ENGINE ", v: "UINT8_INDEXED_FB" }, { l: "AUDIO  ", v: "SYNTH_PROCEDURAL_WAV" }];
+            ctx.font = "500 15px ui-monospace, Consolas, monospace"; ctx.textAlign = "left";
+            for (let s = 0; s < specs.length; s++) {
+              const sy = y + 84 + s * 26;
+              ctx.fillStyle = "#7a7974"; ctx.fillText(`▸ ${specs[s].l}:`, x + 24, sy);
+              ctx.fillStyle = "#e6e5e0"; ctx.fillText(specs[s].v, x + 130, sy);
             }
 
-            ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-            ctx.fillStyle = accent;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            ctx.fillText(brand, x + 54, y + 28);
+            const meterY = y + 180;
+            ctx.font = "700 14px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#9c9a94"; ctx.fillText("TOKEN POWER DRAIN TELEMETRY", x + 24, meterY);
+            ctx.fillStyle = accentHex; ctx.textAlign = "right";
+            ctx.font = "800 16px ui-monospace, Consolas, monospace";
+            ctx.fillText(`${Math.min(100, Math.floor(chargeProg * 100))}% LOAD`, x + w - 24, meterY);
 
-            ctx.font = "600 15px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#969590";
-            ctx.textAlign = "right";
-            ctx.fillText(model, x + w - 20, y + 28);
+            const bx = x + 24, by = meterY + 14, bw = w - 48, bh = 42;
+            roundRect(ctx, bx, by, bw, bh, 7);
+            ctx.fillStyle = "#0c0c10"; ctx.fill();
+            ctx.lineWidth = 1.6; ctx.strokeStyle = "#32323d"; ctx.stroke();
+            ctx.fillStyle = "#32323d"; ctx.fillRect(bx + bw + 2, by + 12, 5, 18);
 
-            // Daftar Atribut ERD
-            const attrs = isLeft
-              ? [
-                  "▸ FK  model_tier   : ARGON_4_HIGH",
-                  "▸ FN  canvas_engine: 2D_SUPERSAMPLE",
-                  "▸ IO  audio_synth  : CHIPTUNE_PCM16"
-                ]
-              : [
-                  "▸ FK  model_tier   : OPUS_5_5_EXTRA",
-                  "▸ FN  canvas_engine: UINT8_INDEXED",
-                  "▸ IO  audio_synth  : PROCEDURAL_WAV"
-                ];
-
-            ctx.font = "500 16px ui-monospace, Consolas, monospace";
-            ctx.textAlign = "left";
-            for (let a = 0; a < attrs.length; a++) {
-              ctx.fillStyle = "#b8b6b0";
-              ctx.fillText(attrs[a], x + 22, y + 86 + a * 30);
-            }
-
-            // --- INDIKATOR BATERAI KECIL-KECIL (SEGMENTED BATTERY CELLS) ---
-            const batY = y + 195;
-            ctx.font = "700 15px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#e6e5e0";
-            ctx.fillText("TOKEN POWER DRAIN:", x + 22, batY);
-
-            const pct = Math.min(100, Math.floor(chargeProg * 100));
-            ctx.fillStyle = accent;
-            ctx.textAlign = "right";
-            ctx.fillText(`${pct}%`, x + w - 22, batY);
-
-            // Bingkai Baterai Utama
-            const bx = x + 22;
-            const by = batY + 20;
-            const bw = w - 52;
-            const bh = 44;
-            roundRect(ctx, bx, by, bw, bh, 6);
-            ctx.fillStyle = "#0b0b0e";
-            ctx.fill();
-            ctx.lineWidth = 1.6;
-            ctx.strokeStyle = "#3a3a46";
-            ctx.stroke();
-
-            // Kepala kutub positif baterai di ujung kanan
-            ctx.fillStyle = "#3a3a46";
-            ctx.fillRect(bx + bw + 2, by + 12, 6, 20);
-
-            // 12 Sel Baterai Kecil-Kecil di Dalam Bar
-            const numCells = 12;
-            const gap = 5;
-            const pad = 6;
-            const cellW = (bw - pad * 2 - gap * (numCells - 1)) / numCells;
-            const cellH = bh - pad * 2;
+            const numCells = 14, gap = 4, pad = 5;
+            const cellW = (bw - pad * 2 - gap * (numCells - 1)) / numCells, cellH = bh - pad * 2;
             const activeCells = Math.floor(chargeProg * numCells);
-
             for (let c = 0; c < numCells; c++) {
-              const cx = bx + pad + c * (cellW + gap);
-              const cy = by + pad;
-              if (c < activeCells) {
-                ctx.fillStyle = c >= 9 ? "#ebb343" : accent;
-                roundRect(ctx, cx, cy, cellW, cellH, 3);
-                ctx.fill();
-              } else if (c === activeCells && chargeProg < 1.0) {
-                // Sel yang sedang berkedip mengisi
-                ctx.fillStyle = (Math.floor(time * 18) % 2 === 0) ? accent : "#1e1e26";
-                roundRect(ctx, cx, cy, cellW, cellH, 3);
-                ctx.fill();
-              } else {
-                ctx.fillStyle = "#181820";
-                roundRect(ctx, cx, cy, cellW, cellH, 3);
-                ctx.fill();
-              }
+              const cx = bx + pad + c * (cellW + gap), cy = by + pad;
+              ctx.fillStyle = c < activeCells ? (c >= 11 ? "#ebb343" : accentHex)
+                            : (c === activeCells && chargeProg < 1 ? (Math.floor(time * 20) % 2 === 0 ? accentHex : "#1e1e28") : "#181822");
+              roundRect(ctx, cx, cy, cellW, cellH, 3); ctx.fill();
             }
 
-            // Counter Token Terkuras
-            const maxTok = isLeft ? 34820 : 38450;
-            const curTok = Math.floor(easeOutCubic(chargeProg) * maxTok);
-            ctx.font = "600 17px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#ebb343";
-            ctx.textAlign = "left";
-            ctx.fillText(`⚡ TOKENS USED: ${curTok.toLocaleString("en-US")}`, x + 22, by + bh + 28);
+            const curTok = Math.floor(easeOutCubic(chargeProg) * (isLeft ? 34820 : 38450));
+            ctx.font = "700 17px ui-monospace, Consolas, monospace";
+            ctx.fillStyle = "#ebb343"; ctx.textAlign = "left";
+            ctx.fillText(`⚡ TOKENS USED : ${curTok.toLocaleString("en-US")}`, x + 24, by + bh + 30);
           };
 
-          drawERDBatteryNode(48,  cardTopY, 468, 330, "GEMINI", "Argon 4 High",   "#6ea8fe", true);
-          drawERDBatteryNode(564, cardTopY, 468, 330, "CLAUDE", "Opus 5.5 Extra", "#e07a5f", false);
+          drawNode(leftCardX,  cardY, cardW, cardH, "GEMINI", "#6ea8fe", true);
+          drawNode(rightCardX, cardY, cardW, cardH, "CLAUDE", "#e07a5f", false);
 
-          // 4. Node Bawah ERD: [ OUTPUT_VIDEO_PIPELINE ]
-          const botY = 1070;
-          ctx.strokeStyle = "#3a3a46";
-          ctx.lineWidth = 2.2;
+          const botY = 1020;
+          ctx.strokeStyle = "#2b2b35"; ctx.lineWidth = 2.4;
           ctx.beginPath();
-          ctx.moveTo(leftCenterX, cardTopY + 330);
-          ctx.lineTo(leftCenterX, botY + 45);
-          ctx.lineTo(W / 2 - 210, botY + 45);
-          ctx.moveTo(rightCenterX, cardTopY + 330);
-          ctx.lineTo(rightCenterX, botY + 45);
-          ctx.lineTo(W / 2 + 210, botY + 45);
+          ctx.moveTo(leftBusX,  cardY + cardH); ctx.lineTo(leftBusX,  botY + 44); ctx.lineTo(W / 2 - 240, botY + 44);
+          ctx.moveTo(rightBusX, cardY + cardH); ctx.lineTo(rightBusX, botY + 44); ctx.lineTo(W / 2 + 240, botY + 44);
           ctx.stroke();
 
-          roundRect(ctx, W / 2 - 210, botY, 420, 90, 10);
-          ctx.fillStyle = "#15151b";
-          ctx.fill();
-          ctx.strokeStyle = chargeProg > 0.85 ? "#5ce6a0" : "#3a3a46";
-          ctx.lineWidth = 1.8;
-          ctx.stroke();
+          for (let p = 0; p < 3; p++) {
+            const u = ((time * 1.8 + p * 0.33) % 1.0);
+            const py = lerp(cardY + cardH, botY + 44, u);
+            ctx.fillStyle = "#6ea8fe"; ctx.fillRect(leftBusX - 3, py - 3, 6, 6);
+            ctx.fillStyle = "#e07a5f"; ctx.fillRect(rightBusX - 3, py - 3, 6, 6);
+          }
 
+          roundRect(ctx, W / 2 - 240, botY, 480, 88, 10);
+          ctx.fillStyle = "#15151b"; ctx.fill();
+          ctx.strokeStyle = chargeProg > 0.85 ? "#5ce6a0" : "#383844"; ctx.lineWidth = 1.8; ctx.stroke();
           ctx.font = "700 17px ui-monospace, Consolas, monospace";
-          ctx.fillStyle = chargeProg > 0.85 ? "#5ce6a0" : "#969590";
-          ctx.textAlign = "center";
-          ctx.fillText("TARGET :: PLAYWRIGHT + FFMPEG MP4", W / 2, botY + 34);
+          ctx.fillStyle = chargeProg > 0.85 ? "#5ce6a0" : "#969590"; ctx.textAlign = "center";
+          ctx.fillText("TARGET_HARNESS :: PLAYWRIGHT + FFMPEG X264", W / 2, botY + 34);
           ctx.font = "500 15px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#787670";
-          ctx.fillText(chargeProg > 0.85 ? "STATUS: READY FOR BENCHMARK" : "COMPILING PIXEL SHADERS...", W / 2, botY + 64);
+          ctx.fillText(chargeProg > 0.85 ? "STATUS: COMPILED & LOCKED FOR EXECUTION" : "ALLOCATING SHADER FRAMEBUFFER...", W / 2, botY + 62);
+
+          // Live Dual Compute Oscilloscope mengisi ruang bawah dengan proporsional!
+          drawComputeTelemetryPanel(chargeProg, time, alpha);
 
           ctx.restore();
         }
 
-        // =======================================================================
-        // ADEGAN 9 (18.90s - 21.50s):
-        // OUTRO PENUTUP MEGAH: "2 Model AI Tier Tertinggi di Adu"
-        // =======================================================================
-        if (time >= 18.90) {
-          const inProg = smootherstep(18.90, 19.55, time);
-          const scale = lerp(0.94, 1.0, softBounceOut(clamp((time - 18.90) / 0.65, 0, 1), 1.12));
+        // =====================================================================
+        // BEAT 7 (42.80s - 46.00s): SHOWDOWN FINALE ("BREAKING THE FRAME" + HANDOVER)
+        //    Kaki 3D Merry & Roger benar-benar MENAPAK di tepi atas kartu (y = 790)
+        //    lengkap dengan bayangan kontak jatuh ke bodi kartu!
+        // =====================================================================
+        if (time >= 42.80) {
+          const tf = time - 42.80;
+          const inP = smootherstep(0.0, 0.55, tf);
+          const sc = lerp(0.94, 1.0, softSpringOut(clamp(tf / 0.65, 0, 1), 1.05));
 
+          // 1. Kartu Showdown Utama (centerY = 1090, cardH = 600 -> topEdge = 790)
           ctx.save();
-          ctx.globalAlpha = inProg;
-          ctx.translate(W / 2, H / 2 - 40);
-          ctx.scale(scale, scale);
+          ctx.globalAlpha = inP;
+          ctx.translate(W / 2, 1090);
+          ctx.scale(sc, sc);
 
-          // Kartu Utama Hero Showdown
-          const cardW = 960;
-          const cardH = 620;
-          ctx.shadowColor = "rgba(0, 0, 0, 0.75)";
-          ctx.shadowBlur = 40;
-          ctx.shadowOffsetY = 14;
+          const cardW = 960, cardH = 600;
+          ctx.shadowColor = "rgba(0, 0, 0, 0.72)"; ctx.shadowBlur = 44; ctx.shadowOffsetY = 14;
           roundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 16);
-          ctx.fillStyle = "#131317";
-          ctx.fill();
-          ctx.shadowColor = "transparent";
+          ctx.fillStyle = "#131317"; ctx.fill();
+          ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "#2d2d36";
-          ctx.stroke();
+          ctx.lineWidth = 2; ctx.strokeStyle = "#2d2d36"; ctx.stroke();
 
-          // Aksen garis emas di puncak kartu
-          ctx.fillStyle = "#ebb343";
-          ctx.fillRect(-160, -cardH / 2, 320, 4);
+          ctx.fillStyle = "#ebb343"; ctx.fillRect(-160, -cardH / 2, 320, 4);
 
-          // Dua Kapsul Petarung di Atas Kartu (GEMINI ARGON 4 HIGH  x  CLAUDE OPUS 5.5 EXTRA)
-          const pillW = 390, pillH = 66, pillY = -cardH / 2 + 64;
+          const pillW = 400, pillH = 66, pillY = -cardH / 2 + 62;
 
-          // Kiri: Gemini
           roundRect(ctx, -cardW / 2 + 44, pillY, pillW, pillH, 12);
-          ctx.fillStyle = "#171922";
-          ctx.fill();
-          ctx.strokeStyle = "#6ea8fe";
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
+          ctx.fillStyle = "#171922"; ctx.fill();
+          ctx.strokeStyle = "#6ea8fe"; ctx.lineWidth = 1.6; ctx.stroke();
           drawGeminiSparkleLogo(-cardW / 2 + 82, pillY + pillH / 2, 16, time * 1.5, 1);
           ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#6ea8fe";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#6ea8fe"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
           ctx.fillText("GEMINI", -cardW / 2 + 112, pillY + pillH / 2 + 1);
           ctx.font = "500 18px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#c4c3be";
-          ctx.fillText("Argon 4 · High", -cardW / 2 + 210, pillY + pillH / 2 + 1);
+          ctx.fillText("Carbon · High", -cardW / 2 + 215, pillY + pillH / 2 + 1);
 
-          // Simbol Petir / Cross di Tengah
-          ctx.font = "900 26px -apple-system, sans-serif";
-          ctx.fillStyle = "#ebb343";
-          ctx.textAlign = "center";
-          ctx.fillText("⚡", 0, pillY + pillH / 2 + 2);
+          ctx.fillStyle = "#3a3a46"; ctx.fillRect(-1.5, pillY + 12, 3, pillH - 24);
 
-          // Kanan: Claude
           roundRect(ctx, cardW / 2 - 44 - pillW, pillY, pillW, pillH, 12);
-          ctx.fillStyle = "#211816";
-          ctx.fill();
-          ctx.strokeStyle = "#e07a5f";
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
-          drawClaudeWheelLogo(cardW / 2 - 44 - pillW + 38, pillY + pillH / 2, 15, time * 2, "#e07a5f", 1);
+          ctx.fillStyle = "#211816"; ctx.fill();
+          ctx.strokeStyle = "#e07a5f"; ctx.lineWidth = 1.6; ctx.stroke();
+          drawClaudeSunburstLogo(cardW / 2 - 44 - pillW + 38, pillY + pillH / 2, 15, time * 1.8, "#e07a5f", 1);
           ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#e07a5f";
-          ctx.textAlign = "left";
+          ctx.fillStyle = "#e07a5f"; ctx.textAlign = "left";
           ctx.fillText("CLAUDE", cardW / 2 - 44 - pillW + 68, pillY + pillH / 2 + 1);
           ctx.font = "500 18px ui-monospace, Consolas, monospace";
           ctx.fillStyle = "#c4c3be";
-          ctx.fillText("Opus 5.5 · Extra", cardW / 2 - 44 - pillW + 170, pillY + pillH / 2 + 1);
+          ctx.fillText("Opus 5.5 · Extra", cardW / 2 - 44 - pillW + 175, pillY + pillH / 2 + 1);
 
-          // Teks Utama Besar: "2 Model AI Tier Tertinggi di Adu."
           ctx.font = "900 72px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
-          ctx.fillStyle = "#f5f4f0";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText("2 Model AI", 0, -32);
+          ctx.fillStyle = "#f5f4f0"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("2 Model AI", 0, -28);
 
           ctx.font = "900 74px -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif";
           ctx.fillStyle = "#ebb343";
-          ctx.fillText("Tier Tertinggi di Adu.", 0, 58);
+          ctx.fillText("Tier Tertinggi di Adu.", 0, 62);
 
-          // Garis pemisah tipis
-          ctx.fillStyle = "#262630";
-          ctx.fillRect(-cardW / 2 + 64, 145, cardW - 128, 1.5);
+          ctx.fillStyle = "#262630"; ctx.fillRect(-cardW / 2 + 64, 146, cardW - 128, 1.5);
 
-          // 3 Metrik Ujian di Bawah Kartu Outro
           const specs = [
             { top: "1 PROMPT IDENTIK",   bot: "TANPA REVISI" },
             { top: "MURNI KODE CANVAS",  bot: "TANPA LIBRARY" },
@@ -1297,24 +2692,55 @@
           for (let s = 0; s < specs.length; s++) {
             const sx = (s - 1) * 300;
             ctx.font = "700 19px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#e6e5e0";
-            ctx.fillText(specs[s].top, sx, 202);
+            ctx.fillStyle = "#e6e5e0"; ctx.fillText(specs[s].top, sx, 200);
             ctx.font = "600 16px ui-monospace, Consolas, monospace";
-            ctx.fillStyle = "#ebb343";
-            ctx.fillText(specs[s].bot, sx, 232);
+            ctx.fillStyle = "#ebb343"; ctx.fillText(specs[s].bot, sx, 230);
           }
-
           ctx.restore();
+
+          // 2. Bayangan Kontak + 3D Mascots MENAPAK langsung di tepi atas kartu (y = 794)!
+          drawFloorShadow(364, 796, 106, 22, inP * 0.90);
+          drawFloorShadow(716, 796, 114, 22, inP * 0.90);
+
+          const mQuads = buildMerryQuads(time, {
+            x: -6.8, y: 0, z: 0, yaw: 0.34, pitch: 0.06, roll: 0, scale: 0.86,
+            speakEnergy: 0.32, wavePhase: 0.45, happyEyes: 1.0, showSparkles: true
+          });
+          const rQuads = buildRogerQuads(time, {
+            x: 6.8, y: 0, z: 0, yaw: -0.34, pitch: 0.06, roll: 0, scale: 0.86,
+            speakEnergy: 0.32, waveRight: 0.48, excitedAmount: 0.85, blushAmount: 0.65
+          });
+          renderActorQuads(mQuads, W / 2, 680, 34, 880, inP);
+          renderActorQuads(rQuads, W / 2, 680, 34, 880, inP);
+
+          // 3. Handover Teaser Pill menuju Page 1 ("Satu prompt, sama persis.")
+          const nextP = smootherstep(0.65, 1.30, tf);
+          if (nextP > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = nextP;
+            const ny = lerp(1520, 1492, easeOutCubic(nextP));
+            const nw = 660, nh = 74;
+
+            roundRect(ctx, W / 2 - nw / 2, ny, nw, nh, 37);
+            ctx.fillStyle = "#151411"; ctx.fill();
+            ctx.strokeStyle = "rgba(235, 179, 67, 0.72)";
+            ctx.lineWidth = 1.6; ctx.stroke();
+
+            ctx.font = "700 16px ui-monospace, 'Cascadia Code', Consolas, monospace";
+            ctx.fillStyle = "#ebb343"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            const arrowShift = Math.sin(time * 7.0) * 5;
+            fillTrackedText("NEXT CHAPTER  ▸  01 — SATU PROMPT IDENTIK", W / 2 - 14, ny + nh / 2 + 0.5, 1.6, "center");
+            ctx.fillStyle = "#f5f4f0";
+            ctx.fillText("→", W / 2 + 278 + arrowShift, ny + nh / 2 + 0.5);
+            ctx.restore();
+          }
         }
 
-        // -----------------------------------------------------------------------
-        // FOOTER BAWAH KONSISTEN
-        // -----------------------------------------------------------------------
+        // 4. Footer Editorial Persisten (Identik final.html)
         const footY = 1834;
         ctx.font = "600 17px ui-monospace, 'Cascadia Code', Consolas, monospace";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#6e6d68";
-
         const mm = String(Math.floor(time)).padStart(2, "0");
         const ff = String(Math.floor((time % 1) * FPS)).padStart(2, "0");
         fillTrackedText(`00:${mm}:${ff}`, 48, footY, 1.2, "left");
@@ -1329,12 +2755,10 @@
         ctx.restore();
       }
 
-      // Ekspos API global untuk Playwright
       window.drawFrame = drawFrame;
       window.DURATION = DURATION;
       window.TOTAL_FRAMES = TOTAL_FRAMES;
 
-      // Kontrol Preview Interaktif saat dibuka di Browser
       let currentTime = Number(params.get("t") ?? 0);
       let isPlaying = !isHeadless;
       let startStamp = performance.now();
@@ -1352,19 +2776,20 @@
 
       if (!isHeadless) {
         const jump = (s) => { isPlaying = false; updateView(s); };
-        document.getElementById("b1").onclick = () => jump(1.0);
-        document.getElementById("b2").onclick = () => jump(3.0);
-        document.getElementById("b3").onclick = () => jump(4.8);
-        document.getElementById("b4").onclick = () => jump(8.8);
-        document.getElementById("b5").onclick = () => jump(11.5);
-        document.getElementById("b6").onclick = () => jump(14.6);
-        document.getElementById("b7").onclick = () => jump(17.5);
-        document.getElementById("b8").onclick = () => jump(20.2);
+        document.getElementById("b1").onclick  = () => jump(0.80);
+        document.getElementById("b2").onclick  = () => jump(5.50);
+        document.getElementById("b3").onclick  = () => jump(10.30);
+        document.getElementById("b4").onclick  = () => jump(13.30);
+        document.getElementById("b5").onclick  = () => jump(18.50);
+        document.getElementById("b6").onclick  = () => jump(22.00);
+        document.getElementById("b7").onclick  = () => jump(25.20);
+        document.getElementById("b8").onclick  = () => jump(28.50);
+        document.getElementById("b9").onclick  = () => jump(35.00);
+        document.getElementById("b10").onclick = () => jump(40.80);
+        document.getElementById("b11").onclick = () => jump(44.20);
 
-        slider.oninput = () => {
-          isPlaying = false;
-          updateView(Number(slider.value) / FPS);
-        };
+        slider.max = TOTAL_FRAMES - 1;
+        slider.oninput = () => { isPlaying = false; updateView(Number(slider.value) / FPS); };
 
         btnPlay.onclick = () => {
           isPlaying = !isPlaying;
@@ -1379,11 +2804,11 @@
           if (!isPlaying) return;
           const elapsed = (now - startStamp) / 1000;
           if (elapsed >= DURATION) {
-            updateView(DURATION - 0.03);
+            updateView(DURATION - 0.01);
             isPlaying = false;
             return;
           }
-          updateView(Math.floor(elapsed * FPS) / FPS);
+          updateView(elapsed);
           requestAnimationFrame(tick);
         }
 

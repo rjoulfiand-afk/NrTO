@@ -4,24 +4,30 @@ const { execFileSync } = require("child_process");
 const { chromium } = require("playwright");
 
 const FPS = 30;
-const DURATION = 19.0;
-const TOTAL_FRAMES = Math.round(FPS * DURATION); // 570 frame
+const DURATION = 26.0; // 26.00 Detik Sinkron 100% dengan page1.html
+const TOTAL_FRAMES = Math.round(FPS * DURATION); // 780 frame
 const WIDTH = 1080;
 const HEIGHT = 1920;
+const NUM_WORKERS = 2; // Optimal untuk dual-core Celeron N4500
 
 const FRAMES_DIR = path.join(__dirname, "frames_page1");
 const AUDIO_PATH = path.join(__dirname, "audio_page1.wav");
 const OUTPUT_MP4 = path.join(__dirname, "page1_prompt.mp4");
-const HTML_PATH = "file://" + path.join(__dirname, "page1.html") + "?headless=1";
+
+function resolveHtmlPath() {
+  const full = path.resolve(__dirname, "page1.html");
+  if (fs.existsSync(full)) {
+    console.log(`      ✓ Sumber HTML ditemukan: page1.html`);
+    return "file:///" + full.replace(/\\/g, "/") + "?headless=1";
+  }
+  throw new Error("File page1.html tidak ditemukan di folder ini.");
+}
 
 // ============================================================================
-// 1. SINTESIS AUDIO HALAMAN 1
-//    - Suara Ketikan Keyboard Mekanik/Laptop Asli (Broadband Filtered Transient,
-//      0% gelombang sinus/beep, jernih & tidak mendem)
-//    - Suara Fokus Iris Netral & Konsisten (Bukan tangga nada doremifasolasido!)
+// 1. SINTESIS AUDIO PAGE 1 (26.00 DETIK · TENANG, BERSIH & 0ms DESYNC)
 // ============================================================================
 function generatePage1Audio(wavPath) {
-  console.log("[1/3] Mensintesis audio Halaman 1 (Realistic Keyboard & Subtle Focus Tick)...");
+  console.log(`[1/3] Mensintesis audio SFX Halaman 1 (${DURATION.toFixed(2)} detik, tenang & sinkron)...`);
   const sampleRate = 44100;
   const numSamples = Math.floor(sampleRate * DURATION);
   const samples = new Float32Array(numSamples);
@@ -41,128 +47,114 @@ function generatePage1Audio(wavPath) {
     }
   };
 
-  // A. Suara Ayunan Sapu / Swoosh Udara Halus
-  const addAirSwoosh = (startSec, durSec, brightness = 1.0, gain = 0.42) => {
+  const addAirSwoosh = (startSec, durSec = 0.65, brightness = 0.95, gain = 0.28) => {
     let lp = 0, hp = 0;
     addSound(startSec, durSec, (lt, d) => {
       const p = lt / d;
       const env = Math.sin(p * Math.PI) * Math.pow(1 - p, 0.5);
-      const cutoff = (0.025 + Math.sin(p * Math.PI) * 0.12) * brightness;
+      const cutoff = (0.022 + Math.sin(p * Math.PI) * 0.11) * brightness;
       const w = nextRand();
       lp += cutoff * (w - lp);
       hp += 0.008 * (lp - hp);
-      const band = lp - hp;
-      return band * env * gain * 2.2;
+      return (lp - hp) * env * gain * 2.1;
     });
   };
 
-  addAirSwoosh(0.08, 0.40, 1.0, 0.40); // Badge Gemini masuk
-  addAirSwoosh(0.18, 0.40, 1.15, 0.40); // Badge Claude masuk
-  addAirSwoosh(0.40, 0.45, 0.85, 0.42); // Kotak prompt.txt membuka
-
-  // B. SUARA KETIKAN KEYBOARD ASLI (0.85s - 8.20s)
-  // 100% Akustik Broadband Transient (Tanpa nada sinus/beep, tidak mendem!)
-  // Menggabungkan High-Mid Keycap Tap (1.2kHz-2.8kHz) + Mid Switch Housing (450Hz-950Hz)
-  let tKey = 0.85;
-  let keyIdx = 0;
-  while (tKey < 8.18) {
-    const isSpace = (keyIdx % 7 === 6);
-    const vel = 0.78 + ((keyIdx * 31) % 9) * 0.028;
-
-    // Koefisien filter sedikit bervariasi per tuts seperti jari di papan ketik asli
-    const topCut = isSpace ? 0.24 : (0.32 + ((keyIdx * 17) % 7) * 0.022);
-    const bodyCut = isSpace ? 0.085 : (0.11 + ((keyIdx * 23) % 5) * 0.01);
-
-    let lpTop = 0, hpTop = 0;
-    let lpBody = 0, hpBody = 0;
-
-    addSound(tKey, 0.032, (lt) => {
-      const w = nextRand();
-
-      // 1. Sentuhan awal kuku/jari pada permukaan keycap (jernih & renyah, 0.8ms - 5ms)
-      lpTop += topCut * (w - lpTop);
-      hpTop += 0.14 * (lpTop - hpTop);
-      const keycapSnap = (lpTop - hpTop) * Math.exp(-lt * 420);
-
-      // 2. Tumpuan mekanis tuts (Switch Bottom-Out, 2ms - 18ms, tanpa frekuensi sub-bass yang mendem)
-      lpBody += bodyCut * (w - lpBody);
-      hpBody += 0.045 * (lpBody - hpBody);
-      const switchBody = (lpBody - hpBody) * Math.exp(-lt * 175);
-
-      // Pantulan mikro saat tuts dilepas (key release, pada +14ms)
-      const relEnv = lt > 0.014 ? Math.exp(-(lt - 0.014) * 520) * 0.28 : 0;
-      const releaseTap = (lpTop - hpTop) * relEnv;
-
-      return (keycapSnap * 0.95 + switchBody * 1.15 + releaseTap) * 0.68 * vel;
-    });
-
-    // Jeda ketikan manusia (sedikit lebih tenang & alami)
-    let step = 0.072 + ((keyIdx * 19) % 5) * 0.012;
-    if (isSpace) step += 0.035;
-    if (keyIdx % 16 === 15) step += 0.14;
-    if (keyIdx % 33 === 32) step += 0.22;
-    tKey += step;
-    keyIdx++;
-  }
-
-  // C. SUARA FOKUS IRIS KUNING (8.80s - 12.24s)
-  // Konsisten & Netral (Subtle Camera Focus / Mechanical Aperture Tick — BUKAN tangga nada!)
-  const scanLockTimes = [8.80, 9.23, 9.66, 10.09, 10.52, 10.95, 11.38, 11.81, 12.24];
-  scanLockTimes.forEach((st, idx) => {
+  const addFocusTick = (startSec, freq = 620, gain = 0.50) => {
     let lp = 0, hp = 0;
-    // Variasi mikro hanya +/- 1.5% agar organik tapi nadanya tetap datar/netral
-    const fixedFreq = 620 + (idx % 2 === 0 ? 6 : -6);
-    addSound(st, 0.045, (lt) => {
+    addSound(startSec, 0.045, (lt) => {
       const w = nextRand();
       lp += 0.28 * (w - lp);
       hp += 0.10 * (lp - hp);
       const tickNoise = (lp - hp) * Math.exp(-lt * 320) * 0.45;
-      const focusPulse = Math.sin(2 * Math.PI * fixedFreq * lt) * Math.exp(-lt * 140) * 0.18;
-      return (tickNoise + focusPulse) * 0.65;
-    });
-  });
-
-  // D. Suara Scroll Balik ke Atas (12.35s) & Meluncur Halus Menjadi Bar Bawah (13.60s)
-  addAirSwoosh(12.35, 0.60, 1.15, 0.36);
-  addAirSwoosh(13.60, 0.80, 0.85, 0.38);
-
-  // E. Suara Klik Mouse Asli pada Tombol Kirim [↑] (15.24s)
-  addSound(15.24, 0.040, (lt) => {
-    const w = nextRand();
-    // Double-transient khas microswitch mouse (tekan pada 0ms, lepas pada 18ms)
-    const downClick = Math.exp(-lt * 480) * 0.85;
-    const upClick = lt > 0.018 ? Math.exp(-(lt - 0.018) * 550) * 0.45 : 0;
-    return w * (downClick + upClick) * 0.65;
-  });
-
-  // Desir halus saat prompt meluncur naik ke tengah layar (15.26s)
-  addAirSwoosh(15.26, 0.42, 1.25, 0.42);
-
-  // F. Suara 2 Kartu AI ("Gemini Code" & "Claude Code") Mendarat Halus (15.65s & 15.74s)
-  const addSoftCardSettle = (startSec, toneHz) => {
-    let lp = 0;
-    addSound(startSec, 0.18, (lt) => {
-      const w = nextRand();
-      lp += 0.12 * (w - lp);
-      const softTap = lp * Math.exp(-lt * 95) * 0.40;
-      const body = Math.sin(2 * Math.PI * toneHz * Math.exp(-lt * 12) * lt) * Math.exp(-lt * 28) * 0.24;
-      return softTap + body;
+      const focusPulse = Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 140) * 0.18;
+      return (tickNoise + focusPulse) * gain;
     });
   };
-  addSoftCardSettle(15.65, 180);
-  addSoftCardSettle(15.74, 210);
 
-  // G. Suara Stempel "1× KIRIM · 0 REVISI" (17.15s)
-  addSoftCardSettle(17.15, 150);
-  addAirSwoosh(17.13, 0.25, 0.90, 0.32);
+  const addSoftCardSettle = (startSec, toneHz = 185, gain = 0.80) => {
+    let lp = 0;
+    addSound(startSec, 0.20, (lt) => {
+      const w = nextRand();
+      lp += 0.12 * (w - lp);
+      const softTap = lp * Math.exp(-lt * 95) * 0.34;
+      const body = Math.sin(2 * Math.PI * toneHz * Math.exp(-lt * 12) * lt) * Math.exp(-lt * 26) * 0.24;
+      return (softTap + body) * gain;
+    });
+  };
 
-  // Final Limiter & Fade In/Out Bersih (Tanpa Drone Rendah yang Membuat Mendem)
+  const addSparkleChime = (startSec, baseFreq = 783.99, gain = 0.14) => {
+    addSound(startSec, 0.28, (lt) => {
+      const env = Math.min(1, lt / 0.006) * Math.exp(-lt * 14);
+      return (Math.sin(2 * Math.PI * baseFreq * lt) + Math.sin(2 * Math.PI * baseFreq * 1.5 * lt) * 0.28) * env * gain;
+    });
+  };
+
+  // 1. Masuk Halus (0.10s - 1.10s)
+  addAirSwoosh(0.10, 0.65, 0.95, 0.26);
+  addAirSwoosh(0.48, 0.60, 0.85, 0.24);
+
+  // 2. Ketikan Mekanikal Akustik Tenang & Lembut (1.20s - 10.35s)
+  let kTime = 1.20;
+  const keyIntervals = [0.038, 0.044, 0.052, 0.065, 0.035, 0.042, 0.058];
+  let kIdx = 0;
+  while (kTime < 10.35) {
+    const freq = 1200 + Math.sin(kTime * 7.0) * 350;
+    addSound(kTime, 0.024, (lt) => {
+      const w = nextRand();
+      const click = w * Math.exp(-lt * 450) * 0.24;
+      const tone = Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 280) * 0.12;
+      return (click + tone) * 0.42;
+    });
+    kTime += keyIntervals[kIdx % keyIntervals.length];
+    kIdx++;
+  }
+
+  // 3. Scroll Tenang Balik ke Atas (10.40s - 11.35s)
+  addAirSwoosh(10.40, 0.85, 0.65, 0.20);
+
+  // 4. Lima Poin Kunci Iris Scanner Kaca Kuning (11.50s, 12.85s, 14.20s, 15.55s, 16.90s)
+  const lockTimes = [11.50, 12.85, 14.20, 15.55, 16.90];
+  const lockPitches = [523.25, 659.25, 783.99, 880.0, 1046.5];
+  lockTimes.forEach((t, i) => {
+    addFocusTick(t, lockPitches[i], 0.46);
+    addSparkleChime(t + 0.03, lockPitches[i] * 1.5, 0.12);
+  });
+
+  // 5. Lipat Super Mulus ke Bar Input Bawah (19.00s - 20.15s)
+  addAirSwoosh(19.00, 1.05, 0.82, 0.28);
+
+  // 6. Klik Mouse pada Tombol Kirim [↑] (21.25s) + Kapsul prompt.txt meluncur
+  addSound(21.25, 0.040, (lt) => {
+    const w = nextRand();
+    const down = Math.exp(-lt * 480) * 0.85;
+    const up = lt > 0.018 ? Math.exp(-(lt - 0.018) * 550) * 0.45 : 0;
+    return w * (down + up) * 0.58;
+  });
+  addAirSwoosh(21.30, 0.52, 1.20, 0.30);
+
+  // 7. Pendaratan Halus 2 Kartu AI (21.85s Gemini Carbon, 21.98s Claude Opus 5.5)
+  addSoftCardSettle(21.85, 180, 0.82);
+  addSoftCardSettle(21.98, 215, 0.82);
+
+  // 8. Stempel Emas "1× KIRIM · 0 REVISI" (23.25s)
+  addSoftCardSettle(23.25, 145, 0.90);
+  addAirSwoosh(23.22, 0.34, 0.90, 0.24);
+  addSparkleChime(23.32, 880.0, 0.14);
+
+  // 9. Smooth Exit Sweep (25.05s)
+  addAirSwoosh(25.05, 0.80, 0.78, 0.22);
+
+  // Soft-knee Limiter + Master Fade In/Out
+  let peak = 0;
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate;
     let out = samples[i];
-    if (t < 0.10) out *= t / 0.10;
-    if (t > DURATION - 0.35) out *= (DURATION - t) / 0.35;
-    samples[i] = Math.max(-0.98, Math.min(0.98, out));
+    if (t < 0.08) out *= t / 0.08;
+    if (t > DURATION - 0.45) out *= (DURATION - t) / 0.45;
+    out = Math.tanh(out * 1.02) * 0.92;
+    samples[i] = out;
+    if (Math.abs(out) > peak) peak = Math.abs(out);
   }
 
   const dataSize = numSamples * 2;
@@ -187,51 +179,71 @@ function generatePage1Audio(wavPath) {
   }
 
   fs.writeFileSync(wavPath, buffer);
-  console.log(`      Audio Halaman 1 siap di: ${wavPath}`);
+  console.log(`      ✓ Audio Page 1 siap: ${wavPath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB, peak ${(peak * 100).toFixed(1)}%)`);
 }
 
 // ============================================================================
-// 2. RENDER 570 FRAME DENGAN PLAYWRIGHT HEADLESS CHROMIUM
+// 2. RENDER 780 FRAME DENGAN PLAYWRIGHT MULTI-WORKER HEADLESS CHROMIUM
 // ============================================================================
-async function renderPage1Frames() {
-  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame (Supersampled 4K -> 1080x1920) dari page1.html...`);
-  if (!fs.existsSync(FRAMES_DIR)) {
-    fs.mkdirSync(FRAMES_DIR, { recursive: true });
-  } else {
-    // Bersihkan sisa frame lama jika ada
-    for (const f of fs.readdirSync(FRAMES_DIR)) {
-      fs.unlinkSync(path.join(FRAMES_DIR, f));
-    }
+async function renderPage1Frames(htmlPath) {
+  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame dari page1.html (SSAA 2x -> 1080x1920 @ ${FPS} FPS) dengan ${NUM_WORKERS} worker...`);
+  if (fs.existsSync(FRAMES_DIR)) {
+    fs.rmSync(FRAMES_DIR, { recursive: true, force: true });
   }
+  fs.mkdirSync(FRAMES_DIR, { recursive: true });
 
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    viewport: { width: WIDTH, height: HEIGHT },
-    deviceScaleFactor: 1
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
   });
-  const page = await context.newPage();
-  await page.goto(HTML_PATH, { waitUntil: "load" });
+  const framesPerWorker = Math.ceil(TOTAL_FRAMES / NUM_WORKERS);
+  const workerTasks = [];
+  let completedCount = 0;
 
-  for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
-    const t = frame / FPS;
-    await page.evaluate((timeSec) => window.drawFrame(timeSec), t);
+  for (let w = 0; w < NUM_WORKERS; w++) {
+    const startFrame = w * framesPerWorker;
+    const endFrame = Math.min(TOTAL_FRAMES, (w + 1) * framesPerWorker);
+    if (startFrame >= endFrame) continue;
 
-    const frameFile = path.join(FRAMES_DIR, `frame_${String(frame).padStart(4, "0")}.png`);
-    await page.screenshot({ path: frameFile, type: "png" });
+    workerTasks.push((async (workerId, fromF, toF) => {
+      const context = await browser.newContext({
+        viewport: { width: WIDTH, height: HEIGHT },
+        deviceScaleFactor: 1
+      });
+      const page = await context.newPage();
+      page.on("pageerror", (err) => console.error(`[Worker ${workerId}] Page error:`, err));
 
-    if ((frame + 1) % 95 === 0 || frame === TOTAL_FRAMES - 1) {
-      console.log(`      Progres render Halaman 1: ${frame + 1}/${TOTAL_FRAMES} frame (t = ${t.toFixed(2)} dtk)`);
-    }
+      await page.goto(htmlPath, { waitUntil: "load" });
+      await page.waitForTimeout(200);
+
+      for (let frame = fromF; frame < toF; frame++) {
+        const t = frame / FPS;
+        await page.evaluate((timeSec) => window.drawFrame(timeSec), t);
+
+        const frameFile = path.join(FRAMES_DIR, `frame_${String(frame).padStart(4, "0")}.png`);
+        await page.screenshot({ path: frameFile, type: "png", timeout: 0, animations: "disabled" });
+
+        completedCount++;
+        if (completedCount % 50 === 0 || completedCount === TOTAL_FRAMES) {
+          const pct = ((completedCount / TOTAL_FRAMES) * 100).toFixed(0);
+          console.log(`      Progres render Page 1: ${completedCount}/${TOTAL_FRAMES} frame (${pct}%)`);
+        }
+      }
+
+      await context.close();
+    })(w, startFrame, endFrame));
   }
 
+  await Promise.all(workerTasks);
   await browser.close();
+  console.log(`      ✓ Semua ${TOTAL_FRAMES} frame Page 1 selesai dirender!`);
 }
 
 // ============================================================================
-// 3. GABUNGKAN FRAME + AUDIO MENJADI MP4 TAJAM (CRF 12)
+// 3. ENCODE KE page1_prompt.mp4 DENGAN FFMPEG
 // ============================================================================
 function encodePage1Video() {
-  console.log("[3/3] Menggabungkan frame & audio menjadi page1_prompt.mp4 dengan FFmpeg...");
+  console.log("[3/3] Menggabungkan 780 frame & audio menjadi page1_prompt.mp4 dengan FFmpeg...");
   const ffmpegArgs = [
     "-y",
     "-framerate", String(FPS),
@@ -241,8 +253,8 @@ function encodePage1Video() {
     "-profile:v", "high",
     "-level:v", "4.1",
     "-pix_fmt", "yuv420p",
-    "-crf", "12",
-    "-preset", "medium",
+    "-crf", "14",
+    "-preset", "faster",
     "-c:a", "aac",
     "-ar", "44100",
     "-ac", "2",
@@ -253,16 +265,19 @@ function encodePage1Video() {
   ];
 
   execFileSync("ffmpeg", ffmpegArgs, { stdio: "inherit" });
-  console.log(`\nSelesai! Video Halaman 1 siap di: ${OUTPUT_MP4}`);
+  console.log(`\nSUKSES! Video Page 1 selesai di: ${OUTPUT_MP4}`);
 }
 
 (async () => {
+  const startTime = Date.now();
   try {
     generatePage1Audio(AUDIO_PATH);
-    await renderPage1Frames();
+    const htmlPath = resolveHtmlPath();
+    await renderPage1Frames(htmlPath);
     encodePage1Video();
+    console.log(`Total waktu render Page 1: ${((Date.now() - startTime) / 1000).toFixed(1)} detik`);
   } catch (err) {
-    console.error("Terjadi kesalahan:", err);
+    console.error("Terjadi kesalahan saat rendering Page 1:", err);
     process.exit(1);
   }
 })();

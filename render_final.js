@@ -1,374 +1,292 @@
-// Helper untuk membaca file WAV 16-bit PCM mono menjadi Float32Array
-function readWavToFloat32(filePath) {
-  const buf = fs.readFileSync(filePath);
-  let pos = 12;
-  let dataPos = -1;
-  let dataSize = 0;
-  while (pos < buf.length - 8) {
-    const chunkId = buf.toString("ascii", pos, pos + 4);
-    const chunkSize = buf.readUInt32LE(pos + 4);
-    if (chunkId === "data") {
-      dataPos = pos + 8;
-      dataSize = chunkSize;
-      break;
-    }
-    pos += 8 + chunkSize;
-  }
-  if (dataPos === -1) throw new Error("Data chunk tidak ditemukan di " + filePath);
-  const numSamples = Math.floor(dataSize / 2);
-  const arr = new Float32Array(numSamples);
-  for (let i = 0; i < numSamples; i++) {
-    arr[i] = buf.readInt16LE(dataPos + i * 2) / 32768.0;
-  }
-  return arr;
-}
-
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { chromium } = require("playwright");
+const os = require("os");
 
 const FPS = 30;
-const DURATION = 100.00; // 100 Detik Penuh: Part 1 (70s) + Part 2 (18s) + Part 3 (12s)
-const TOTAL_FRAMES = Math.round(FPS * DURATION); // 3000 frame
+const DURATION = 198.00; // Master Final 6-Part (198.00 Detik · 5940 Frame @ 30 FPS)
+const TOTAL_FRAMES = Math.round(FPS * DURATION);
 const WIDTH = 1080;
 const HEIGHT = 1920;
+
+// Set default worker sesuai jumlah core CPU (Celeron dual-core = 2 workers)
+const DEFAULT_WORKERS = Math.min(2, Math.max(1, os.cpus().length));
+const NUM_WORKERS = process.argv.includes("--workers") 
+  ? parseInt(process.argv[process.argv.indexOf("--workers") + 1], 10) || DEFAULT_WORKERS
+  : DEFAULT_WORKERS;
 
 const FRAMES_DIR = path.join(__dirname, "frames_final");
 const AUDIO_PATH = path.join(__dirname, "audio_final.wav");
 const OUTPUT_MP4 = path.join(__dirname, "final_joulfiand.mp4");
-const HTML_PATH = "file://" + path.join(__dirname, "final.html") + "?headless=1";
 
-
-
-function generateFinalAudio(wavPath) {
-  console.log(`[1/3] Mensintesis audio sinematik ${DURATION.toFixed(2)} detik lengkap (Part 1 + Part 2 + Part 3)...`);
-  const sampleRate = 44100;
-  const numSamples = Math.floor(sampleRate * DURATION);
-  const samples = new Float32Array(numSamples);
-
-  let prng = 314159265;
-  const nextRand = () => {
-    prng = (1664525 * prng + 1013904223) >>> 0;
-    return (prng / 4294967296) * 2.0 - 1.0;
-  };
-
-  const addSound = (startSec, durSec, fn) => {
-    const i0 = Math.max(0, Math.floor(startSec * sampleRate));
-    const i1 = Math.min(numSamples, Math.floor((startSec + durSec) * sampleRate));
-    for (let i = i0; i < i1; i++) {
-      const lt = (i - i0) / sampleRate;
-      samples[i] += fn(lt, durSec);
-    }
-  };
-
-  const addAirSwoosh = (startSec, durSec, brightness = 1.0, gain = 0.42) => {
-    let lp = 0, hp = 0;
-    addSound(startSec, durSec, (lt, d) => {
-      const p = lt / d;
-      const env = Math.sin(p * Math.PI) * Math.pow(1 - p, 0.5);
-      const cutoff = (0.024 + Math.sin(p * Math.PI) * 0.12) * brightness;
-      const w = nextRand();
-      lp += cutoff * (w - lp);
-      hp += 0.008 * (lp - hp);
-      return (lp - hp) * env * gain * 2.2;
-    });
-  };
-
-  const addMouseClick = (startSec) => {
-    addSound(startSec, 0.04, (lt) => {
-      const w = nextRand();
-      const c1 = Math.exp(-lt * 480) * 0.85;
-      const c2 = lt > 0.016 ? Math.exp(-(lt - 0.016) * 550) * 0.45 : 0;
-      return w * (c1 + c2) * 0.65;
-    });
-  };
-
-  const addFocusTick = (startSec, freq = 620, gain = 0.60) => {
-    let lp = 0, hp = 0;
-    addSound(startSec, 0.045, (lt) => {
-      const w = nextRand();
-      lp += 0.28 * (w - lp);
-      hp += 0.10 * (lp - hp);
-      const tickNoise = (lp - hp) * Math.exp(-lt * 320) * 0.45;
-      const focusPulse = Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 140) * 0.18;
-      return (tickNoise + focusPulse) * gain;
-    });
-  };
-
-
-
-  addAirSwoosh(0.10, 0.75, 0.85, 0.50);
-  addSound(0.15, 1.80, (lt) => {
-    const env = Math.min(1, lt / 0.15) * Math.exp(-lt * 1.8);
-    const chord = (
-      Math.sin(2 * Math.PI * 110 * lt) * 0.5 +
-      Math.sin(2 * Math.PI * 220 * lt) * 0.35 +
-      Math.sin(2 * Math.PI * 329.63 * lt) * 0.25
-    );
-    return chord * env * 0.35;
-  });
-
-  // 2. VS Masuk (5.50s) & Zoom Claude (7.90s)
-  addAirSwoosh(5.50, 0.55, 1.15, 0.45);
-  addAirSwoosh(7.90, 0.65, 1.25, 0.46);
-
-  // 3. Claude Wheel (9.80s) & Code Scroll (10.90s, 12.60s)
-  for (let r = 0; r < 10; r++) {
-    const rt = 9.85 + r * 0.095;
-    addSound(rt, 0.05, (lt) => {
-      const freq = 260 + r * 18;
-      return Math.sin(2 * Math.PI * freq * lt) * Math.exp(-lt * 85) * 0.22;
-    });
+function resolveHtmlPath() {
+  const full = path.resolve(__dirname, "final.html");
+  if (fs.existsSync(full)) {
+    console.log(`      ✓ Sumber HTML ditemukan: final.html`);
+    return "file:///" + full.replace(/\\/g, "/") + "?headless=1";
   }
-  addAirSwoosh(9.85, 0.95, 1.0, 0.42);
-  addAirSwoosh(10.90, 1.20, 0.75, 0.32);
-  addAirSwoosh(12.60, 1.10, 1.10, 0.35);
-
-  // 4. Pilih Opus 5.5 Extra (15.15s, 16.30s, 17.40s)
-  addMouseClick(15.15);
-  addMouseClick(16.30);
-  addSound(16.32, 0.25, (lt) => Math.sin(2 * Math.PI * 587.33 * lt) * Math.exp(-lt * 18) * 0.20);
-  addMouseClick(17.40);
-  addAirSwoosh(17.65, 0.60, 1.35, 0.48);
-
-
-  addSound(18.10, 0.95, (lt) => {
-    const sweep = 320 + lt * 520;
-    return Math.sin(2 * Math.PI * sweep * lt) * Math.sin((lt / 0.95) * Math.PI) * 0.16;
-  });
-  addSound(19.40, 0.75, (lt) => {
-    const env = Math.exp(-lt * 4.5);
-    const s1 = Math.sin(2 * Math.PI * 523.25 * lt);
-    const s2 = Math.sin(2 * Math.PI * 659.25 * lt) * 0.8;
-    const s3 = Math.sin(2 * Math.PI * 783.99 * lt) * 0.6;
-    const s4 = Math.sin(2 * Math.PI * 1046.5 * lt) * 0.4;
-    return (s1 + s2 + s3 + s4) * env * 0.12;
-  });
-  addAirSwoosh(19.45, 0.80, 1.25, 0.42);
-
-
-  addAirSwoosh(20.30, 1.10, 0.80, 0.32);
-  addAirSwoosh(21.80, 1.00, 1.15, 0.35);
-  addMouseClick(23.75);
-  addMouseClick(24.90);
-  addSound(24.92, 0.25, (lt) => Math.sin(2 * Math.PI * 659.25 * lt) * Math.exp(-lt * 18) * 0.20);
-  addMouseClick(26.05);
-  addAirSwoosh(26.30, 0.60, 1.35, 0.48);
-
-  // 7. Sel Baterai ERD Mengisi Santai (27.60s - 32.00s)
-  for (let c = 0; c < 14; c++) {
-    const ct = 27.60 + (c / 14) * 4.40;
-    const cellFreq = 330 + c * 28;
-    addSound(ct, 0.08, (lt) => {
-      const env = Math.exp(-lt * 45);
-      return (Math.sin(2 * Math.PI * cellFreq * lt) + Math.sin(2 * Math.PI * cellFreq * 1.5 * lt) * 0.4) * env * 0.16;
-    });
-  }
-
-
-  addAirSwoosh(32.95, 0.50, 0.90, 0.52);
-  addSound(33.05, 1.80, (lt) => {
-    const subEnv = Math.exp(-lt * 3.5);
-    const subDrop = Math.sin(2 * Math.PI * (95 * Math.exp(-lt * 6) + 48) * lt) * subEnv * 0.55;
-    const brassChord = (
-      Math.sin(2 * Math.PI * 220 * lt) +
-      Math.sin(2 * Math.PI * 277.18 * lt) * 0.8 +
-      Math.sin(2 * Math.PI * 329.63 * lt) * 0.8 +
-      Math.sin(2 * Math.PI * 440 * lt) * 0.6
-    ) * Math.exp(-lt * 1.8) * 0.12;
-    return subDrop + brassChord;
-  });
-
-  addAirSwoosh(37.80, 0.55, 1.15, 0.45);
-  addSound(37.85, 0.20, (lt) => Math.sin(2 * Math.PI * 440 * lt) * Math.exp(-lt * 24) * 0.15);
-  addAirSwoosh(38.20, 0.45, 0.85, 0.42);
-
-  let tKey = 38.60;
-  let keyIdx = 0;
-  while (tKey < 49.45) {
-    const isSpace = (keyIdx % 7 === 6);
-    const vel = 0.78 + ((keyIdx * 31) % 9) * 0.028;
-    const topCut = isSpace ? 0.24 : (0.32 + ((keyIdx * 17) % 7) * 0.022);
-    const bodyCut = isSpace ? 0.085 : (0.11 + ((keyIdx * 23) % 5) * 0.01);
-
-    let lpTop = 0, hpTop = 0;
-    let lpBody = 0, hpBody = 0;
-
-    addSound(tKey, 0.032, (lt) => {
-      const w = nextRand();
-      lpTop += topCut * (w - lpTop);
-      hpTop += 0.14 * (lpTop - hpTop);
-      const keycapSnap = (lpTop - hpTop) * Math.exp(-lt * 420);
-
-      lpBody += bodyCut * (w - lpBody);
-      hpBody += 0.045 * (lpBody - hpBody);
-      const switchBody = (lpBody - hpBody) * Math.exp(-lt * 175);
-
-      const relEnv = lt > 0.014 ? Math.exp(-(lt - 0.014) * 520) * 0.28 : 0;
-      const releaseTap = (lpTop - hpTop) * relEnv;
-
-      return (keycapSnap * 0.95 + switchBody * 1.15 + releaseTap) * 0.68 * vel;
-    });
-
-    let step = 0.072 + ((keyIdx * 19) % 5) * 0.012;
-    if (isSpace) step += 0.035;
-    if (keyIdx % 16 === 15) step += 0.14;
-    if (keyIdx % 33 === 32) step += 0.22;
-    tKey += step;
-    keyIdx++;
-  }
-
-  const scanLockTimes = [52.80, 54.40, 56.00, 57.60, 59.40];
-  scanLockTimes.forEach((st, idx) => {
-    let lp = 0, hp = 0;
-    const fixedFreq = 620 + (idx % 2 === 0 ? 6 : -6);
-    addSound(st, 0.045, (lt) => {
-      const w = nextRand();
-      lp += 0.28 * (w - lp);
-      hp += 0.10 * (lp - hp);
-      const tickNoise = (lp - hp) * Math.exp(-lt * 320) * 0.45;
-      const focusPulse = Math.sin(2 * Math.PI * fixedFreq * lt) * Math.exp(-lt * 140) * 0.18;
-      return (tickNoise + focusPulse) * 0.65;
-    });
-  });
-
-  addAirSwoosh(61.40, 0.80, 0.85, 0.38);
-  addSound(64.00, 0.040, (lt) => {
-    const w = nextRand();
-    const downClick = Math.exp(-lt * 480) * 0.85;
-    const upClick = lt > 0.018 ? Math.exp(-(lt - 0.018) * 550) * 0.45 : 0;
-    return w * (downClick + upClick) * 0.65;
-  });
-  addAirSwoosh(64.02, 0.42, 1.25, 0.42);
-
-  // 13. Pendaratan Kartu AI (64.60s, 64.72s) & Stempel 1x Kirim 0 Revisi (66.50s)
-  const addSoftCardSettle = (startSec, toneHz) => {
-    let lp = 0;
-    addSound(startSec, 0.18, (lt) => {
-      const w = nextRand();
-      lp += 0.12 * (w - lp);
-      const softTap = lp * Math.exp(-lt * 95) * 0.40;
-      const body = Math.sin(2 * Math.PI * toneHz * Math.exp(-lt * 12) * lt) * Math.exp(-lt * 28) * 0.24;
-      return softTap + body;
-    });
-  };
-  addSoftCardSettle(64.60, 180);
-  addSoftCardSettle(64.72, 210);
-
-  addSoftCardSettle(66.50, 150);
-  addAirSwoosh(66.48, 0.25, 0.90, 0.32);
-
-
-  const page2WavPath = path.join(__dirname, "audio_page2.wav");
-  if (!fs.existsSync(page2WavPath)) {
-    throw new Error("File audio_page2.wav tidak ditemukan di " + page2WavPath);
-  }
-  const page2Samples = readWavToFloat32(page2WavPath);
-  const p2Start = Math.floor(70.00 * sampleRate);
-  for (let i = 0; i < page2Samples.length && p2Start + i < numSamples; i++) {
-    samples[p2Start + i] = page2Samples[i];
-  }
-  console.log(`      ✓ Track Part 2 (audio_page2.wav) berhasil dimuat: ${page2Samples.length} sampel (${(page2Samples.length / sampleRate).toFixed(2)}s)`);
-
-
-  const pictWavPath = path.join(__dirname, "audio.wav");
-  if (!fs.existsSync(pictWavPath)) {
-    throw new Error("File audio.wav tidak ditemukan di " + pictWavPath);
-  }
-  const pictSamples = readWavToFloat32(pictWavPath);
-  const p3Start = Math.floor(88.00 * sampleRate);
-  for (let i = 0; i < pictSamples.length && p3Start + i < numSamples; i++) {
-    samples[p3Start + i] = pictSamples[i];
-  }
-  console.log(`      ✓ Track Part 3 (audio.wav) berhasil dimuat: ${pictSamples.length} sampel (${(pictSamples.length / sampleRate).toFixed(2)}s)`);
-
-  // --------------------------------------------------------------------------
-  // MASTER LIMITER & FINAL WAV ENCODING
-  // --------------------------------------------------------------------------
-  for (let i = 0; i < numSamples; i++) {
-    const t = i / sampleRate;
-    let out = samples[i];
-    if (t < 0.10) out *= t / 0.10;
-    if (t > DURATION - 0.40) out *= (DURATION - t) / 0.40;
-    samples[i] = Math.max(-0.98, Math.min(0.98, out));
-  }
-
-  const dataSize = numSamples * 2;
-  const buffer = Buffer.alloc(44 + dataSize);
-  buffer.write("RIFF", 0);
-  buffer.writeUInt32LE(36 + dataSize, 4);
-  buffer.write("WAVE", 8);
-  buffer.write("fmt ", 12);
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(1, 22);
-  buffer.writeUInt32LE(sampleRate, 24);
-  buffer.writeUInt32LE(sampleRate * 2, 28);
-  buffer.writeUInt16LE(2, 32);
-  buffer.writeUInt16LE(16, 34);
-  buffer.write("data", 36);
-  buffer.writeUInt32LE(dataSize, 40);
-
-  for (let i = 0; i < numSamples; i++) {
-    const s = Math.max(-32768, Math.min(32767, Math.floor(samples[i] * 32767)));
-    buffer.writeInt16LE(s, 44 + i * 2);
-  }
-
-  fs.writeFileSync(wavPath, buffer);
-  console.log(`      Audio Final 100 Detik berhasil dibuat di: ${wavPath} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+  throw new Error("File final.html tidak ditemukan di folder ini.");
 }
 
+// ============================================================================
+// 1. STITCH / SINTESIS AUDIO MASTER (198.00 DETIK · 6 PART LENGKAP)
+// ============================================================================
+function generateMasterFinalAudio(wavPath) {
+  console.log(`[1/3] Memeriksa & menggabungkan 6 audio part menjadi Master Audio (${DURATION.toFixed(2)}s)...`);
+  const parts = [
+    { file: "audio_intro.wav", expectedDur: 46.00, name: "00 · Intro" },
+    { file: "audio_page1.wav", expectedDur: 26.00, name: "01 · Soal & Prompt" },
+    { file: "audio_page2.wav", expectedDur: 32.00, name: "02 · Proses & Audit" },
+    { file: "audio.wav",       expectedDur: 12.00, name: "03 · Hasil Roket" },
+    { file: "audio_page4.wav", expectedDur: 54.00, name: "04 · Arto Review" },
+    { file: "audio_page5.wav", expectedDur: 28.00, name: "05 · Finale & Outro" }
+  ];
 
-async function renderFinalFrames() {
-  const forceRender = process.argv.includes("--force-frames");
-  const lastFramePath = path.join(FRAMES_DIR, `frame_${String(TOTAL_FRAMES - 1).padStart(4, "0")}.png`);
+  const sampleRate = 44100;
+  const totalSamples = Math.floor(sampleRate * DURATION);
+  const masterSamples = new Float32Array(totalSamples);
 
-  if (!forceRender && fs.existsSync(lastFramePath)) {
-    const files = fs.readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png"));
-    if (files.length >= TOTAL_FRAMES) {
-      console.log(`[2/3] Seluruh ${TOTAL_FRAMES} frame di frames_final/ sudah lengkap! Langsung lanjut ke penggabungan FFmpeg.`);
-      return;
+  let currentSampleIdx = 0;
+
+  for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+    const p = parts[pIdx];
+    const fullPath = path.resolve(__dirname, p.file);
+    if (!fs.existsSync(fullPath)) {
+      console.warn(`      ! File ${p.file} tidak ditemukan, mengisi silence...`);
+      currentSampleIdx += Math.floor(p.expectedDur * sampleRate);
+      continue;
+    }
+    const buf = fs.readFileSync(fullPath);
+    const sr = buf.readUInt32LE(24);
+    const ch = buf.readUInt16LE(22);
+    const bits = buf.readUInt16LE(34);
+    const dataSize = buf.readUInt32LE(40);
+    const numSamples = dataSize / (ch * (bits / 8));
+
+    console.log(`      [${pIdx + 1}/6] ${p.name} (${p.file}): ${(numSamples / sr).toFixed(2)}s`);
+
+    const samplesToCopy = Math.min(numSamples, Math.floor(p.expectedDur * sampleRate));
+    for (let i = 0; i < samplesToCopy; i++) {
+      if (currentSampleIdx + i >= totalSamples) break;
+      const raw = buf.readInt16LE(44 + i * (bits / 8) * ch);
+      masterSamples[currentSampleIdx + i] = raw / 32768.0;
+    }
+    currentSampleIdx += Math.floor(p.expectedDur * sampleRate);
+  }
+
+  // Soft-knee limiter & micro-fade in/out
+  let peak = 0;
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i / sampleRate;
+    let s = masterSamples[i];
+    if (t < 0.05) s *= t / 0.05;
+    if (t > DURATION - 0.15) s *= (DURATION - t) / 0.15;
+    s = Math.tanh(s * 1.02) * 0.94;
+    masterSamples[i] = s;
+    if (Math.abs(s) > peak) peak = Math.abs(s);
+  }
+
+  const dataByteSize = totalSamples * 2;
+  const wavBuf = Buffer.alloc(44 + dataByteSize);
+  wavBuf.write("RIFF", 0);
+  wavBuf.writeUInt32LE(36 + dataByteSize, 4);
+  wavBuf.write("WAVE", 8);
+  wavBuf.write("fmt ", 12);
+  wavBuf.writeUInt32LE(16, 16);
+  wavBuf.writeUInt16LE(1, 20); // PCM
+  wavBuf.writeUInt16LE(1, 22); // Mono
+  wavBuf.writeUInt32LE(sampleRate, 24);
+  wavBuf.writeUInt32LE(sampleRate * 2, 28);
+  wavBuf.writeUInt16LE(2, 32); // BlockAlign
+  wavBuf.writeUInt16LE(16, 34); // BitsPerSample
+  wavBuf.write("data", 36);
+  wavBuf.writeUInt32LE(dataByteSize, 40);
+
+  for (let i = 0; i < totalSamples; i++) {
+    const s = Math.max(-32768, Math.min(32767, Math.floor(masterSamples[i] * 32767)));
+    wavBuf.writeInt16LE(s, 44 + i * 2);
+  }
+
+  fs.writeFileSync(wavPath, wavBuf);
+  console.log(`      ✓ Master Audio siap: ${wavPath} (${(wavBuf.length / 1024 / 1024).toFixed(2)} MB, Peak: ${(peak * 100).toFixed(1)}%)`);
+}
+
+// ============================================================================
+// 2. METODE SMART COMPOSE: PAKAI FRAME CACHE PART + BLEND TRANSISI (SUPER CEPAT)
+// ============================================================================
+async function trySmartComposeFrames(htmlPath) {
+  const partDirs = [
+    { dir: "frames_intro", count: 1380, startFrame: 0, dur: 46.00 },
+    { dir: "frames_page1", count: 780,  startFrame: 1380, dur: 26.00 },
+    { dir: "frames_page2", count: 960,  startFrame: 2160, dur: 32.00 },
+    { dir: "frames_pict",  count: 360,  startFrame: 3120, dur: 12.00 },
+    { dir: "frames_page4", count: 1620, startFrame: 3480, dur: 54.00 },
+    { dir: "frames_page5", count: 840,  startFrame: 5100, dur: 28.00 }
+  ];
+
+  // Periksa ketersediaan seluruh cache part
+  let allCached = true;
+  for (const p of partDirs) {
+    const pPath = path.join(__dirname, p.dir);
+    if (!fs.existsSync(pPath)) { allCached = false; break; }
+    const actual = fs.readdirSync(pPath).filter(f => f.endsWith(".png")).length;
+    if (actual < p.count) { allCached = false; break; }
+  }
+
+  if (!allCached) {
+    console.log("      ! Sebagian cache part belum lengkap, beralih ke direct Playwright render...");
+    return false;
+  }
+
+  console.log(`[2/3] Mode Smart Compose aktif: Menggabungkan cache 6 part & merender transisi optik...`);
+  if (!fs.existsSync(FRAMES_DIR)) fs.mkdirSync(FRAMES_DIR, { recursive: true });
+
+  // 1. Salin frame isi part non-transisi
+  const TRANS_FRAMES = 15; // 0.5 detik (15 frame @ 30 FPS)
+  const halfTrans = Math.floor(TRANS_FRAMES / 2); // 7 frame sebelum & sesudah batas
+
+  const transitionFrames = new Set();
+  const boundaries = [1380, 2160, 3120, 3480, 5100];
+  boundaries.forEach(b => {
+    for (let f = b - halfTrans; f <= b + halfTrans; f++) {
+      if (f >= 0 && f < TOTAL_FRAMES) transitionFrames.add(f);
+    }
+  });
+
+  console.log(`      • Menyalin frame solid dari folder part (melewati ${transitionFrames.size} frame transisi)...`);
+  for (const p of partDirs) {
+    const srcDir = path.join(__dirname, p.dir);
+    for (let i = 0; i < p.count; i++) {
+      const globalFrame = p.startFrame + i;
+      if (transitionFrames.has(globalFrame)) continue; // akan dirender khusus via final.html
+
+      const srcFile = path.join(srcDir, `frame_${String(i).padStart(4, "0")}.png`);
+      const destFile = path.join(FRAMES_DIR, `frame_${String(globalFrame).padStart(4, "0")}.png`);
+      if (fs.existsSync(srcFile)) {
+        const srcStat = fs.statSync(srcFile);
+        const needCopy = !fs.existsSync(destFile) || 
+                         fs.statSync(destFile).size < 1000 || 
+                         srcStat.mtimeMs > fs.statSync(destFile).mtimeMs;
+        if (needCopy) {
+          fs.copyFileSync(srcFile, destFile);
+        }
+      }
     }
   }
 
-  console.log(`[2/3] Merender ${TOTAL_FRAMES} frame dari final.html (Durasi: ${DURATION}s @ ${FPS} FPS)...`);
-  if (!fs.existsSync(FRAMES_DIR)) {
-    fs.mkdirSync(FRAMES_DIR, { recursive: true });
-  } else {
-    for (const f of fs.readdirSync(FRAMES_DIR)) {
-      fs.unlinkSync(path.join(FRAMES_DIR, f));
-    }
-  }
-
-  const browser = await chromium.launch({ headless: true });
+  // 2. Render khusus titik transisi yang mulus via final.html
+  console.log(`      • Merender ${transitionFrames.size} frame transisi optik mulus via final.html...`);
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+  });
   const context = await browser.newContext({
     viewport: { width: WIDTH, height: HEIGHT },
     deviceScaleFactor: 1
   });
   const page = await context.newPage();
-  await page.goto(HTML_PATH, { waitUntil: "load" });
+  await page.goto(htmlPath, { waitUntil: "load" });
+  await page.waitForTimeout(300);
 
-  for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
+  const transList = Array.from(transitionFrames).sort((a, b) => a - b);
+  for (let idx = 0; idx < transList.length; idx++) {
+    const frame = transList[idx];
     const t = frame / FPS;
     await page.evaluate((timeSec) => window.drawFrame(timeSec), t);
 
     const frameFile = path.join(FRAMES_DIR, `frame_${String(frame).padStart(4, "0")}.png`);
-    await page.screenshot({ path: frameFile, type: "png" });
+    await page.screenshot({ path: frameFile, type: "png", timeout: 0, animations: "disabled" });
 
-    if ((frame + 1) % 150 === 0 || frame === TOTAL_FRAMES - 1) {
-      console.log(`      Progres render Final: ${frame + 1}/${TOTAL_FRAMES} frame (t = ${t.toFixed(2)} dtk)`);
+    if ((idx + 1) % 15 === 0 || idx === transList.length - 1) {
+      console.log(`        Transisi: ${idx + 1}/${transList.length} frame selesai dirender`);
     }
   }
 
   await browser.close();
+  const totalOnDisk = fs.readdirSync(FRAMES_DIR).filter(f => f.endsWith(".png")).length;
+  console.log(`      ✓ Smart Compose selesai: ${totalOnDisk}/${TOTAL_FRAMES} frame siap di ${FRAMES_DIR}!`);
+  return totalOnDisk >= TOTAL_FRAMES;
 }
 
 // ============================================================================
-// 3. ENCODE FRAME + AUDIO MENJADI final_joulfiand.mp4 DENGAN FFMPEG
+// 3. RENDER RESUME PLAYWRIGHT (ZERO TIMEOUT · DUAL CORE OPTIMIZED)
+// ============================================================================
+async function renderFinalFramesDirect(htmlPath) {
+  const lastFramePath = path.join(FRAMES_DIR, `frame_${String(TOTAL_FRAMES - 1).padStart(4, "0")}.png`);
+  if (!fs.existsSync(FRAMES_DIR)) fs.mkdirSync(FRAMES_DIR, { recursive: true });
+
+  const existingFiles = fs.readdirSync(FRAMES_DIR).filter((f) => f.endsWith(".png"));
+  if (existingFiles.length >= TOTAL_FRAMES && fs.existsSync(lastFramePath)) {
+    console.log(`[2/3] Seluruh ${TOTAL_FRAMES} frame di frames_final/ sudah lengkap!`);
+    return;
+  }
+
+  console.log(`[2/3] Merender frame via Playwright (${NUM_WORKERS} worker, timeout: 0, resume support)...`);
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding"
+    ]
+  });
+
+  const framesPerWorker = Math.ceil(TOTAL_FRAMES / NUM_WORKERS);
+  const workerTasks = [];
+  let completedCount = existingFiles.length;
+
+  for (let w = 0; w < NUM_WORKERS; w++) {
+    const startFrame = w * framesPerWorker;
+    const endFrame = Math.min(TOTAL_FRAMES, (w + 1) * framesPerWorker);
+    if (startFrame >= endFrame) continue;
+
+    workerTasks.push((async (workerId, fromF, toF) => {
+      const context = await browser.newContext({
+        viewport: { width: WIDTH, height: HEIGHT },
+        deviceScaleFactor: 1
+      });
+      const page = await context.newPage();
+      page.on("pageerror", (err) => console.error(`[Worker ${workerId}] Page error:`, err));
+
+      await page.goto(htmlPath, { waitUntil: "load" });
+      await page.waitForTimeout(300);
+
+      for (let frame = fromF; frame < toF; frame++) {
+        const frameFile = path.join(FRAMES_DIR, `frame_${String(frame).padStart(4, "0")}.png`);
+        if (fs.existsSync(frameFile) && fs.statSync(frameFile).size > 1000) {
+          continue; // Lewati jika sudah ada (Resume)
+        }
+
+        const t = frame / FPS;
+        await page.evaluate((timeSec) => window.drawFrame(timeSec), t);
+        await page.screenshot({ path: frameFile, type: "png", timeout: 0, animations: "disabled" });
+
+        completedCount++;
+        if (completedCount % 50 === 0 || completedCount >= TOTAL_FRAMES) {
+          const pct = ((completedCount / TOTAL_FRAMES) * 100).toFixed(1);
+          console.log(`      Progres render Master Final: ${completedCount}/${TOTAL_FRAMES} frame (${pct}%)`);
+        }
+      }
+
+      await context.close();
+    })(w, startFrame, endFrame));
+  }
+
+  await Promise.all(workerTasks);
+  await browser.close();
+  console.log(`      ✓ Semua ${TOTAL_FRAMES} frame Master Final selesai dirender!`);
+}
+
+// ============================================================================
+// 4. ENCODE KE final_joulfiand.mp4 DENGAN FFMPEG (CRF 14 ULTRA-TAJAM FULL HD)
 // ============================================================================
 function encodeFinalVideo() {
-  console.log("[3/3] Menggabungkan 3000 frame & audio menjadi final_joulfiand.mp4 dengan FFmpeg...");
+  console.log("[3/3] Menggabungkan 5940 frame & master audio menjadi final_joulfiand.mp4 dengan FFmpeg...");
   const ffmpegArgs = [
     "-y",
     "-framerate", String(FPS),
@@ -378,8 +296,8 @@ function encodeFinalVideo() {
     "-profile:v", "high",
     "-level:v", "4.1",
     "-pix_fmt", "yuv420p",
-    "-crf", "12",
-    "-preset", "medium",
+    "-crf", "14",
+    "-preset", "faster",
     "-c:a", "aac",
     "-ar", "44100",
     "-ac", "2",
@@ -390,18 +308,35 @@ function encodeFinalVideo() {
   ];
 
   execFileSync("ffmpeg", ffmpegArgs, { stdio: "inherit" });
-  console.log(`\nSelesai! Video Final Lengkap siap diposting di: ${OUTPUT_MP4}`);
+  console.log(`\n===========================================================================`);
+  console.log(`SUKSES TOTAL! Video Master 6-Part selesai di: ${OUTPUT_MP4}`);
+  console.log(`Ukuran File: ${(fs.statSync(OUTPUT_MP4).size / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`Resolusi: 1080x1920 Full HD · Durasi: ${DURATION.toFixed(2)}s · FPS: ${FPS}`);
+  console.log(`===========================================================================\n`);
 }
 
 (async () => {
+  const startTime = Date.now();
   try {
-    generateFinalAudio(AUDIO_PATH);
+    generateMasterFinalAudio(AUDIO_PATH);
+
     if (!process.argv.includes("--audio-only")) {
-      await renderFinalFrames();
+      const htmlPath = resolveHtmlPath();
+      const forceDirect = process.argv.includes("--force-direct");
+
+      let composed = false;
+      if (!forceDirect) {
+        composed = await trySmartComposeFrames(htmlPath);
+      }
+      if (!composed) {
+        await renderFinalFramesDirect(htmlPath);
+      }
+
       encodeFinalVideo();
     }
+    console.log(`Total waktu eksekusi: ${((Date.now() - startTime) / 1000).toFixed(1)} detik`);
   } catch (err) {
-    console.error("Terjadi kesalahan:", err);
+    console.error("Terjadi kesalahan saat rendering Master Final:", err);
     process.exit(1);
   }
 })();
