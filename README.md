@@ -1,4 +1,4 @@
-# 🚀 Pixel Art Rocket Launch Benchmark: Claude Opus 5.5 vs Gemini 3.8 Flash
+# 🚀 Pixel Art Rocket Launch Benchmark: Claude Opus 5.5 vs Gemini 4 Carbon
 
 > **Dual Agent 1-Shot Code & Visual Benchmark Showcase (198s Master Video)**  
 > Dibuat oleh: **Rixsan Joulfiand** ([Joulfiand Studio](https://github.com/rjoulfiand-afk))  
@@ -8,7 +8,7 @@
 
 ## 📌 Ringkasan Proyek
 
-Eksperimen pengetesan kemampuan dua model kecerdasan buatan terdepan—**Claude Code (Opus 5.5)** dan **Gemini Agent (3.8 Flash / Carbon)**—dalam menghasilkan animasi peluncuran roket pixel art dari kode murni HTML Canvas 2D dalam **satu kali instruksi (1-shot, 0 revisi)**.
+Eksperimen pengetesan kemampuan dua model kecerdasan buatan terdepan—**Claude Code (Opus 5.5)** dan **Gemini Agent ( 4 Carbon )**—dalam menghasilkan animasi peluncuran roket pixel art dari kode murni HTML Canvas 2D dalam **satu kali instruksi (1-shot, 0 revisi)**.
 
 Seluruh alur video, perbandingan visual, audit terminal, dan ulasan kurator disatukan ke dalam arsitektur rendering berbasis web (HTML5 Canvas 2D) dan di-render secara deterministik frame demi frame menggunakan Playwright dan FFmpeg.
 
@@ -43,7 +43,7 @@ Keluaran akhir: file source code siap render dan petunjuk cara menjalankannya. J
 
 ## 🔬 Rekapitulasi Data & Penilaian Objektif
 
-| Metrik Penilaian | Claude Opus 5.5 (Roger 🧡) | Gemini 3.8 Flash (Merry 💙) | Keterangan & Catatan Juri (Arto) |
+| Metrik Penilaian | Claude Opus 5.5 (Roger 🧡) | Gemini 4 Carbon (Merry 💙) | Keterangan & Catatan Juri (Arto) |
 | :--- | :---: | :---: | :--- |
 | **Lolos Poin Brief** | **16 / 16** | 15 / 16 | Claude taat 100% pada batasan, Gemini melebihi kuota palet |
 | **Warna Unik** | **16 warna** | 16.458 warna | Claude disiplin palet retro; Gemini memakai dithering & gradasi bebas |
