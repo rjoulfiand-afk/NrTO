@@ -62,7 +62,7 @@ async function renderPictAssets() {
   ];
   for (const s of stills) {
     await stillPage.evaluate((timeSec) => window.drawFrame(timeSec), s.t);
-    await stillPage.screenshot({ path: s.out, type: "png" });
+    await stillPage.screenshot({ path: s.out, type: "png", timeout: 0, animations: "disabled" });
     console.log(`      ✓ PNG Statis [${s.name}] tersimpan: ${path.basename(s.out)}`);
   }
   await stillCtx.close();
@@ -105,7 +105,7 @@ async function renderPictAssets() {
           await page.evaluate((timeSec) => window.drawFrame(timeSec), t);
 
           const frameFile = path.join(PICT_FRAMES_DIR, `frame_${String(frame).padStart(4, "0")}.png`);
-          await page.screenshot({ path: frameFile, type: "png" });
+          await page.screenshot({ path: frameFile, type: "png", timeout: 0, animations: "disabled" });
 
           completedCount++;
           if (completedCount % 60 === 0 || completedCount === TOTAL_FRAMES) {
