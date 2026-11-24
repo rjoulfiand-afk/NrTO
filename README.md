@@ -8,7 +8,7 @@
 
 ## 📌 Ringkasan Proyek
 
-Eksperimen pengetesan kemampuan dua model kecerdasan buatan terdepan—**Claude Code (Opus 5.5)** dan **Gemini Agent ( 4 Carbon )**—dalam menghasilkan animasi peluncuran roket pixel art dari kode murni HTML Canvas 2D dalam **satu kali instruksi (1-shot, 0 revisi)**.
+Eksperimen pengetesan kemampuan dua model kecerdasan buatan terdepan—**Claude Code (Opus 5.5)** dan **Gemini Agent (Gemini 4 Carbon · High Reasoning)**—dalam menghasilkan animasi peluncuran roket pixel art dari kode murni HTML Canvas 2D dalam **satu kali instruksi (1-shot, 0 revisi)**.
 
 Seluruh alur video, perbandingan visual, audit terminal, dan ulasan kurator disatukan ke dalam arsitektur rendering berbasis web (HTML5 Canvas 2D) dan di-render secara deterministik frame demi frame menggunakan Playwright dan FFmpeg.
 
@@ -52,7 +52,7 @@ Keluaran akhir: file source code siap render dan petunjuk cara menjalankannya. J
 | **Error Console** | **0 Error** | **0 Error** | Kedua kode tereksekusi mulus tanpa runtime exception |
 | **Elemen Ekstra** | 4 elemen | 9 elemen | Gemini menambahkan satelit, panel surya, bulan, telemetry radar |
 | **Total Baris Kode** | 1.062 baris | 1.679 baris | Claude lebih ringkas dan modular; Gemini kaya detail visual |
-| **Biaya Langganan** | $20 USD (~Rp 400.000) | Rp 309.000 (Promo diskon: Rp 77.250) | Gemini 3.8 Flash juga tersedia gratis di Google AI Studio |
+| **Biaya Langganan (Bulanan)** | **$20 USD**<br>*(~Rp 400.000 / bln sudah termasuk pajak tagihan user)* | **Rp 309.000**<br>🔥 **Promo Diskon 75%: Rp 77.250 / bln** | Google AI Pro menawarkan harga resmi Rp 309.000 dengan promo diskon 75% menjadi Rp 77.250/bulan. Gemini 4 Carbon juga dapat diakses gratis via Google AI Studio *(dibatasi kuota harian)*. |
 
 ---
 
@@ -60,11 +60,11 @@ Keluaran akhir: file source code siap render dan petunjuk cara menjalankannya. J
 
 | No | Modul Halaman | Durasi | Skrip Render Playwright | Deskripsi & Konten Visual |
 | :-: | :--- | :-: | :--- | :--- |
-| **00** | `intro.html` | 46.0s | `render_intro.js` | Pengenalan maskot Roger & Merry, drama senggol panggung, dual terminal setup & konfigurasi engine. |
+| **00** | `intro.html` | 46.0s | `render_intro.js` | Pengenalan maskot Roger & Merry, drama senggol panggung, dual terminal setup & konfigurasi engine (Claude Opus 5.5 vs Gemini 4 Carbon). |
 | **01** | `page1.html` | 26.0s | `render_page1.js` | Tampilan editor `prompt.txt`, pengetikan dinamis, scanner iris kuning membidik 5 poin spesifikasi, dan stempel emas *1× KIRIM · 0 REVISI*. |
 | **02** | `page2.html` | 32.0s | `render_page2.js` | Live audit metrik terminal, scanner X-Ray kode, dan visualisasi pemetaan palet 16 warna. |
 | **03** | `pict.html` | 12.0s | `render_pict.js` | Penayangan video hasil animasi peluncuran roket 12 detik secara berdampingan (*side-by-side showdown*). |
-| **04** | `page4.html` | 54.0s | `render_page4.js` | Review kritis maskot Arto (3D monokel): bedah detail objek, audit hitungan warna, tabel data komparasi, dan perbandingan harga langganan. |
+| **04** | `page4.html` | 54.0s | `render_page4.js` | Review kritis maskot Arto (3D monokel): bedah detail objek, audit hitungan warna, tabel data komparasi, dan perbandingan harga langganan resmi vs promo. |
 | **05** | `page5.html` | 28.0s | `render_page5.js` | Boarding dropship luar angkasa, animasi kolom komentar bergantian (*"Aku pilih Gemini"* ➔ *"Aku pilih Claude"* ➔ *"Mau tes model apa lagi?"*), serta outro studio. |
 | **ALL**| `final.html` | 198.0s | `render_final.js` | Penggabungan utuh master 6 part dengan transisi optik *seamless crossfade* + audio sintetis master 44.1 kHz. |
 
